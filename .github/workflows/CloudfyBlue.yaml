@@ -102,6 +102,8 @@ jobs:
        # Ionic CLI 5
       - name: Instalar Ionic CLI v5
         run: npm install -g ionic@5
+      - name: Atualizar node-gyp
+        run: npm install -g node-gyp@7
       #- name: instalando o grpc
       #  run: npm install grpc --grpc_node_binary_host_mirror=https://node-precompiled-binaries.grpc.io
       - name: rodando o npm i
