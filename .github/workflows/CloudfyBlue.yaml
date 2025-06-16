@@ -115,17 +115,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '16'
-      - name: Instalar Python 3.10
-        uses: actions/setup-python@v5
-        with:
-            python-version: '3.10'      
+      #- name: Instalar Python 3.10
+      #  uses: actions/setup-python@v5
+      #  with:
+      #      python-version: '3.10'      
+      - name: Instalar Python 2.7 
+        run: |
+           choco install python2 --force -y   
       - name: rodando o npm i
         run: npm install    
        # Ionic CLI 5
       - name: Instalar Ionic CLI v5
         run: npm install -g ionic@5
-      - name: Atualizar node-gyp
-        run: npm install -g node-gyp@7
+      #- name: Atualizar node-gyp
+      #  run: npm install -g node-gyp@7
       #- name: instalando o grpc
       #  run: npm install grpc --grpc_node_binary_host_mirror=https://node-precompiled-binaries.grpc.io
       
