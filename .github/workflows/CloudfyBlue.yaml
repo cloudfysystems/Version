@@ -103,8 +103,7 @@ jobs:
         run: |
            choco install python2 --force -y
            echo "C:\Python27" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
-           echo "C:\Python27\Scripts" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
-           npm config set python python2
+           echo "C:\Python27\Scripts" | Out-File -Append -Encoding ascii $env:GITHUB_PATH           
            # Cria um alias 'python2' apontando para 'python'
             New-Item -ItemType SymbolicLink -Path "C:\Python27\python2.exe" -Target "C:\Python27\python.exe"
       - name: Verificar Python
