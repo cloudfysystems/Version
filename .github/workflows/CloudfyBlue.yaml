@@ -97,7 +97,7 @@ jobs:
 
           # Salvar o JSON modificado
           $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8
-      - name: rodando o npm i
+      - name: atualizando o node-gyp
         run: npm install node-gyp@7.1.2 -g    
       - name: Instalar Python 2.7 
         run: |
