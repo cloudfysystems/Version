@@ -74,6 +74,33 @@ jobs:
           repository: cloudfysystems/IONIC
           ref: Ionic5  # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Remover dependências do package.json 
+        shell: pwsh
+        run: |
+          $packageJsonPath = "package.json"
+
+          # Ler o conteúdo do package.json
+          $json = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
+
+          # Lista de pacotes a remover
+          $packagesToRemove = @("@thiagoelg/node-printer", "serialport")
+
+          foreach ($pkg in $packagesToRemove) {
+              if ($json.dependencies.$pkg) {
+                  $json.dependencies.PSObject.Properties.Remove($pkg)
+              }
+              if ($json.devDependencies -and $json.devDependencies.$pkg) {
+                  $json.devDependencies.PSObject.Properties.Remove($pkg)
+              }
+          }
+
+          # Salvar o JSON modificado
+          $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8
+      - name: Exibir package.json atualizado
+        run: type package.json   
       
       # Java 8
       - name: Instalar Java 8
