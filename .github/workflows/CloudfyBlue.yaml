@@ -86,10 +86,10 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           gradle-version: 4.10.3
-      - name: Instalar Node.js 13
+      - name: Instalar Node.js 14
         uses: actions/setup-node@v4
         with:
-          node-version: '13'
+          node-version: '14'
       - name: Instalar Python 3.10
         uses: actions/setup-python@v5
         with:
