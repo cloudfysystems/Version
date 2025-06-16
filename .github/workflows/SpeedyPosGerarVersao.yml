@@ -1,0 +1,228 @@
+name: SpeedyPos Gerar versão
+
+on:
+  workflow_dispatch: # Roda apenas manualmente pelo painel do GitHub
+    inputs:
+      #version:
+      #  description: 'Versão do build'
+      #  required: true
+      #  default: '1.0.0'
+      windows:
+        description: 'Gerar versão Windows?'
+        required: true
+        default: false
+        type: boolean
+      android:
+        description: 'Gerar versão Android?'
+        required: true
+        default: false
+        type: boolean
+env:
+  VERSION: ${{vars.VERSAO}}
+  BUILD: ${{vars.build}}
+  SENHA_CERTIFICADO_CLOUDFY: ${{ secrets.SENHA_CERTIFICADO_CLOUDFY }}
+  SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_KEY }}
+
+  
+
+
+jobs:                  
+  Windows:
+    if: ${{ inputs.windows }}
+    runs-on: windows-latest    
+    
+    defaults:
+      run:
+        working-directory: ./speed
+        
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main  # ou a branch/tag desejada
+          token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT) 
+
+      - name: Criar pasta e gravar prod.json
+        run: |
+            New-Item -ItemType Directory -Path "./env" -Force | Out-Null
+            Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
+        shell: pwsh
+    
+      - name: Criar pasta dist
+        run: |
+            mkdir dist
+        shell: pwsh
+      - name: Criar certificado.p12 a partir de base64
+        run: |
+            New-Item -ItemType Directory -Path certificado -Force | Out-Null
+            $base64 = "${{ secrets.CERTIFICADO_P12 }}"
+            $bytes = [System.Convert]::FromBase64String($base64)
+            [System.IO.File]::WriteAllBytes("certificado\cloudfy.p12", $bytes)
+        shell: pwsh
+      #- name: Resolvendo o git long paths
+      #  run: git config --system core.longpaths true
+
+      - name: Atualizar versão
+        shell: pwsh
+        run: |
+          (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSION+$env:BUILD" | Set-Content pubspec.yaml
+
+      - name: 🐦 Setup Shorebird
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+          
+      #- name: Mostrar caminho e conteúdo do prod.json
+      #  run: |
+      #      $filePath = Resolve-Path "./env/prod.json"
+      #      Write-Host "📁 Caminho do arquivo: $filePath"
+      #      Write-Host "📄 Conteúdo do arquivo:"
+      #      Get-Content $filePath | ForEach-Object { Write-Host $_ }
+      #  shell: pwsh
+#
+
+                
+
+      - name: Build Windows EXE        
+        run: shorebird release windows --dart-define-from-file="env/prod.json" --target lib/main_prod.dart --no-confirm --flutter-version="3.32.3" 
+        continue-on-error: true
+      - name: Verificar executável gerado com sucesso
+        shell: pwsh        
+        run: |
+            if (!(Test-Path "build/windows/x64/runner/Release/speed.exe")) {
+            Write-Error "Arquivo 'speed.exe' não encontrado. Abortando workflow."
+            exit 1
+            } else {
+            Write-Host "✅ Build gerado com sucesso."
+            }
+        
+      #- name: Assinar o executável
+      #  run: sign.bat
+      - name: Gerar o instalador
+        run: makensis windowsinstallmaker.nsi
+      #- name: Assinar o instalador
+      #  run: signinstall.bat        
+    
+      - name: Upload do executável
+        uses: actions/upload-artifact@v4        
+        with:
+          name: InstaladorSpeedyWindows
+          path: speed/dist/CloudfySpeedyPos.exe
+      
+
+      - name: Criando o release 
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Windows v${{ github.run_number }}
+          files: speed/dist/CloudfySpeedyPos.exe
+          body:  Release gerado automaticamente para windows.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}            
+
+  Android:
+    if: ${{ inputs.android }}
+    runs-on: windows-latest       
+    defaults:
+      run:
+        working-directory: ./speed    
+    steps:        
+      - uses: actions/checkout@v4
+      - name: Criar pasta e gravar prod.json
+        run: |
+            New-Item -ItemType Directory -Path "./env" -Force | Out-Null
+            Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
+        shell: pwsh
+      - name: Criar arquivo.jks a partir de base64
+        run: |
+            New-Item -ItemType Directory -Path certificado -Force | Out-Null
+            $base64 = "${{ secrets.KEYSTORE }}"
+            $bytes = [System.Convert]::FromBase64String($base64)
+            [System.IO.File]::WriteAllBytes("certificado\certificado-keystore.jks", $bytes)
+        shell: pwsh
+      - name: Resolver problema incremental do gradle
+        run: |
+            Add-Content -Path './android/gradle.properties' -Value 'kotlin.incremental=false'            
+        shell: pwsh
+      - name: Atualizar versão
+        shell: pwsh
+        run: |
+          (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSION+$env:BUILD" | Set-Content pubspec.yaml
+      - name: 🐦 Setup Shorebird
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true   
+        
+
+      - name: Criar o arquivo key.properties
+        run: |
+           $conteudo = "storePassword=${{ secrets.SENHA_KEYSTORE }}`r`nkeyPassword=${{ secrets.SENHA_KEYSTORE }}`r`nkeyAlias=cloudfycardapio`r`nstoreFile=../../certificado/certificado-keystore.jks"
+           Set-Content -Path "android/key.properties" -Value $conteudo
+        shell: pwsh
+
+      - name: Set Up Java
+        uses: actions/setup-java@v3.12.0
+        with:
+            distribution: 'oracle'
+            java-version: '17'            
+               
+
+      - name: Build App Bundle (AAB)                
+        run: shorebird release android --dart-define-from-file="env/prod.json" --target lib/main_prod.dart  --no-confirm --flutter-version="3.32.3" 
+        continue-on-error: true
+      - name: Verificar bundle gerado com sucesso
+        shell: pwsh        
+        run: |
+            if (!(Test-Path "build/app/outputs/bundle/release/app-release.aab")) {
+            Write-Error "Arquivo 'app-release.aab' não encontrado. Abortando workflow."
+            exit 1
+            } else {
+            Write-Host "✅ Build gerado com sucesso."
+            }  
+
+
+      - name: Build APK        
+        run: shorebird release android --dart-define-from-file="env/prod.json" --target lib/main_prod.dart  --artifact=apk --no-confirm --flutter-version="3.32.3" 
+        continue-on-error: true
+
+      - name: Verificar apk gerado com sucesso
+        shell: pwsh
+        
+        run: |
+            if (!(Test-Path "build/app/outputs/flutter-apk/app-release.apk")) {
+            Write-Error "Arquivo 'app-release.apk' não encontrado. Abortando workflow."
+            exit 1
+            } else {
+            Write-Host "✅ Build gerado com sucesso."
+            }  
+
+    
+      - name: Upload da apk e do bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ApkBundleSpeedyAndroid
+          path: |            
+            speed/build/app/outputs/flutter-apk/app-release.apk 
+            speed/build/app/outputs/bundle/release/app-release.aab
+      - name: Criando o release 
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}android
+          name: Android v${{ github.run_number }}
+          files: |
+            speed/build/app/outputs/flutter-apk/app-release.apk 
+            speed/build/app/outputs/bundle/release/app-release.aab
+          body:  Release gerado automaticamente para android.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+     
+        
+
+
+
+      
+
+     
+
+      
