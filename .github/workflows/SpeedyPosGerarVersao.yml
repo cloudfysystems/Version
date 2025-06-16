@@ -10,12 +10,12 @@ on:
       windows:
         description: 'Gerar versão Windows?'
         required: true
-        default: false
+        default: true
         type: boolean
       android:
         description: 'Gerar versão Android?'
         required: true
-        default: false
+        default: true
         type: boolean
 env:
   VERSION: ${{vars.VERSAO}}
@@ -51,16 +51,7 @@ jobs:
       - name: Criar pasta dist
         run: |
             mkdir dist
-        shell: pwsh
-      - name: Criar certificado.p12 a partir de base64
-        run: |
-            New-Item -ItemType Directory -Path certificado -Force | Out-Null
-            $base64 = "${{ secrets.CERTIFICADO_P12 }}"
-            $bytes = [System.Convert]::FromBase64String($base64)
-            [System.IO.File]::WriteAllBytes("certificado\cloudfy.p12", $bytes)
-        shell: pwsh
-      #- name: Resolvendo o git long paths
-      #  run: git config --system core.longpaths true
+        shell: pwsh     
 
       - name: Atualizar versão
         shell: pwsh
@@ -129,6 +120,10 @@ jobs:
         working-directory: ./speed    
     steps:        
       - uses: actions/checkout@v4
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main  # ou a branch/tag desejada
+          token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)
       - name: Criar pasta e gravar prod.json
         run: |
             New-Item -ItemType Directory -Path "./env" -Force | Out-Null
