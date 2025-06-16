@@ -64,7 +64,7 @@ jobs:
 
   Android:
     if: ${{ inputs.android }}
-    runs-on: windows-latest       
+    runs-on: ubuntu-latest       
     defaults:
       run:
         working-directory: ./PDV    
@@ -95,8 +95,8 @@ jobs:
         run: npm install -g ionic@5
       - name: rodando o npm i
         run: npm install
-      - name: rodando o npm i
-        run: npm install
+      - name: instalando o plugman
+        run: npm install -g plugman
       - name: Compilar o plugin da cloudfy
         run: plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy
       - name: Gerar a apk
