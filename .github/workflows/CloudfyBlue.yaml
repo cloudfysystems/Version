@@ -90,10 +90,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '16'
-      - name: Instalar Python 2.7
+      - name: Instalar Python 3.10
         uses: actions/setup-python@v5
         with:
-            python-version: '2.7'      
+            python-version: '3.10'      
       - name: rodando o npm i
         run: npm install    
        # Ionic CLI 5
