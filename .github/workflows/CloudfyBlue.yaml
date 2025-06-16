@@ -1,0 +1,115 @@
+name: CloudfyBlue Gerar versão
+
+on:
+  workflow_dispatch: # Roda apenas manualmente pelo painel do GitHub
+    inputs:
+      #version:
+      #  description: 'Versão do build'
+      #  required: true
+      #  default: '1.0.0'
+      windows:
+        description: 'Gerar versão Windows?'
+        required: true
+        default: false
+        type: boolean
+      android:
+        description: 'Gerar versão Android?'
+        required: true
+        default: true
+        type: boolean
+env:
+  VERSION: ${{vars.VERSAO}}
+  BUILD: ${{vars.build}}
+  SENHA_CERTIFICADO_CLOUDFY: ${{ secrets.SENHA_CERTIFICADO_CLOUDFY }}
+  SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_KEY }}
+
+  
+
+
+jobs:                  
+  Windows:
+    if: ${{ inputs.windows }}
+    runs-on: windows-latest    
+    
+    defaults:
+      run:
+        working-directory: ./PDV
+        
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main  # ou a branch/tag desejada
+          token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT) 
+      
+      #- name: Assinar o instalador
+      #  run: signinstall.bat        
+    
+      - name: Upload do executável
+        uses: actions/upload-artifact@v4        
+        with:
+          name: InstaladorSpeedyWindows
+          path: speed/dist/CloudfySpeedyPos.exe
+      
+
+      - name: Criando o release 
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Windows v${{ github.run_number }}
+          files: speed/dist/CloudfySpeedyPos.exe
+          body:  Release gerado automaticamente para windows.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}            
+
+  Android:
+    if: ${{ inputs.android }}
+    runs-on: windows-latest       
+    defaults:
+      run:
+        working-directory: ./PDV    
+    steps:        
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudfysystems/IONIC
+          ref: main  # ou a branch/tag desejada
+          token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)
+      
+      # Java 8
+      - name: Instalar Java 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'  # ou 'adopt', se preferir
+          java-version: '8' 
+    # Gradle 4
+      - name: Instalar Gradle 4.10.3
+        uses: gradle/gradle-build-action@v2
+        with:
+          gradle-version: 4.10.3
+      - name: Instalar Node.js 13
+        uses: actions/setup-node@v4
+        with:
+          node-version: '13'
+       # Ionic CLI 5
+      - name: Instalar Ionic CLI v5
+        run: npm install -g ionic@5
+
+       # Verificação das versões
+      - name: Verificar versões
+        run: |
+          java -version
+          gradle -v
+          node -v
+          ionic -v        
+
+      
+     
+        
+
+
+
+      
+
+     
+
+      
