@@ -74,8 +74,6 @@ jobs:
           repository: cloudfysystems/IONIC
           ref: Ionic5  # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)
-      - name: Checkout repositório
-        uses: actions/checkout@v4
 
       - name: Remover dependências do package.json 
         shell: pwsh
