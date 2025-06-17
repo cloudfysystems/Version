@@ -98,10 +98,16 @@ jobs:
         run: |             
             npm install -g ionic@5      
       - name: Gerando a aplicação
-        run: ionic build --prod && copyfiles -V -E -f ./src/Electron/prod/*.* 
-      - name: Gerar o executável
-        run: |
-             electron-builder -w     
+        run: npm run BuildDesktop
+      - name: Criando o release 
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: vBlue${{ github.run_number }}
+          name: BlueWindows v${{ github.run_number }}
+          files: dist/Cloudfyblue Setup 1.3.14.exe
+          body:  Release gerado automaticamente para windows na cachorragem.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}                
     
                  
 
