@@ -43,10 +43,7 @@ jobs:
       - name: Instalar Node.js 16
         uses: actions/setup-node@v4
         with:
-          node-version: '16'
-      - name: Instalar Ionic CLI v5
-        run: |             
-            npm install -g ionic@5       
+          node-version: '16'      
        
       - name: Configurar ambiente de build para node-gyp
         shell: pwsh
@@ -74,6 +71,9 @@ jobs:
             
       - name: rodando o npm i
         run: npm install
+      - name: Instalar Ionic CLI v5
+        run: |             
+            npm install -g ionic@5      
       - name: Gerando a aplicação
         run: ionic build --prod && copyfiles -V -E -f ./src/Electron/prod/*.* 
       - name: Gerar o executável
