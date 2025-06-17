@@ -10,12 +10,12 @@ on:
       windows:
         description: 'Gerar versão Windows?'
         required: true
-        default: false
+        default: true
         type: boolean
       android:
         description: 'Gerar versão Android?'
         required: true
-        default: true
+        default: false
         type: boolean
 env:
   VERSION: ${{vars.VERSAO}}
@@ -34,31 +34,53 @@ jobs:
         working-directory: ./PDV
         
     steps:
+      
       - uses: actions/checkout@v4
         with:
-          repository: cloudfysystems/FLUTTER
-          ref: main  # ou a branch/tag desejada
-          token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT) 
-      
-      #- name: Assinar o instalador
-      #  run: signinstall.bat        
+            repository: cloudfysystems/IONIC
+            ref: Ionic5  # ou a branch/tag desejada
+            token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)
+      - name: Instalar Node.js 16
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+      - name: Instalar Ionic CLI v5
+        run: |             
+            npm install -g ionic@5
+            npm i -g cordova@9.0.0 
+       
+      - name: Configurar ambiente de build para node-gyp
+        shell: pwsh
+        run: |
+            echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
+            npm config set msvs_version 2022  
+      - name: Atualizar node-gyp para suportar VS2022
+        run: |
+            npm install node-gyp@8.4.0 -g            
+      - name: Instalar Python 2.7 
+        run: |
+           choco install python2 --force -y
+           echo "C:\Python27" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
+           echo "C:\Python27\Scripts" | Out-File -Append -Encoding ascii $env:GITHUB_PATH           
+           # Cria um alias 'python2' apontando para 'python'
+           New-Item -ItemType SymbolicLink -Path "C:\Python27\python2.exe" -Target "C:\Python27\python.exe"
+      - name: Verificar Python
+        run: |
+            where python
+            python --version
+            python2 --version   
+      - name: Instalando o electron-builder
+        run: |
+            npm install -g electron-builder@26.0.12
+      - name: rodando o npm i
+        run: npm install
+      - name: Gerando a aplicação
+        run: ionic build --prod && copyfiles -V -E -f ./src/Electron/prod/*.* 
+      - name: Gerar o executável
+        run: |
+             electron-builder -w     
     
-      - name: Upload do executável
-        uses: actions/upload-artifact@v4        
-        with:
-          name: InstaladorSpeedyWindows
-          path: speed/dist/CloudfySpeedyPos.exe
-      
-
-      - name: Criando o release 
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ github.run_number }}
-          name: Windows v${{ github.run_number }}
-          files: speed/dist/CloudfySpeedyPos.exe
-          body:  Release gerado automaticamente para windows.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}            
+                 
 
   Android:
     if: ${{ inputs.android }}
