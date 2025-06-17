@@ -106,8 +106,7 @@ jobs:
             npm config set msvs_version 2022  
       - name: Atualizar node-gyp para suportar VS2022
         run: |
-            npm install -g node-gyp@8.4.0  --save-dev
-            npm config set node_gyp $(npm root)/node-gyp/bin/node-gyp.js 
+            npm install node-gyp@8.4.0 -g            
       - name: Instalar Python 2.7 
         run: |
            choco install python2 --force -y
