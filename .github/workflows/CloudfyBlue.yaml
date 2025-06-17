@@ -75,7 +75,7 @@ jobs:
           $json = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
 
           # Lista de pacotes a remover
-          $packagesToRemove = @("@thiagoelg/node-printer")
+          $packagesToRemove = @("@thiagoelg/node-printer", "serialport")
 
           foreach ($pkg in $packagesToRemove) {
               if ($json.dependencies.$pkg) {
