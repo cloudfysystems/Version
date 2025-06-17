@@ -20,6 +20,7 @@ on:
 env:
   VERSION: ${{vars.VERSAO}}
   BUILD: ${{vars.build}}  
+  NODE_OPTIONS: "--max-old-space-size=4096"  
 
   
 
