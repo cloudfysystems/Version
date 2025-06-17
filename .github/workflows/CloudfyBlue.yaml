@@ -19,9 +19,7 @@ on:
         type: boolean
 env:
   VERSION: ${{vars.VERSAO}}
-  BUILD: ${{vars.build}}
-  SENHA_CERTIFICADO_CLOUDFY: ${{ secrets.SENHA_CERTIFICADO_CLOUDFY }}
-  SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_KEY }}
+  BUILD: ${{vars.build}}  
 
   
 
@@ -74,7 +72,7 @@ jobs:
           repository: cloudfysystems/IONIC
           ref: Ionic5  # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)
-
+      
       - name: Remover dependências do package.json 
         shell: pwsh
         run: |
@@ -96,9 +94,16 @@ jobs:
           }
 
           # Salvar o JSON modificado
-          $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8
-      - name: atualizando o node-gyp
-        run: npm install node-gyp@7.1.2 -g    
+          $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8      
+      - name: Instalar Node.js 16
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+      - name: Configurar ambiente de build para node-gyp
+        shell: pwsh
+        run: |
+            echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
+            npm config set msvs_version 2022    
       - name: Instalar Python 2.7 
         run: |
            choco install python2 --force -y
@@ -122,10 +127,7 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           gradle-version: 4.10.3
-      - name: Instalar Node.js 16
-        uses: actions/setup-node@v4
-        with:
-          node-version: '16'
+      
       #- name: Instalar Python 3.10
       #  uses: actions/setup-python@v5
       #  with:
