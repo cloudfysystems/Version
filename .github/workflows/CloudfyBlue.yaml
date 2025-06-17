@@ -49,22 +49,7 @@ jobs:
       - name: Instalar Node.js 16
         uses: actions/setup-node@v4
         with:
-          node-version: '16'
-      - name: Carregar ambiente C++ do VS2022
-        shell: pwsh
-        run: |
-          # Localiza o vswhere
-          $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vsPath = & $vswhere -latest -products * `
-            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-            -property installationPath
-          if (-not $vsPath) {
-            Write-Error "VS2022 com VCTools não encontrado"
-            exit 1
-          }
-
-          # Executa o vcvarsall para x64
-          & cmd /c "`"$vsPath\VC\Auxiliary\Build\vcvarsall.bat`" x64"
+          node-version: '16'      
       - name: Unzip dos serialport e node-printer
         shell: pwsh
         run: |
@@ -86,8 +71,7 @@ jobs:
 
           # Caminho dos arquivos zip
           $zips = @(
-            "libsrebuild/@serialport.zip",
-            "libsrebuild/@thiagoelg.zip"
+            "libsrebuild/@serialport.zip",            
           )
 
           # Caminho de destino
@@ -110,7 +94,7 @@ jobs:
           $json = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
 
           # Lista de pacotes a remover
-          $packagesToRemove = @("@thiagoelg/node-printer", "serialport")
+          $packagesToRemove = @("serialport")
 
           foreach ($pkg in $packagesToRemove) {
               if ($json.dependencies.$pkg) {
@@ -129,22 +113,12 @@ jobs:
         run: |
             echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
             npm config set msvs_version 2022  
-       
-      - name: Atualizar node-gyp para suportar VS2022
-        run: |
-            npm install node-gyp@8.4.0 -g            
-      - name: Instalar Python 2.7 
-        run: |
-           choco install python2 --force -y
-           echo "C:\Python27" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
-           echo "C:\Python27\Scripts" | Out-File -Append -Encoding ascii $env:GITHUB_PATH           
-           # Cria um alias 'python2' apontando para 'python'
-           New-Item -ItemType SymbolicLink -Path "C:\Python27\python2.exe" -Target "C:\Python27\python.exe"
-      - name: Verificar Python
-        run: |
-            where python
-            python --version
-            python2 --version   
+                   
+      - name: Instalar Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.10
+
       - name: Instalando o electron-builder
         run: |
             npm install -g electron-builder@26.0.12   
@@ -163,7 +137,7 @@ jobs:
         with:
           tag_name: vBlue${{ github.run_number }}
           name: BlueWindows v${{ github.run_number }}
-          files: dist/Cloudfyblue Setup 1.3.14.exe
+          files: PDV/dist/Cloudfyblue Setup 1.3.14.exe
           body:  Release gerado automaticamente para windows na cachorragem.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}                
