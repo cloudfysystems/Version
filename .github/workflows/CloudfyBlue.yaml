@@ -27,7 +27,7 @@ env:
 jobs:                  
   Windows:
     if: ${{ inputs.windows }}
-    runs-on: windows-latest    
+    runs-on: windows-2022    
     
     defaults:
       run:
@@ -105,7 +105,9 @@ jobs:
             echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
             npm config set msvs_version 2022  
       - name: Atualizar node-gyp para suportar VS2022
-        run: npm install -g node-gyp@8.4.0  
+        run: |
+            npm install -g node-gyp@8.4.0  --save-dev
+            npm config set node_gyp $(npm root)/node-gyp/bin/node-gyp.js 
       - name: Instalar Python 2.7 
         run: |
            choco install python2 --force -y
