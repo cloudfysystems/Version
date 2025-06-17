@@ -77,10 +77,9 @@ jobs:
         with:
           node-version: '16'
       - name: instalando o plugman
-        run: npm install -g plugman
+        run: npm install -g plugman@3.0.1
       - name: Compilar o plugin da cloudfy
-        run: |
-             $env:NPM_CONFIG_AUDIT="false"
+        run: |             
              plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy
       - name: Remover dependências do package.json 
         if: false
