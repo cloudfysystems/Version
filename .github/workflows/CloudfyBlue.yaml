@@ -32,6 +32,8 @@ jobs:
     defaults:
       run:
         working-directory: ./PDV
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}  # Token de acesso ao GitHub, necessário para publicar releases
         
     steps:
       
