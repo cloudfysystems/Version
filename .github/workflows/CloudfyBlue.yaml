@@ -76,6 +76,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '16'
+      - name: Instalar Ionic CLI v5
+        run: npm install -g ionic@5
+      - name: Adicionar plataform android
+        run: ionic cordova platform add android 
       - name: instalando o plugman
         run: npm install -g plugman@3.0.1
       - name: Compilar o plugin da cloudfy
@@ -145,8 +149,7 @@ jobs:
       - name: rodando o npm i
         run: npm install    
        # Ionic CLI 5
-      - name: Instalar Ionic CLI v5
-        run: npm install -g ionic@5
+      
       #- name: Atualizar node-gyp
       #  run: npm install -g node-gyp@7
       #- name: instalando o grpc
