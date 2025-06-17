@@ -62,7 +62,7 @@ jobs:
 
   Android:
     if: ${{ inputs.android }}
-    runs-on: windows-latest       
+    runs-on: windows-2022       
     defaults:
       run:
         working-directory: ./PDV    
@@ -72,8 +72,18 @@ jobs:
           repository: cloudfysystems/IONIC
           ref: Ionic5  # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)
-      
+      - name: Instalar Node.js 16
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+      - name: instalando o plugman
+        run: npm install -g plugman
+      - name: Compilar o plugin da cloudfy
+        run: |
+             $env:NPM_CONFIG_AUDIT="false"
+             plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy
       - name: Remover dependências do package.json 
+        if: false
         shell: pwsh
         run: |
           $packageJsonPath = "package.json"
@@ -95,10 +105,7 @@ jobs:
 
           # Salvar o JSON modificado
           $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8      
-      - name: Instalar Node.js 16
-        uses: actions/setup-node@v4
-        with:
-          node-version: '16'
+      
       - name: Configurar ambiente de build para node-gyp
         shell: pwsh
         run: |
@@ -146,10 +153,7 @@ jobs:
       #- name: instalando o grpc
       #  run: npm install grpc --grpc_node_binary_host_mirror=https://node-precompiled-binaries.grpc.io
       
-      - name: instalando o plugman
-        run: npm install -g plugman
-      - name: Compilar o plugin da cloudfy
-        run: plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy
+      
       - name: Gerar a apk
         run: ionic cordova build android --prod --release  
 
