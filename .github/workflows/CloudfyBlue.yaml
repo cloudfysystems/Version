@@ -44,6 +44,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '16'
+      - name: Carregar ambiente C++ do VS2022
+        shell: pwsh
+        run: |
+          # Localiza o vswhere
+          $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $vsPath) {
+            Write-Error "VS2022 com VCTools não encontrado"
+            exit 1
+          }
+
+          # Executa o vcvarsall para x64
+          & cmd /c "`"$vsPath\VC\Auxiliary\Build\vcvarsall.bat`" x64"
       - name: Remover dependências do package.json 
         
         shell: pwsh
@@ -73,6 +88,7 @@ jobs:
         run: |
             echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
             npm config set msvs_version 2022  
+       
       - name: Atualizar node-gyp para suportar VS2022
         run: |
             npm install node-gyp@8.4.0 -g            
