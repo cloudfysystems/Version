@@ -27,7 +27,7 @@ env:
 jobs:                  
   Windows:
     if: ${{ inputs.windows }}
-    runs-on: windows-2022    
+    runs-on: windows-2019    
     
     defaults:
       run:
@@ -39,30 +39,11 @@ jobs:
         with:
             repository: cloudfysystems/IONIC
             ref: Ionic5  # ou a branch/tag desejada
-            token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)
-      - name: Setar variável de ambiente VCINSTALLDIR no PowerShell
-        shell: pwsh
-        run: |
-              $env:VCINSTALLDIR = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise'
+            token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)      
       - name: Instalar Node.js 16
         uses: actions/setup-node@v4
         with:
-          node-version: '16'
-      - name: Carregar ambiente C++ do VS2022
-        shell: pwsh
-        run: |
-          # Localiza o vswhere
-          $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vsPath = & $vswhere -latest -products * `
-            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-            -property installationPath
-          if (-not $vsPath) {
-            Write-Error "VS2022 com VCTools não encontrado"
-            exit 1
-          }
-
-          # Executa o vcvarsall para x64
-          & cmd /c "`"$vsPath\VC\Auxiliary\Build\vcvarsall.bat`" x64"
+          node-version: '16'      
       - name: Remover dependências do package.json 
         
         shell: pwsh
@@ -87,11 +68,8 @@ jobs:
           # Salvar o JSON modificado
           $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8           
        
-      - name: Configurar ambiente de build para node-gyp
-        shell: pwsh
-        run: |
-            echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
-            npm config set msvs_version 2022  
+      - name: Set MSVS version to 2017
+        run: npm config set msvs_version 2017  
        
       - name: Atualizar node-gyp para suportar VS2022
         run: |
