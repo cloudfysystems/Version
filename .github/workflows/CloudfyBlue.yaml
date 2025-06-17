@@ -71,6 +71,10 @@ jobs:
       - name: Instalando o electron-builder
         run: |
             npm install -g electron-builder@26.0.12
+      - name: Instalando o serialport
+        run: |
+            npm install @serialport/bindings@9.2.8
+            
       - name: rodando o npm i
         run: npm install
       - name: Gerando a aplicação
