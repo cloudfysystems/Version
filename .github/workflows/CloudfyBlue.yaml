@@ -43,7 +43,30 @@ jobs:
       - name: Instalar Node.js 16
         uses: actions/setup-node@v4
         with:
-          node-version: '16'      
+          node-version: '16'
+      - name: Remover dependências do package.json 
+        
+        shell: pwsh
+        run: |
+          $packageJsonPath = "package.json"
+
+          # Ler o conteúdo do package.json
+          $json = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
+
+          # Lista de pacotes a remover
+          $packagesToRemove = @("@thiagoelg/node-printer")
+
+          foreach ($pkg in $packagesToRemove) {
+              if ($json.dependencies.$pkg) {
+                  $json.dependencies.PSObject.Properties.Remove($pkg)
+              }
+              if ($json.devDependencies -and $json.devDependencies.$pkg) {
+                  $json.devDependencies.PSObject.Properties.Remove($pkg)
+              }
+          }
+
+          # Salvar o JSON modificado
+          $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8           
        
       - name: Configurar ambiente de build para node-gyp
         shell: pwsh
