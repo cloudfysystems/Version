@@ -65,6 +65,41 @@ jobs:
 
           # Executa o vcvarsall para x64
           & cmd /c "`"$vsPath\VC\Auxiliary\Build\vcvarsall.bat`" x64"
+      - name: Unzip dos serialport e node-printer
+        shell: pwsh
+        run: |
+          function Unzip-ToNodeModules {
+              param (
+                  [string[]]$ZipFiles,
+                  [string]$Destination
+              )
+
+              foreach ($zip in $ZipFiles) {
+                  if (Test-Path $zip) {
+                      Write-Host "Extracting $zip to $Destination"
+                      Expand-Archive -Path $zip -DestinationPath $Destination -Force
+                  } else {
+                      Write-Warning "File not found: $zip"
+                  }
+              }
+          }
+
+          # Caminho dos arquivos zip
+          $zips = @(
+            "libsrebuild/@serialport.zip",
+            "libsrebuild/@thiagoelg.zip"
+          )
+
+          # Caminho de destino
+          $dest = "node_modules"
+
+          # Cria node_modules se não existir
+          if (!(Test-Path $dest)) {
+            New-Item -ItemType Directory -Path $dest | Out-Null
+          }
+
+          # Chama a função
+          Unzip-ToNodeModules -ZipFiles $zips -Destination $dest  
       - name: Remover dependências do package.json 
         
         shell: pwsh
