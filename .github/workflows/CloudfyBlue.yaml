@@ -46,8 +46,7 @@ jobs:
           node-version: '16'
       - name: Instalar Ionic CLI v5
         run: |             
-            npm install -g ionic@5
-            npm i -g cordova@9.0.0 
+            npm install -g ionic@5       
        
       - name: Configurar ambiente de build para node-gyp
         shell: pwsh
