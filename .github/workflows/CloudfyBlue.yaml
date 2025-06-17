@@ -41,17 +41,14 @@ jobs:
         with:
             repository: cloudfysystems/IONIC
             ref: Ionic5  # ou a branch/tag desejada
-            token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)
-      - name: Setar variável de ambiente VCINSTALLDIR no PowerShell
-        shell: pwsh
-        run: |
-              $env:VCINSTALLDIR = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise'
+            token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)      
       - name: Instalar Node.js 16
         uses: actions/setup-node@v4
         with:
           node-version: '16'      
       - name: Unzip dos serialport e node-printer
         shell: pwsh
+        if: false
         run: |
           function Unzip-ToNodeModules {
               param (
@@ -85,7 +82,7 @@ jobs:
           # Chama a função
           Unzip-ToNodeModules -ZipFiles $zips -Destination $dest  
       - name: Remover dependências do package.json 
-        
+        if: false
         shell: pwsh
         run: |
           $packageJsonPath = "package.json"
