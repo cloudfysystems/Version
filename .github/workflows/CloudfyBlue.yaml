@@ -71,7 +71,7 @@ jobs:
 
           # Caminho dos arquivos zip
           $zips = @(
-            "libsrebuild/@serialport.zip",            
+            "libsrebuild/@serialport.zip"            
           )
 
           # Caminho de destino
@@ -162,7 +162,7 @@ jobs:
           node-version: '16'
       - name: Instalar Ionic CLI v5
         run: |             
-            npm install -g ionic@5
+            npm install -g ionic@5.4.16
             npm i -g cordova@9.0.0 
       - name: Adicionar plataform android
         run: ionic cordova platform add android 
