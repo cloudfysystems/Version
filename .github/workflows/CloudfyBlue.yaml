@@ -28,8 +28,6 @@ jobs:
   Testes:
     if: ${{ inputs.testes }}
     runs-on: windows-2022
-    permissions:
-      contents: write
     defaults:
       run:
         working-directory: ./PDV
@@ -55,14 +53,11 @@ jobs:
           echo "VERSAO=$($json.blue.simple).$($json.blue.patch)" >> $env:GITHUB_ENV
 
       - name: Atualizar package.json
-        shell: powershell
+        shell: pwsh
         run: |
           $package = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
           $package.version = "${{ env.VERSAO }}"
-          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "package.json"
-          $package = Get-Content -Raw -Path "src/Electron/package.json" | ConvertFrom-Json
-          $package.version = "${{ env.VERSAO }}"
-          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "src/Electron/package.json"
+          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "package.json"          
           Get-Content package.json
 
       - name: Comitar alterações
