@@ -55,10 +55,7 @@ jobs:
       - name: Atualizar package.json
         shell: pwsh
         run: |
-          $package = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
-          $package.version = "${{ env.VERSAO }}"
-          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "package.json"          
-          Get-Content package.json
+          ls
 
       - name: Comitar alterações
         uses: EndBug/add-and-commit@v9
