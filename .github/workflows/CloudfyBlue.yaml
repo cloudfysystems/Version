@@ -63,8 +63,8 @@ jobs:
         shell: powershell
         working-directory: ./
         run: |
-          git config user.name "zeoliveirajunior"
-          git config user.email "zeoliveirajunior@gmail.com"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
           git add version.json
           git commit -m "Nova versão do patch blue"
           git push
