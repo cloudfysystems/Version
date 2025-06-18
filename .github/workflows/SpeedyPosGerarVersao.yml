@@ -58,14 +58,17 @@ jobs:
           echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV          
 
 
-      - name: Criar pasta e gravar prod.json
+      - name: Gerando o env/prod.json
         run: |
             New-Item -ItemType Directory -Path "./env" -Force | Out-Null
-            Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
-            $json = Get-Content "./env/prod.json" | ConvertFrom-Json
-            $json.version = "${{ env.VERSAO }}"
-            $json | ConvertTo-Json -Depth 2 | Set-Content "./env/prod.json"          
-        shell: pwsh      
+            Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'            
+        shell: pwsh
+      - name: Atualiza versão no arquivo Dart
+        shell: pwsh
+        run: |
+          $filePath = "lib/version.dart"
+          $novaVersao = "${{ vars.VERSAO }}"  # ou outro valor dinâmico
+          (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath         
     
       - name: Criar pasta dist
         run: |
@@ -267,7 +270,7 @@ jobs:
   FinishJob:
     needs: [Android, Windows]    
     runs-on: windows-latest
-    if: success()
+    if: always() 
     permissions:
       contents: write
     defaults:
