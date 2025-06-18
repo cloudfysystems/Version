@@ -290,12 +290,17 @@ jobs:
       - name: Recuperando os commits entre produção e main
         id: log
         shell: pwsh
-        run: |
+        run: |          
           git pull origin production          
           $commits = git log origin/production..origin/main --pretty=format:"- %s" --no-merges
           echo "commit_messages<<EOF" >> $env:GITHUB_OUTPUT
           echo "$commits" >> $env:GITHUB_OUTPUT
           echo "EOF" >> $env:GITHUB_OUTPUT
+          git checkout production          
+
+          git merge origin/main --no-ff -m "gerando versao na falcatrua"
+
+          git push origin production
        # Lendo a versão atual do repositório
       - name: Ler versão atual e atualizar o numero da versao
         working-directory: version-repo
@@ -332,20 +337,8 @@ jobs:
 
           to: zeoliveirajunior@gmail.com,jose.oliveira@cloudfy.net.br
           from: Cloudfy Versao <noreply@cloudfy.net.br>
-          secure: true        
-      # faz o merge do branch de dev com a produção
-      - name: Fazer merge da branch de dev com produção        
-        shell: pwsh
-        run: |
-          git config --global user.name "cloudfysystems"
-          git config --global user.email "cloudfysystem@gmail.com"          
-          git checkout production          
-
-          git merge origin/main --no-ff -m "gerando versao na falcatrua"
-
-          git push origin production
-                       
-     
+          secure: true              
+                                                    
       # commit da atualização da versão
       - name: Commit das alterações
         if: false
