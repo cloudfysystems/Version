@@ -31,6 +31,8 @@ jobs:
     defaults:
       run:
         working-directory: ionic5/PDV
+    permissions:
+      contents: write
     env:
       GITHUB_TOKEN: ${{ secrets.GH_TOKEN }} # Token de acesso ao GitHub, necessário para publicar releases
       GH_TOKEN: ${{ secrets.GH_TOKEN }} # Token de acesso ao GitHub, necessário para publicar releases
@@ -52,8 +54,8 @@ jobs:
           $json = Get-Content "version.json" | ConvertFrom-Json
           $json.blue.patch++
           $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"          
-          echo "Versão patch: $($json.blue.patch)"
-          echo "Versão gerada: $($json.blue.simple).$($json.blue.patch)"
+          echo "Versao patch: $($json.blue.patch)"
+          echo "Versao gerada: $($json.blue.simple).$($json.blue.patch)"
           echo "VERSAO=$($json.blue.simple).$($json.blue.patch)" >> $env:GITHUB_ENV
 
       - name: Atualizar package.json
