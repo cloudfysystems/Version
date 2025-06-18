@@ -103,7 +103,7 @@ jobs:
         with:
           tag_name: v${{ env.VERSAO }}Blue
           name: BlueWindows v${{ env.VERSAO }}
-          files: PDV/dist/Cloudfyblue Setup ${{ env.VERSAO }}.exe
+          files: ionic5/PDV/dist/Cloudfyblue Setup ${{ env.VERSAO }}.exe
           body: Release gerado automaticamente para windows na trairagem.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
