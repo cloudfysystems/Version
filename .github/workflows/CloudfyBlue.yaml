@@ -28,9 +28,9 @@ jobs:
   Testes:
     if: ${{ inputs.testes }}
     runs-on: windows-2022
-    #defaults:
-    #  run:
-    #    working-directory: ./PDV
+    defaults:
+      run:
+        working-directory: ionic5/PDV
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }} # Token de acesso ao GitHub, necessário para publicar releases
     steps:
@@ -39,10 +39,13 @@ jobs:
           repository: cloudfysystems/IONIC
           ref: Ionic5 # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }} # ou um token pessoal (PAT)
+          path: ionic5
       - uses: actions/checkout@v4
+        with:
+          path: version-repo
 
       - name: Ler versão atual e atualizar package.json
-        working-directory: ./
+        working-directory: version-repo
         shell: powershell
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json
@@ -57,6 +60,8 @@ jobs:
         run: |
           dir
           dir ..
+          dir ..\..
+          dir ..\..\..\
 
       - name: Comitar alterações
         uses: EndBug/add-and-commit@v9
