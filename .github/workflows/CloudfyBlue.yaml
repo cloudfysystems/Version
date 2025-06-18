@@ -44,6 +44,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: version-repo
+      - name: Fazer merge da branch de dev com produção
+        run: |
+          git config --global user.name "cloudfysystems"
+          git config --global user.email "cloudfysystem@gmail.com"
+          git checkout production
+          git pull origin production
+
+          git merge origin/Ionic5 --no-ff -m "gerando versao: na trairagem mesmo"
+
+          git push origin production
+      - name: faiar checkout da branch de produção
+        run: |
+          dsahjksdhajkdhasdjksa
       # Lendo a versão atual do repositório
       - name: Ler versão atual e atualizar package.json
         working-directory: version-repo
