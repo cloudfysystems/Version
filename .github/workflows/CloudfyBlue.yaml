@@ -64,11 +64,11 @@ jobs:
         shell: powershell
         working-directory: ./
         run: |
-          git config user.name "zeoliveirajunior"
-          git config user.email "zeoliveirajunior@gmail.com"
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
           git add version.json
           git commit -m "Nova versão do patch blue"
-          git push https://zeoliveirajunior:${{ secrets.GH_TOKEN }}@github.com/cloudfysystems/Version.git
+          git push https://cloudfysystems:${{ secrets.GH_TOKEN }}@github.com/cloudfysystems/Version.git
 
   Windows:
     if: ${{ inputs.windows }}
