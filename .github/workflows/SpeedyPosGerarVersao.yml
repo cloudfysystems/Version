@@ -290,7 +290,8 @@ jobs:
       - name: Recuperando os commits entre produção e main
         id: log
         shell: pwsh
-        run: |          
+        run: |
+          git pull origin production          
           $commits = git log origin/production..origin/main --pretty=format:"- %s" --no-merges
           echo "commit_messages<<EOF" >> $env:GITHUB_OUTPUT
           echo "$commits" >> $env:GITHUB_OUTPUT
