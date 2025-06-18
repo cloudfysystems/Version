@@ -52,7 +52,7 @@ jobs:
 
           git merge Ionic5 --no-ff -m "gerando versao: na trairagem mesmo"
 
-          git push
+          git push origin/production
       - name: faiar checkout da branch de produção
         run: |
           dsahjksdhajkdhasdjksa
