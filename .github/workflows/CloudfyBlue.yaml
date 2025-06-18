@@ -42,8 +42,9 @@ jobs:
       - name: Ler versão atual
         id: read-version
         shell: powershell
+        working-directory: ./
         run: |
-          $json = Get-Content "../version.json" | ConvertFrom-Json
+          $json = Get-Content "version.json" | ConvertFrom-Json
           echo "Versão atual do build: $($json.blue.patch)"
           echo "build_number=$($son.blue.patch)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
