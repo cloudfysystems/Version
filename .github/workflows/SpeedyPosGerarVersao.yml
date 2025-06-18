@@ -267,7 +267,7 @@ jobs:
   FinishJob:
     needs: [Android, Windows]    
     runs-on: windows-latest
-    if: always()
+    if: success()
     permissions:
       contents: write
     defaults:
