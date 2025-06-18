@@ -2,7 +2,7 @@
     "speedy":  {
                    "build":  "1",
                    "version":  "1.0.0",
-                   "patch":  8,
+                   "patch":  9,
                    "simple":  "1.0"
                },
     "blue":  {
