@@ -270,6 +270,9 @@ jobs:
     if: always()
     permissions:
       contents: write
+    defaults:
+      run:
+        working-directory: ./flutter/speed   
     steps:
       - uses: actions/checkout@v4
         with:
