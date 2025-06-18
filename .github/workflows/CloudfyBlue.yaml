@@ -67,7 +67,7 @@ jobs:
           git config user.email "github-actions@github.com"
           git add version.json
           git commit -m "Nova versão do patch blue"
-          git push
+          git push https://${{ secrets.GH_TOKEN }}@github.com/cloudfysystems/Version.git
 
   Windows:
     if: ${{ inputs.windows }}
