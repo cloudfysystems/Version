@@ -48,12 +48,11 @@ jobs:
         run: |
           git config --global user.name "cloudfysystems"
           git config --global user.email "cloudfysystem@gmail.com"
-          git checkout production
-          git pull origin production
+          git checkout production          
 
-          git merge origin/Ionic5 --no-ff -m "gerando versao: na trairagem mesmo"
+          git merge Ionic5 --no-ff -m "gerando versao: na trairagem mesmo"
 
-          git push origin production
+          git push
       - name: faiar checkout da branch de produção
         run: |
           dsahjksdhajkdhasdjksa
