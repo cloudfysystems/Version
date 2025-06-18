@@ -28,9 +28,9 @@ jobs:
   Testes:
     if: ${{ inputs.testes }}
     runs-on: windows-2022
-    defaults:
-      run:
-        working-directory: ./PDV
+    #defaults:
+    #  run:
+    #    working-directory: ./PDV
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }} # Token de acesso ao GitHub, necessário para publicar releases
     steps:
