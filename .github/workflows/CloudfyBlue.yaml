@@ -38,17 +38,16 @@ jobs:
           ref: Ionic5 # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }} # ou um token pessoal (PAT)
       - uses: actions/checkout@v4
-        with:
-          path: version
 
       - name: Onde eu estou?
         run: |
           dir
+          dir ..
       - name: Ler versão atual
         id: read-version
         shell: powershell
         run: |
-          $json = Get-Content "version/version.json" | ConvertFrom-Json
+          $json = Get-Content "../version.json" | ConvertFrom-Json
           echo "Versão atual do build: $($json.blue.patch)"
           echo "build_number=$($son.blue.patch)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
