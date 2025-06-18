@@ -67,7 +67,7 @@ jobs:
         shell: pwsh
         run: |
           $filePath = "lib/Environment/Version.dart"
-          $novaVersao = "${{ vars.VERSAO }}"  # ou outro valor dinâmico
+          $novaVersao = "${{ env.VERSAO }}"  # ou outro valor dinâmico
           (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath         
     
       - name: Criar pasta dist
