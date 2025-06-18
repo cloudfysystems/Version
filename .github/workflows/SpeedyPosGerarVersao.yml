@@ -41,31 +41,18 @@ jobs:
           repository: cloudfysystems/FLUTTER
           ref: main  # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }}
-          path: flutter  # ou um token pessoal (PAT) 
+          path: flutter  
       # checkout do repositorio de versão
       - uses: actions/checkout@v4
         with:
-          path: version-repo
-      # faz o merge do branch de dev com a produção
-      - name: Fazer merge da branch de dev com produção        
-        shell: pwsh
-        run: |
-          git config --global user.name "cloudfysystems"
-          git config --global user.email "cloudfysystem@gmail.com"
-          git pull origin production
-          git checkout production          
-
-          git merge origin/Ionic5 --no-ff -m "gerando versao na falcatrua"
-
-          git push origin production
+          path: version-repo     
        # Lendo a versão atual do repositório
-      - name: Ler versão atual e atualizar package.json
+      - name: Ler versão atual 
         working-directory: version-repo
         shell: powershell
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json
-          $json.speedy.patch++
-          $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"          
+          $json.speedy.patch++          
           echo "Versao patch: $($json.speedy.patch)"
           echo "Versao gerada: $($json.speedy.simple).$($json.speedy.patch)"
           echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV          
@@ -78,18 +65,7 @@ jobs:
             $json = Get-Content "./env/prod.json" | ConvertFrom-Json
             $json.version = "${{ env.VERSAO }}"
             $json | ConvertTo-Json -Depth 2 | Set-Content "./env/prod.json"          
-        shell: pwsh
-      # commit da atualização da versão
-      - name: Commit das alterações
-        uses: EndBug/add-and-commit@v9
-        with:
-          author_name: cloudfysystems
-          author_email: cloudfysystems@gmail.com
-          message: "alterada versão do build"
-          cwd: ./version-repo
-          add: "version.json"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}   
+        shell: pwsh      
     
       - name: Criar pasta dist
         run: |
@@ -150,8 +126,8 @@ jobs:
       - name: Criando o release 
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ github.run_number }}
-          name: Windows v${{ github.run_number }}
+          tag_name: v${{ env.VERSAO }}
+          name: Windows v${{ env.VERSAO }} Speedy
           files: flutter/speed/dist/CloudfySpeedyPos.exe
           body:  Release gerado automaticamente para windows.
         env:
@@ -162,18 +138,46 @@ jobs:
     runs-on: windows-latest       
     defaults:
       run:
-        working-directory: ./speed    
+        working-directory: ./flutter/speed    
     steps:        
       - uses: actions/checkout@v4
         with:
           repository: cloudfysystems/FLUTTER
           ref: main  # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)
+          path: flutter  
+      # checkout do repositorio de versão
+      - uses: actions/checkout@v4
+        with:
+          path: version-repo     
+       # Lendo a versão atual do repositório
+      - name: Ler versão atual 
+        working-directory: version-repo
+        shell: powershell
+        run: |
+          $json = Get-Content "version.json" | ConvertFrom-Json
+          $json.speedy.patch++          
+          echo "Versao patch: $($json.speedy.patch)"
+          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.patch)"
+          echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV          
+
+
       - name: Criar pasta e gravar prod.json
         run: |
             New-Item -ItemType Directory -Path "./env" -Force | Out-Null
             Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
-        shell: pwsh
+            $json = Get-Content "./env/prod.json" | ConvertFrom-Json
+            $json.version = "${{ env.VERSAO }}"
+            $json | ConvertTo-Json -Depth 2 | Set-Content "./env/prod.json"          
+        shell: pwsh          
+      - name: Criar pasta e gravar prod.json
+        run: |
+            New-Item -ItemType Directory -Path "./env" -Force | Out-Null
+            Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
+            $json = Get-Content "./env/prod.json" | ConvertFrom-Json
+            $json.version = "${{ env.VERSAO }}"
+            $json | ConvertTo-Json -Depth 2 | Set-Content "./env/prod.json"          
+        shell: pwsh 
       - name: Criar arquivo.jks a partir de base64
         run: |
             New-Item -ItemType Directory -Path certificado -Force | Out-Null
@@ -246,16 +250,16 @@ jobs:
         with:
           name: ApkBundleSpeedyAndroid
           path: |            
-            speed/build/app/outputs/flutter-apk/app-release.apk 
-            speed/build/app/outputs/bundle/release/app-release.aab
+            flutter/speed/build/app/outputs/flutter-apk/app-release.apk 
+            flutter/speed/build/app/outputs/bundle/release/app-release.aab
       - name: Criando o release 
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ github.run_number }}android
-          name: Android v${{ github.run_number }}
+          tag_name: v${{ env.VERSAO }}android
+          name: Android v${{ env.VERSAO }} Speedy
           files: |
-            speed/build/app/outputs/flutter-apk/app-release.apk 
-            speed/build/app/outputs/bundle/release/app-release.aab
+            flutter/speed/build/app/outputs/flutter-apk/app-release.apk 
+            flutter/speed/build/app/outputs/bundle/release/app-release.aab
           body:  Release gerado automaticamente para android.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
