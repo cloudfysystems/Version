@@ -52,7 +52,7 @@ jobs:
           $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"          
           echo "Versão patch: $($json.blue.patch)"
           echo "Versão gerada: $($json.blue.simple).$($json.blue.patch)"
-          echo "VERSAO=$($json.blue.simple).$($json.blue.patch)"" >> $env:GITHUB_ENV
+          echo "VERSAO=$($json.blue.simple).$($json.blue.patch)" >> $env:GITHUB_ENV
 
       - name: Atualizar package.json
         shell: powershell
