@@ -37,7 +37,6 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_TOKEN }} # Token de acesso ao GitHub, necessário para publicar releases
     steps:
       - uses: actions/checkout@v4
-        if: false
         with:
           repository: cloudfysystems/IONIC
           ref: Ionic5 # ou a branch/tag desejada
