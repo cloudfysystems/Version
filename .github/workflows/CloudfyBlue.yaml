@@ -44,23 +44,22 @@ jobs:
           token: ${{ secrets.GH_TOKEN }} # ou um token pessoal (PAT)
       - uses: actions/checkout@v4
 
-      - name: Ler versão atual
-        id: read-version
+      - name: Ler versão atual e atualizar package.json
         working-directory: ./
         shell: powershell
-        run: |
-          $json = Get-Content "version.json" | ConvertFrom-Json
-          echo "Versão atual do build: $($json.blue.patch)"
-          echo "build_number=$($json.blue.patch)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-
-      - name: Incrementar versão
-        shell: powershell
-        working-directory: ./
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json
           $json.blue.patch++
-          $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"
-          echo "Nova versão: $($json.blue.patch)"
+          $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"          
+          echo "Versão patch: $($json.blue.patch)"
+          echo "Versão gerada: $($json.blue.simple).$($json.blue.patch)"          
+          $package = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
+          $package.version = $($json.blue.simple).$($json.blue.patch)
+          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "package.json"
+          $package = Get-Content -Raw -Path "./src/Electron/package.json" | ConvertFrom-Json
+          $package.version = $($json.blue.simple).$($json.blue.patch)
+          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "./src/Electron/package.json"
+          Get-Content package.json
 
       - name: Comitar alterações
         uses: EndBug/add-and-commit@v9
