@@ -7,46 +7,71 @@ on:
       #  description: 'Versão do build'
       #  required: true
       #  default: '1.0.0'
-      windows:
-        description: 'Gerar versão Windows?'
-        required: true
+      testes:
+        description: "Testes?"
         default: true
         type: boolean
+      windows:
+        description: "Gerar versão Windows?"
+        default: false
+        type: boolean
       android:
-        description: 'Gerar versão Android?'
-        required: true
+        description: "Gerar versão Android?"
         default: false
         type: boolean
 env:
   VERSION: ${{vars.VERSAO}}
-  BUILD: ${{vars.build}}  
-  NODE_OPTIONS: "--max-old-space-size=4096"  
+  BUILD: ${{vars.build}}
+  NODE_OPTIONS: "--max-old-space-size=4096"
 
-  
+jobs:
+  Testes:
+    if: ${{ inputs.testes }}
+    runs-on: windows-2022
+    defaults:
+      run:
+        working-directory: ./PDV
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudfysystems/IONIC
+          ref: Ionic5 # ou a branch/tag desejada
+          token: ${{ secrets.GH_TOKEN }} # ou um token pessoal (PAT)
+      - uses: actions/checkout@v4
+        with:
+          path: version
 
+      - name: Onde eu estou?
+        run: |
+          dir
+      - name: Ler versão atual
+        id: read-version
+        shell: powershell
+        run: |
+          $json = Get-Content "version/version.json" | ConvertFrom-Json
+          echo "Versão atual do build: $($json.blue.patch)"
+          echo "build_number=$($son.blue.patch)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-jobs:                  
   Windows:
     if: ${{ inputs.windows }}
-    runs-on: windows-2022    
-    
+    runs-on: windows-2022
+
     defaults:
       run:
         working-directory: ./PDV
     env:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}  # Token de acesso ao GitHub, necessário para publicar releases
-        
+      GH_TOKEN: ${{ secrets.GH_TOKEN }} # Token de acesso ao GitHub, necessário para publicar releases
+
     steps:
-      
       - uses: actions/checkout@v4
         with:
-            repository: cloudfysystems/IONIC
-            ref: Ionic5  # ou a branch/tag desejada
-            token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)      
+          repository: cloudfysystems/IONIC
+          ref: Ionic5 # ou a branch/tag desejada
+          token: ${{ secrets.GH_TOKEN }} # ou um token pessoal (PAT)
       - name: Instalar Node.js 16
         uses: actions/setup-node@v4
         with:
-          node-version: '16'      
+          node-version: "16"
       - name: Unzip dos serialport e node-printer
         shell: pwsh
         if: false
@@ -81,8 +106,8 @@ jobs:
           }
 
           # Chama a função
-          Unzip-ToNodeModules -ZipFiles $zips -Destination $dest  
-      - name: Remover dependências do package.json 
+          Unzip-ToNodeModules -ZipFiles $zips -Destination $dest
+      - name: Remover dependências do package.json
         if: false
         shell: pwsh
         run: |
@@ -104,14 +129,14 @@ jobs:
           }
 
           # Salvar o JSON modificado
-          $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8           
-       
+          $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8
+
       - name: Configurar ambiente de build para node-gyp
         shell: pwsh
         run: |
-            echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
-            npm config set msvs_version 2022  
-                   
+          echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
+          npm config set msvs_version 2022
+
       - name: Instalar Python 3.10
         uses: actions/setup-python@v5
         with:
@@ -119,16 +144,16 @@ jobs:
 
       - name: Instalando o electron-builder
         run: |
-            npm install -g electron-builder@26.0.12   
-            
+          npm install -g electron-builder@26.0.12
+
       - name: rodando o npm i
         run: npm install
       - name: Instalar Ionic CLI v5
-        run: |             
-            npm install -g ionic@5                        
-      - name: Criando o release 
-        run: |             
-            npm run BuildDesktop
+        run: |
+          npm install -g ionic@5
+      - name: Criando o release
+        run: |
+          npm run BuildDesktop
 
       - name: Publicar release no GitHub
         uses: softprops/action-gh-release@v1
@@ -136,40 +161,38 @@ jobs:
           tag_name: vBlue${{ github.run_number }}
           name: BlueWindows v${{ github.run_number }}
           files: PDV/dist/Cloudfyblue Setup 1.3.14.exe
-          body:  Release gerado automaticamente para windows na cachorragem.
+          body: Release gerado automaticamente para windows na cachorragem.
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}                
-    
-                 
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
   Android:
     if: ${{ inputs.android }}
-    runs-on: windows-2022       
+    runs-on: windows-2022
     defaults:
       run:
-        working-directory: ./PDV    
-    steps:        
+        working-directory: ./PDV
+    steps:
       - uses: actions/checkout@v4
         with:
           repository: cloudfysystems/IONIC
-          ref: Ionic5  # ou a branch/tag desejada
-          token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)
+          ref: Ionic5 # ou a branch/tag desejada
+          token: ${{ secrets.GH_TOKEN }} # ou um token pessoal (PAT)
       - name: Instalar Node.js 16
         uses: actions/setup-node@v4
         with:
-          node-version: '16'
+          node-version: "16"
       - name: Instalar Ionic CLI v5
-        run: |             
-            npm install -g ionic@5.4.16
-            npm i -g cordova@9.0.0 
+        run: |
+          npm install -g ionic@5.4.16
+          npm i -g cordova@9.0.0
       - name: Adicionar plataform android
-        run: ionic cordova platform add android 
+        run: ionic cordova platform add android
       - name: instalando o plugman
         run: npm install -g plugman@3.0.1
       - name: Compilar o plugin da cloudfy
-        run: |             
-             plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy
-      - name: Remover dependências do package.json 
+        run: |
+          plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy
+      - name: Remover dependências do package.json
         if: false
         shell: pwsh
         run: |
@@ -191,74 +214,59 @@ jobs:
           }
 
           # Salvar o JSON modificado
-          $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8      
-      
+          $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8
+
       - name: Configurar ambiente de build para node-gyp
         shell: pwsh
         run: |
-            echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
-            npm config set msvs_version 2022  
+          echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
+          npm config set msvs_version 2022
       - name: Atualizar node-gyp para suportar VS2022
         run: |
-            npm install node-gyp@8.4.0 -g            
-      - name: Instalar Python 2.7 
+          npm install node-gyp@8.4.0 -g
+      - name: Instalar Python 2.7
         run: |
-           choco install python2 --force -y
-           echo "C:\Python27" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
-           echo "C:\Python27\Scripts" | Out-File -Append -Encoding ascii $env:GITHUB_PATH           
-           # Cria um alias 'python2' apontando para 'python'
-           New-Item -ItemType SymbolicLink -Path "C:\Python27\python2.exe" -Target "C:\Python27\python.exe"
+          choco install python2 --force -y
+          echo "C:\Python27" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
+          echo "C:\Python27\Scripts" | Out-File -Append -Encoding ascii $env:GITHUB_PATH           
+          # Cria um alias 'python2' apontando para 'python'
+          New-Item -ItemType SymbolicLink -Path "C:\Python27\python2.exe" -Target "C:\Python27\python.exe"
       - name: Verificar Python
         run: |
-            where python
-            python --version
-            python2 --version   
+          where python
+          python --version
+          python2 --version
       # Java 8
       - name: Instalar Java 8
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'  # ou 'adopt', se preferir
-          java-version: '8' 
-    # Gradle 4
+          distribution: "temurin" # ou 'adopt', se preferir
+          java-version: "8"
+      # Gradle 4
       - name: Instalar Gradle 4.10.3
         uses: gradle/gradle-build-action@v2
         with:
           gradle-version: 4.10.3
-      
+
       #- name: Instalar Python 3.10
       #  uses: actions/setup-python@v5
       #  with:
-      #      python-version: '3.10'      
-       
+      #      python-version: '3.10'
       - name: rodando o npm i
-        run: npm install    
-       # Ionic CLI 5
-      
+        run: npm install
+        # Ionic CLI 5
+
       #- name: Atualizar node-gyp
       #  run: npm install -g node-gyp@7
       #- name: instalando o grpc
       #  run: npm install grpc --grpc_node_binary_host_mirror=https://node-precompiled-binaries.grpc.io
-      
-      
       - name: Gerar a apk
-        run: ionic cordova build android --prod --release  
+        run: ionic cordova build android --prod --release
 
-       # Verificação das versões
+        # Verificação das versões
       - name: Verificar versões
         run: |
           java -version
           gradle -v
           node -v
-          ionic -v        
-
-      
-     
-        
-
-
-
-      
-
-     
-
-      
+          ionic -v
