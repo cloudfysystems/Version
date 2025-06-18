@@ -39,9 +39,6 @@ jobs:
           token: ${{ secrets.GH_TOKEN }} # ou um token pessoal (PAT)
       - uses: actions/checkout@v4
 
-      - name: Onde eu estou?
-        run: |
-          dir
       - name: Ler versão atual
         id: read-version
         shell: powershell
