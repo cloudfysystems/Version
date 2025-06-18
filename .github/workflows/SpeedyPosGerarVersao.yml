@@ -76,7 +76,7 @@ jobs:
                 
 
       - name: Build Windows EXE        
-        run: shorebird release windows --dart-define-from-file="env/prod.json" --target lib/main_prod.dart --no-confirm --flutter-version="3.32.3" 
+        run: shorebird release windows --dart-define-from-file="env/prod.json" --target="lib/main_prod.dart" --no-confirm --flutter-version="3.32.3" 
         continue-on-error: true
       - name: Verificar executável gerado com sucesso
         shell: pwsh        
@@ -164,7 +164,7 @@ jobs:
                
 
       - name: Build App Bundle (AAB)                
-        run: shorebird release android --dart-define-from-file="env/prod.json" --target lib/main_prod.dart  --no-confirm --flutter-version="3.32.3" 
+        run: shorebird release android --dart-define-from-file="env/prod.json" --target="lib/main_prod.dart"  --no-confirm --flutter-version="3.32.3" 
         continue-on-error: true
       - name: Verificar bundle gerado com sucesso
         shell: pwsh        
@@ -178,7 +178,7 @@ jobs:
 
 
       - name: Build APK        
-        run: shorebird release android --dart-define-from-file="env/prod.json" --target lib/main_prod.dart  --artifact=apk --no-confirm --flutter-version="3.32.3" 
+        run: shorebird release android --dart-define-from-file="env/prod.json" --target="lib/main_prod.dart"  --artifact=apk --no-confirm --flutter-version="3.32.3" 
         continue-on-error: true
 
       - name: Verificar apk gerado com sucesso
