@@ -44,21 +44,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: version-repo
-      - name: Fazer merge da branch de dev com produção
-        working-directory: ionic5
-        shell: pwsh
-        run: |
-          git config --global user.name "cloudfysystems"
-          git config --global user.email "cloudfysystem@gmail.com"
-          git pull origin production
-          git checkout production          
-
-          git merge origin/Ionic5 --no-ff -m "gerando versao: na trairagem mesmo"
-
-          git push origin production
-      - name: faiar checkout da branch de produção
-        run: |
-          dsahjksdhajkdhasdjksa
       # Lendo a versão atual do repositório
       - name: Ler versão atual e atualizar package.json
         working-directory: version-repo
@@ -80,6 +65,19 @@ jobs:
           $package = Get-Content -Raw -Path "src/Electron/prod/package.json" | ConvertFrom-Json
           $package.version = "${{ env.VERSAO }}"
           $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "src/Electron/prod/package.json"
+      # faz o merge do branch de dev com a produção
+      - name: Fazer merge da branch de dev com produção
+        working-directory: ionic5
+        shell: pwsh
+        run: |
+          git config --global user.name "cloudfysystems"
+          git config --global user.email "cloudfysystem@gmail.com"
+          git pull origin production
+          git checkout production          
+
+          git merge origin/Ionic5 --no-ff -m "gerando versao ${{ env.VERSAO }} na falcatrua"
+
+          git push origin production
 
       # instalando o node.js 16
       - name: Instalar Node.js 16
