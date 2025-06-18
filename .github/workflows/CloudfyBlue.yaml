@@ -28,6 +28,8 @@ jobs:
   Testes:
     if: ${{ inputs.testes }}
     runs-on: windows-2022
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }} # Token de acesso ao GitHub, necessário para publicar releases
     defaults:
       run:
         working-directory: ./PDV
@@ -46,7 +48,24 @@ jobs:
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json
           echo "Versão atual do build: $($json.blue.patch)"
-          echo "build_number=$($son.blue.patch)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          echo "build_number=$($json.blue.patch)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Incrementar versão
+        shell: powershell
+        working-directory: ./
+        run: |
+          $json = Get-Content "version.json" | ConvertFrom-Json
+          $json.blue.patch++
+          $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"
+          echo "Nova versão: $($json.blue.patch)"
+
+      - name: Commit e push do build incrementado
+        shell: powershell
+        working-directory: ./
+        run: |
+          git add version.json
+          git commit -m "Nova versão do patch blue"
+          git push
 
   Windows:
     if: ${{ inputs.windows }}
