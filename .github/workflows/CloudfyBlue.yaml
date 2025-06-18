@@ -32,6 +32,7 @@ jobs:
       run:
         working-directory: ionic5/PDV
     env:
+      GITHUB_TOKEN: ${{ secrets.GH_TOKEN }} # Token de acesso ao GitHub, necessário para publicar releases
       GH_TOKEN: ${{ secrets.GH_TOKEN }} # Token de acesso ao GitHub, necessário para publicar releases
     steps:
       - uses: actions/checkout@v4
@@ -58,17 +59,21 @@ jobs:
       - name: Atualizar package.json
         shell: pwsh
         run: |
-          dir
-          dir ..
-          dir ..\..
-          dir ..\..\..\
+          $package = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
+          $package.version = "${{ env.VERSAO }}"
+          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "package.json"
+          $package = Get-Content -Raw -Path "src/Electron/prod/package.json" | ConvertFrom-Json
+          $package.version = "${{ env.VERSAO }}"
+          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "src/Electron/prod/package.json"          
+          Get-Content package.json
 
-      - name: Comitar alterações
+      - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
         with:
           author_name: cloudfysystems
           author_email: cloudfysystems@gmail.com
-          message: "alterada versao do build"
+          message: "alterada versão do build"
+          cwd: ./version-repo
           add: "version.json"
 
   Windows:
