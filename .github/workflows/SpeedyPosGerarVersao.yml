@@ -321,10 +321,14 @@ jobs:
             Commits incluídos:
 
             ${{ steps.log.outputs.commit_messages }}
+            
+            Segue o link para download
+            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/CloudfySpeedyPos.exe">CloudfySpeedyPos.exe</a></p>
+            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/app-release.apk">CloudfySpeedyPos.apk</a></p>
 
             Menos Bugs, mais velocidade! 🚀
 
-          to: zeoliveirajunior@gmail.com
+          to: zeoliveirajunior@gmail.com,jose.oliveira@cloudfy.net.br
           from: Cloudfy Versao <noreply@cloudfy.net.br>
           secure: true        
       # faz o merge do branch de dev com a produção
@@ -336,7 +340,7 @@ jobs:
           git pull origin production
           git checkout production          
 
-          git merge origin/Ionic5 --no-ff -m "gerando versao na falcatrua"
+          git merge origin/main --no-ff -m "gerando versao na falcatrua"
 
           git push origin production
                        
