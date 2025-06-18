@@ -266,7 +266,7 @@ jobs:
   #Job que vai atualizar o git, sincronizar os fontes        
   FinishJob:
     needs: [Android, Windows]    
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     if: always()
     permissions:
       contents: write
