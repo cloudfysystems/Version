@@ -267,6 +267,7 @@ jobs:
   FinishJob:
     needs: [Android, Windows]    
     runs-on: ubuntu-latest
+    if: ${{ success() }}
     permissions:
       contents: write
     steps:
