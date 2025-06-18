@@ -66,7 +66,7 @@ jobs:
       - name: Atualiza versão no arquivo Dart
         shell: pwsh
         run: |
-          $filePath = "lib/version.dart"
+          $filePath = "lib/Environment/Version.dart"
           $novaVersao = "${{ vars.VERSAO }}"  # ou outro valor dinâmico
           (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath         
     
