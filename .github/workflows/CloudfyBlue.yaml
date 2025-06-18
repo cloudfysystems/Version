@@ -75,6 +75,8 @@ jobs:
           message: "alterada versão do build"
           cwd: ./version-repo
           add: "version.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
   Windows:
     if: ${{ inputs.windows }}
