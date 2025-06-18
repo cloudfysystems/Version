@@ -57,13 +57,13 @@ jobs:
           $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"
           echo "Nova versão: $($json.blue.patch)"
 
-      - uses: actions/checkout@v3
-      - run: |
-          git config user.name "cloudfysystems"
-          git config user.email "github-actions@github.com"
-          git add version.json
-          git commit -m "Nova versão do patch blue"          
-          git push
+      - name: Comitar alterações
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versao do build"
+          add: "version.json"
 
   Windows:
     if: ${{ inputs.windows }}
