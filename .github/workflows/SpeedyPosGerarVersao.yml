@@ -299,6 +299,7 @@ jobs:
        # Lendo a versão atual do repositório
       - name: Ler versão atual e atualizar o numero da versao
         working-directory: version-repo
+        if: false
         shell: powershell
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json
@@ -307,6 +308,7 @@ jobs:
            echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV        
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3
+        if: false
         with:
           server_address: mail.cloudfy.net.br  
           server_port: 465
@@ -346,6 +348,7 @@ jobs:
      
       # commit da atualização da versão
       - name: Commit das alterações
+        if: false
         uses: EndBug/add-and-commit@v9
         with:
           author_name: cloudfysystems
