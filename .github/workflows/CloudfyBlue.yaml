@@ -28,11 +28,10 @@ jobs:
   Testes:
     if: ${{ inputs.testes }}
     runs-on: windows-2022
+    permissions:
+      contents: write
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }} # Token de acesso ao GitHub, necessário para publicar releases
-    defaults:
-      run:
-        working-directory: ./PDV
     steps:
       - uses: actions/checkout@v4
         if: false
@@ -41,13 +40,10 @@ jobs:
           ref: Ionic5 # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }} # ou um token pessoal (PAT)
       - uses: actions/checkout@v4
-        with:
-          path: Version
 
       - name: Ler versão atual
         id: read-version
         shell: powershell
-        working-directory: ./Version
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json
           echo "Versão atual do build: $($json.blue.patch)"
@@ -55,22 +51,18 @@ jobs:
 
       - name: Incrementar versão
         shell: powershell
-        working-directory: ./Version
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json
           $json.blue.patch++
           $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"
           echo "Nova versão: $($json.blue.patch)"
 
-      - name: Commit e push do build incrementado
-        shell: powershell
-        working-directory: ./Version
-        run: |
+      - uses: actions/checkout@v3
+      - run: |
           git config user.name "cloudfysystems"
           git config user.email "github-actions@github.com"
           git add version.json
-          git commit -m "Nova versão do patch blue"
-          git remote set-url --push origin https://cloudfysystems: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@github.com/cloudfysystems/Version.git
+          git commit -m "Nova versão do patch blue"          
           git push
 
   Windows:
