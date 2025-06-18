@@ -313,8 +313,8 @@ jobs:
           username: ${{ secrets.EMAIL_USER }}
           password: ${{ secrets.EMAIL_PASS }}
           subject: 'Speedy POS - Gerado versao em produção '
-          body: |
-            Olá time!
+          html_body : |
+            <p>Olá time!</p>
 
             Foi gerada uma nova versão em produção do SpeedyPOS, na versao ${{env.VERSAO}}!
 
@@ -326,7 +326,7 @@ jobs:
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/CloudfySpeedyPos.exe">CloudfySpeedyPos.exe</a></p>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/app-release.apk">CloudfySpeedyPos.apk</a></p>
 
-            Menos Bugs, mais velocidade! 🚀
+            <p>Menos foco, mais ansiedade!</p>
 
           to: zeoliveirajunior@gmail.com,jose.oliveira@cloudfy.net.br
           from: Cloudfy Versao <noreply@cloudfy.net.br>
@@ -336,8 +336,7 @@ jobs:
         shell: pwsh
         run: |
           git config --global user.name "cloudfysystems"
-          git config --global user.email "cloudfysystem@gmail.com"
-          git pull origin production
+          git config --global user.email "cloudfysystem@gmail.com"          
           git checkout production          
 
           git merge origin/main --no-ff -m "gerando versao na falcatrua"
