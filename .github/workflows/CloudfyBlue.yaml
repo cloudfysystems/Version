@@ -55,7 +55,7 @@ jobs:
 
           git merge origin/Ionic5 --no-ff -m "gerando versao: na trairagem mesmo"
 
-          git push origin/production
+          git push
       - name: faiar checkout da branch de produção
         run: |
           dsahjksdhajkdhasdjksa
