@@ -8,14 +8,12 @@ on:
       #  required: true
       #  default: '1.0.0'
       windows:
-        description: 'Gerar versão Windows?'
-        required: true
+        description: 'Gerar versão Windows?'        
         default: true
         type: boolean
       android:
-        description: 'Gerar versão Android?'
-        required: true
-        default: true
+        description: 'Gerar versão Android?'        
+        default: false
         type: boolean
 env:
   VERSION: ${{vars.VERSAO}}
@@ -33,20 +31,65 @@ jobs:
     
     defaults:
       run:
-        working-directory: ./speed
+        working-directory: ./flutter/speed
+    permissions:
+      contents: write    
         
     steps:
       - uses: actions/checkout@v4
         with:
           repository: cloudfysystems/FLUTTER
           ref: main  # ou a branch/tag desejada
-          token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT) 
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter  # ou um token pessoal (PAT) 
+      # checkout do repositorio de versão
+      - uses: actions/checkout@v4
+        with:
+          path: version-repo
+      # faz o merge do branch de dev com a produção
+      - name: Fazer merge da branch de dev com produção        
+        shell: pwsh
+        run: |
+          git config --global user.name "cloudfysystems"
+          git config --global user.email "cloudfysystem@gmail.com"
+          git pull origin production
+          git checkout production          
+
+          git merge origin/Ionic5 --no-ff -m "gerando versao na falcatrua"
+
+          git push origin production
+       # Lendo a versão atual do repositório
+      - name: Ler versão atual e atualizar package.json
+        working-directory: version-repo
+        shell: powershell
+        run: |
+          $json = Get-Content "version.json" | ConvertFrom-Json
+          $json.speedy.patch++
+          $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"          
+          echo "Versao patch: $($json.speedy.patch)"
+          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.patch)"
+          echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV          
+
 
       - name: Criar pasta e gravar prod.json
         run: |
             New-Item -ItemType Directory -Path "./env" -Force | Out-Null
             Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
+            $json = Get-Content "./env/prod.json" | ConvertFrom-Json
+            $json.version = "${{ vars.VERSAO }}"
+            $json | ConvertTo-Json -Depth 2 | Set-Content "./env/prod.json"          
         shell: pwsh
+      # commit da atualização da versão
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build"
+          cwd: ./version-repo
+          add: "version.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}   
     
       - name: Criar pasta dist
         run: |
@@ -57,9 +100,11 @@ jobs:
         shell: pwsh
         run: |
           (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSION+$env:BUILD" | Set-Content pubspec.yaml
-
+      - name: Ajeitar o longpath do git
+        run: |
+             git config --system core.longpaths true
       - name: 🐦 Setup Shorebird
-        uses: shorebirdtech/setup-shorebird@v1
+        uses: shorebirdtech/setup-shorebird@v1        
         with:
           cache: true
 
@@ -76,7 +121,7 @@ jobs:
                 
 
       - name: Build Windows EXE        
-        run: shorebird release windows --dart-define-from-file="env/prod.json" --target="lib/main_prod.dart" --no-confirm --flutter-version="3.32.3" 
+        run: shorebird release windows --dart-define-from-file="env/prod.json" --no-confirm --flutter-version="3.32.3" 
         continue-on-error: true
       - name: Verificar executável gerado com sucesso
         shell: pwsh        
@@ -99,7 +144,7 @@ jobs:
         uses: actions/upload-artifact@v4        
         with:
           name: InstaladorSpeedyWindows
-          path: speed/dist/CloudfySpeedyPos.exe
+          path: flutter/speed/dist/CloudfySpeedyPos.exe
       
 
       - name: Criando o release 
@@ -107,7 +152,7 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: Windows v${{ github.run_number }}
-          files: speed/dist/CloudfySpeedyPos.exe
+          files: flutter/speed/dist/CloudfySpeedyPos.exe
           body:  Release gerado automaticamente para windows.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}            
@@ -144,6 +189,9 @@ jobs:
         shell: pwsh
         run: |
           (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSION+$env:BUILD" | Set-Content pubspec.yaml
+      - name: Ajeitar o longpath do git
+        run: |
+             git config --system core.longpaths true    
       - name: 🐦 Setup Shorebird
         uses: shorebirdtech/setup-shorebird@v1
         with:
@@ -164,7 +212,7 @@ jobs:
                
 
       - name: Build App Bundle (AAB)                
-        run: shorebird release android --dart-define-from-file="env/prod.json" --target="lib/main_prod.dart"  --no-confirm --flutter-version="3.32.3" 
+        run: shorebird release android --dart-define-from-file="env/prod.json"  --no-confirm --flutter-version="3.32.3" 
         continue-on-error: true
       - name: Verificar bundle gerado com sucesso
         shell: pwsh        
@@ -178,7 +226,7 @@ jobs:
 
 
       - name: Build APK        
-        run: shorebird release android --dart-define-from-file="env/prod.json" --target="lib/main_prod.dart"  --artifact=apk --no-confirm --flutter-version="3.32.3" 
+        run: shorebird release android --dart-define-from-file="env/prod.json"  --artifact=apk --no-confirm --flutter-version="3.32.3" 
         continue-on-error: true
 
       - name: Verificar apk gerado com sucesso
