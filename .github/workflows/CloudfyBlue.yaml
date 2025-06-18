@@ -52,12 +52,12 @@ jobs:
           $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"          
           echo "Versão patch: $($json.blue.patch)"
           echo "Versão gerada: $($json.blue.simple).$($json.blue.patch)"          
-          $package = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
+          $package = Get-Content -Raw -Path "./PDV/package.json" | ConvertFrom-Json
           $package.version = $($json.blue.simple).$($json.blue.patch)
-          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "package.json"
-          $package = Get-Content -Raw -Path "./src/Electron/package.json" | ConvertFrom-Json
+          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "./PDV/package.json"
+          $package = Get-Content -Raw -Path "./PDV/src/Electron/package.json" | ConvertFrom-Json
           $package.version = $($json.blue.simple).$($json.blue.patch)
-          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "./src/Electron/package.json"
+          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 ".PDV/src/Electron/package.json"
           Get-Content package.json
 
       - name: Comitar alterações
