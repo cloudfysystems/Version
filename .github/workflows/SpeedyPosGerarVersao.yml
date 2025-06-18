@@ -76,7 +76,7 @@ jobs:
             New-Item -ItemType Directory -Path "./env" -Force | Out-Null
             Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
             $json = Get-Content "./env/prod.json" | ConvertFrom-Json
-            $json.version = "${{ vars.VERSAO }}"
+            $json.version = "${{ env.VERSAO }}"
             $json | ConvertTo-Json -Depth 2 | Set-Content "./env/prod.json"          
         shell: pwsh
       # commit da atualização da versão
@@ -259,6 +259,55 @@ jobs:
           body:  Release gerado automaticamente para android.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+  #Job que vai atualizar o git, sincronizar os fontes        
+  FinishJob:
+    needs: [Android, Windows]    
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main  # ou a branch/tag desejada
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter  # ou um token pessoal (PAT) 
+      # checkout do repositorio de versão
+      - uses: actions/checkout@v4
+        with:
+          path: version-repo
+      # faz o merge do branch de dev com a produção
+      - name: Fazer merge da branch de dev com produção        
+        shell: pwsh
+        run: |
+          git config --global user.name "cloudfysystems"
+          git config --global user.email "cloudfysystem@gmail.com"
+          git pull origin production
+          git checkout production          
+
+          git merge origin/Ionic5 --no-ff -m "gerando versao na falcatrua"
+
+          git push origin production
+       # Lendo a versão atual do repositório
+      - name: Ler versão atual e atualizar o numero da versao
+        working-directory: version-repo
+        shell: powershell
+        run: |
+          $json = Get-Content "version.json" | ConvertFrom-Json
+          $json.speedy.patch++
+          $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"                    
+     
+      # commit da atualização da versão
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build"
+          cwd: ./version-repo
+          add: "version.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }} 
      
         
 
