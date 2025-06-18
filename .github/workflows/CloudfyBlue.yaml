@@ -42,7 +42,6 @@ jobs:
       - name: Onde eu estou?
         run: |
           dir
-          dir ..
       - name: Ler versão atual
         id: read-version
         shell: powershell
