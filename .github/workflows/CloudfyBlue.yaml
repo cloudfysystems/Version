@@ -45,12 +45,15 @@ jobs:
         with:
           path: version-repo
       - name: Fazer merge da branch de dev com produção
+        working-directory: ionic5
+        shell: pwsh
         run: |
           git config --global user.name "cloudfysystems"
           git config --global user.email "cloudfysystem@gmail.com"
+          git pull origin production
           git checkout production          
 
-          git merge Ionic5 --no-ff -m "gerando versao: na trairagem mesmo"
+          git merge origin/Ionic5 --no-ff -m "gerando versao: na trairagem mesmo"
 
           git push origin/production
       - name: faiar checkout da branch de produção
