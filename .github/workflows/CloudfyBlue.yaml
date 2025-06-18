@@ -68,7 +68,7 @@ jobs:
           git config user.email "cloudfysystems@gmail.com"
           git add version.json
           git commit -m "Nova versão do patch blue"
-          git push https://cloudfysystems:${{ secrets.GH_TOKEN }}@github.com/cloudfysystems/Version.git
+          git push  https://cloudfysystems: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@github.com/cloudfysystems/Version.git
 
   Windows:
     if: ${{ inputs.windows }}
