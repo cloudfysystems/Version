@@ -55,7 +55,8 @@ jobs:
       - name: Atualizar package.json
         shell: pwsh
         run: |
-          ls
+          dir
+          dir ..
 
       - name: Comitar alterações
         uses: EndBug/add-and-commit@v9
