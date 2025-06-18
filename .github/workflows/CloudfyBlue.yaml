@@ -30,6 +30,9 @@ jobs:
     runs-on: windows-2022
     permissions:
       contents: write
+    defaults:
+      run:
+        working-directory: ./PDV
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }} # Token de acesso ao GitHub, necessário para publicar releases
     steps:
@@ -43,6 +46,7 @@ jobs:
 
       - name: Ler versão atual
         id: read-version
+        working-directory: ./
         shell: powershell
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json
@@ -51,6 +55,7 @@ jobs:
 
       - name: Incrementar versão
         shell: powershell
+        working-directory: ./
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json
           $json.blue.patch++
