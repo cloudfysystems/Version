@@ -127,7 +127,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.VERSAO }}
-          name: Windows v${{ env.VERSAO }} Speedy
+          name: v${{ env.VERSAO }} Windows Speedy
           files: flutter/speed/dist/CloudfySpeedyPos.exe
           body:  Release gerado automaticamente para windows.
         env:
@@ -256,7 +256,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.VERSAO }}android
-          name: Android v${{ env.VERSAO }} Speedy
+          name:  v${{ env.VERSAO }} Android Speedy
           files: |
             flutter/speed/build/app/outputs/flutter-apk/app-release.apk 
             flutter/speed/build/app/outputs/bundle/release/app-release.aab
