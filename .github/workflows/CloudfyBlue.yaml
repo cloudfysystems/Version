@@ -215,7 +215,7 @@ jobs:
   FinishJob:
     needs: [Windows]    
     runs-on: windows-latest
-    if: always() 
+    if: success() 
     permissions:
       contents: write
     defaults:
