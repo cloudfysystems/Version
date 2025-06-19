@@ -313,8 +313,8 @@ jobs:
           name: v${{ env.VERSAO }} Speedy 
           files: |
              downloaded/CloudfySpeedyPos.exe
-             downloadedApk/app-release.apk
-             downloadedApk/app-release.aab
+             downloadedApk/flutter-apk/app-release.apk
+             downloadedApk/bundle/release/app-release.aab
           body:  Release gerado automaticamente para windows.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}                 
