@@ -43,28 +43,14 @@ jobs:
       # checkout do repositorio de versão
       - uses: actions/checkout@v4
         with:
-          path: version-repo
-      # faz o merge do branch de dev com a produção
-      - name: Fazer merge da branch de dev com produção
-        working-directory: ionic5
-        shell: pwsh
-        run: |
-          git config --global user.name "cloudfysystems"
-          git config --global user.email "cloudfysystem@gmail.com"
-          git pull origin production
-          git checkout production          
-
-          git merge origin/Ionic5 --no-ff -m "gerando versao na falcatrua"
-
-          git push origin production
+          path: version-repo     
       # Lendo a versão atual do repositório
       - name: Ler versão atual e atualizar package.json
         working-directory: version-repo
         shell: powershell
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json
-          $json.blue.patch++
-          $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"          
+          $json.blue.patch++                    
           echo "Versao patch: $($json.blue.patch)"
           echo "Versao gerada: $($json.blue.simple).$($json.blue.patch)"
           echo "VERSAO=$($json.blue.simple).$($json.blue.patch)" >> $env:GITHUB_ENV
@@ -110,27 +96,15 @@ jobs:
       - name: Criando o release
         run: |
           npm run BuildDesktop
-        # publicando
-      - name: Publicar release no GitHub
-        uses: softprops/action-gh-release@v1
+        # Faz upload dos artifacts 
+      - name: Upload do executavel windows 
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: v${{ env.VERSAO }}Blue
-          name: BlueWindows v${{ env.VERSAO }}
-          files: ionic5/PDV/dist/Cloudfyblue Setup ${{ env.VERSAO }}.exe
-          body: Release gerado automaticamente para windows na trairagem.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-      # commit da atualização da versão
-      - name: Commit das alterações
-        uses: EndBug/add-and-commit@v9
-        with:
-          author_name: cloudfysystems
-          author_email: cloudfysystems@gmail.com
-          message: "alterada versão do build"
-          cwd: ./version-repo
-          add: "version.json"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          name: InstaladorBlueWindows
+          path: |            
+            ionic5/PDV/dist/Cloudfyblue Setup ${{ env.VERSAO }}.exe             
+      
+      
 
   Android:
     if: ${{ inputs.android }}
@@ -237,3 +211,113 @@ jobs:
           gradle -v
           node -v
           ionic -v
+  #Job que vai atualizar o git, sincronizar os fontes        
+  FinishJob:
+    needs: [Windows]    
+    runs-on: windows-latest
+    if: always() 
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ./ionic5
+    steps:
+      # Checkout do repositorio IONIC 5
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudfysystems/IONIC
+          ref: Ionic5 # Branch padrão
+          token: ${{ secrets.GH_TOKEN }}
+          path: ionic5
+      # checkout do repositorio de versão
+      - uses: actions/checkout@v4
+        with:
+          path: version-repo
+      - name: Recuperando os commits entre produção e main
+        id: log
+        shell: pwsh
+        run: |  
+          git config --global user.name "cloudfysystems"
+          git config --global user.email "cloudfysystem@gmail.com"        
+          git pull origin production                         
+          
+          $commits = git log origin/production..origin/Ionic5 --pretty=format:"- %s" --no-merges
+          echo "commit_messages<<EOF" >> $env:GITHUB_OUTPUT
+          echo "$commits" >> $env:GITHUB_OUTPUT
+          echo "EOF" >> $env:GITHUB_OUTPUT
+          git checkout production
+
+          git merge origin/Ionic5 --no-ff -m "gerando versao na falcatrua" --allow-unrelated-histories
+
+          git push origin production     
+          
+       # Lendo a versão atual do repositório
+      - name: Ler versão atual e atualizar o numero da versao
+        working-directory: version-repo        
+        shell: powershell
+        run: |
+          $json = Get-Content "version.json" | ConvertFrom-Json
+          $json.blue.patch++
+          $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"
+           echo "VERSAO=$($json.blue.simple).$($json.blue.patch)" >> $env:GITHUB_ENV
+      - name: Download artifact windows
+        if: ${{ inputs.windows }}
+        uses: actions/download-artifact@v4
+        with:
+          name: InstaladorBlueWindows
+          path: ./downloaded
+      - name: Download artifact Android
+        if: ${{ inputs.android }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ApkBundleSpeedyAndroid
+          path: ./downloadedApk               
+
+      - name: Criando o release 
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSAO }}Blue
+          name: v${{ env.VERSAO }} Blue 
+          files: |
+             downloaded/Cloudfyblue.Setup.${{env.VERSAO}}.exe
+          body:  Release gerado automaticamente para windows.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}                 
+      - name: Envia e-mail com resumo
+        uses: dawidd6/action-send-mail@v3        
+        with:
+          server_address: mail.cloudfy.net.br  
+          server_port: 465
+          username: ${{ secrets.EMAIL_USER }}
+          password: ${{ secrets.EMAIL_PASS }}
+          subject: 'Cloudfy blue - Gerado versão em produção '
+          html_body : |
+            <p><b>Olá time!</b></p>
+
+            Foi gerada uma nova versão em produção do Cloudfy blue, na versão ${{env.VERSAO}}!<br><br>
+
+            Commits incluídos:<br><br>
+
+            ${{ steps.log.outputs.commit_messages }}<br><br>
+            
+            Segue o link para download:<br>
+            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}Blue/Cloudfyblue.Setup.${{env.VERSAO}}.exe">Cloudfyblue.Setup.${{env.VERSAO}}.exe</a></p>
+            
+
+            <p><b>Menos foco, mais ansiedade!</b></p>
+
+          to: ${{vars.EMAIL}}
+          from: Cloudfy Versão <noreply@cloudfy.net.br>
+          secure: true              
+                                                    
+      # commit da atualização da versão
+      - name: Commit das alterações        
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build"
+          cwd: ./version-repo
+          add: "version.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
