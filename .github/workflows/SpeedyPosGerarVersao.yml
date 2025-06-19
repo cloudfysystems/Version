@@ -292,10 +292,7 @@ jobs:
         shell: pwsh
         run: |          
           git pull origin production          
-          $commits = git log origin/production..origin/main --pretty=format:"- %s" --no-merges
-          echo "commit_messages<<EOF" >> $env:GITHUB_OUTPUT
-          echo "$commits" >> $env:GITHUB_OUTPUT
-          echo "EOF" >> $env:GITHUB_OUTPUT
+          
           git checkout production          
 
           git merge origin/main --no-ff -m "gerando versao na falcatrua"
