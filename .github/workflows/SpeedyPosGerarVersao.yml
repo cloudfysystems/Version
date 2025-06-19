@@ -124,17 +124,7 @@ jobs:
         with:
           name: InstaladorSpeedyWindows
           path: flutter/speed/dist/CloudfySpeedyPos.exe
-      
-
-      - name: Criando o release 
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ env.VERSAO }}
-          name: v${{ env.VERSAO }} Windows Speedy
-          files: flutter/speed/dist/CloudfySpeedyPos.exe
-          body:  Release gerado automaticamente para windows.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}            
+                   
 
   Android:
     if: ${{ inputs.android }}
@@ -165,22 +155,17 @@ jobs:
           echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV          
 
 
-      - name: Criar pasta e gravar prod.json
+      - name: Gerando o env/prod.json
         run: |
             New-Item -ItemType Directory -Path "./env" -Force | Out-Null
-            Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
-            $json = Get-Content "./env/prod.json" | ConvertFrom-Json
-            $json.version = "${{ env.VERSAO }}"
-            $json | ConvertTo-Json -Depth 2 | Set-Content "./env/prod.json"          
-        shell: pwsh          
-      - name: Criar pasta e gravar prod.json
+            Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'            
+        shell: pwsh
+      - name: Atualiza versão no arquivo Dart
+        shell: pwsh
         run: |
-            New-Item -ItemType Directory -Path "./env" -Force | Out-Null
-            Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
-            $json = Get-Content "./env/prod.json" | ConvertFrom-Json
-            $json.version = "${{ env.VERSAO }}"
-            $json | ConvertTo-Json -Depth 2 | Set-Content "./env/prod.json"          
-        shell: pwsh 
+          $filePath = "lib/Environment/Version.dart"
+          $novaVersao = "${{ env.VERSAO }}"  # ou outro valor dinâmico
+          (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath  
       - name: Criar arquivo.jks a partir de base64
         run: |
             New-Item -ItemType Directory -Path certificado -Force | Out-Null
@@ -255,17 +240,7 @@ jobs:
           path: |            
             flutter/speed/build/app/outputs/flutter-apk/app-release.apk 
             flutter/speed/build/app/outputs/bundle/release/app-release.aab
-      - name: Criando o release 
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ env.VERSAO }}android
-          name:  v${{ env.VERSAO }} Android Speedy
-          files: |
-            flutter/speed/build/app/outputs/flutter-apk/app-release.apk 
-            flutter/speed/build/app/outputs/bundle/release/app-release.aab
-          body:  Release gerado automaticamente para android.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+     
   #Job que vai atualizar o git, sincronizar os fontes        
   FinishJob:
     needs: [Android, Windows]    
@@ -312,7 +287,32 @@ jobs:
           $json = Get-Content "version.json" | ConvertFrom-Json
           $json.speedy.patch++
           $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"
-           echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV        
+           echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV
+      - name: Download artifact
+        if: ${{ inputs.windows }}
+        uses: actions/download-artifact@v4
+        with:
+          name: InstaladorSpeedyWindows
+          path: ./downloaded
+      - name: Download artifact
+        if: ${{ inputs.android }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ApkBundleSpeedyAndroid
+          path: ./downloadedApk    
+
+      - name: Criando o release 
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSAO }}
+          name: v${{ env.VERSAO }} Speedy 
+          files: |
+             downloaded/CloudfySpeedyPos.exe
+             downloadedApk/app-release.apk
+             downloadedApk/app-release.aab
+          body:  Release gerado automaticamente para windows.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}                 
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3        
         with:
@@ -320,11 +320,11 @@ jobs:
           server_port: 465
           username: ${{ secrets.EMAIL_USER }}
           password: ${{ secrets.EMAIL_PASS }}
-          subject: 'Speedy POS - Gerado versao em produção '
+          subject: 'Speedy POS - Gerado versão em produção '
           html_body : |
             <p><b>Olá time!</b></p>
 
-            Foi gerada uma nova versão em produção do SpeedyPOS, na versao ${{env.VERSAO}}!<br><br>
+            Foi gerada uma nova versão em produção do SpeedyPOS, na versão ${{env.VERSAO}}!<br><br>
 
             Commits incluídos:<br><br>
 
@@ -337,7 +337,7 @@ jobs:
             <p><b>Menos foco, mais ansiedade!</b></p>
 
           to: ${{vars.EMAIL}}
-          from: Cloudfy Versao <noreply@cloudfy.net.br>
+          from: Cloudfy Versão <noreply@cloudfy.net.br>
           secure: true              
                                                     
       # commit da atualização da versão
