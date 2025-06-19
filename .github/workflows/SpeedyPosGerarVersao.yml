@@ -78,7 +78,7 @@ jobs:
       - name: Atualizar versão
         shell: pwsh
         run: |
-          (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSION+$env:BUILD" | Set-Content pubspec.yaml
+          (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSAO" | Set-Content pubspec.yaml
       - name: Ajeitar o longpath do git
         run: |
              git config --system core.longpaths true
