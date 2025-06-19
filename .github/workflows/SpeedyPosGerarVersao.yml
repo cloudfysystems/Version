@@ -322,7 +322,7 @@ jobs:
           password: ${{ secrets.EMAIL_PASS }}
           subject: 'Speedy POS - Gerado versao em produção '
           html_body : |
-            <p>Olá time!</p>
+            <p><b>Olá time!</b></p>
 
             Foi gerada uma nova versão em produção do SpeedyPOS, na versao ${{env.VERSAO}}!<br><br>
 
@@ -334,7 +334,7 @@ jobs:
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/CloudfySpeedyPos.exe">CloudfySpeedyPos.exe</a></p>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}android/app-release.apk">CloudfySpeedyPos.apk</a></p>
 
-            <p>Menos foco, mais ansiedade!</p>
+            <p><b>Menos foco, mais ansiedade!</b></p>
 
           to: ${{vars.EMAIL}}
           from: Cloudfy Versao <noreply@cloudfy.net.br>
