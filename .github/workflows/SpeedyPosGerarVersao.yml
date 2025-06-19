@@ -290,7 +290,9 @@ jobs:
       - name: Recuperando os commits entre produção e main
         id: log
         shell: pwsh
-        run: |          
+        run: |  
+          git config --global user.name "cloudfysystems"
+          git config --global user.email "cloudfysystem@gmail.com"        
           git pull origin production          
           $commits = git log origin/production..origin/main --pretty=format:"- %s" --no-merges
           echo "commit_messages<<EOF" >> $env:GITHUB_OUTPUT
@@ -300,7 +302,7 @@ jobs:
 
           git merge origin/main --no-ff -m "gerando versao na falcatrua" --allow-unrelated-histories
 
-          git push origin production
+          git push origin production --allow-unrelated-histories
        # Lendo a versão atual do repositório
       - name: Ler versão atual e atualizar o numero da versao
         working-directory: version-repo
