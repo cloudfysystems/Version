@@ -324,13 +324,13 @@ jobs:
           html_body : |
             <p>Olá time!</p>
 
-            Foi gerada uma nova versão em produção do SpeedyPOS, na versao ${{env.VERSAO}}!
+            Foi gerada uma nova versão em produção do SpeedyPOS, na versao ${{env.VERSAO}}!<br><br>
 
-            Commits incluídos:
+            Commits incluídos:<br><br>
 
-            ${{ steps.log.outputs.commit_messages }}
+            ${{ steps.log.outputs.commit_messages }}<br><br>
             
-            Segue o link para download:
+            Segue o link para download:<br>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/CloudfySpeedyPos.exe">CloudfySpeedyPos.exe</a></p>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}android/app-release.apk">CloudfySpeedyPos.apk</a></p>
 
