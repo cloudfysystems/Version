@@ -336,7 +336,7 @@ jobs:
 
             <p>Menos foco, mais ansiedade!</p>
 
-          to: zeoliveirajunior@gmail.com,jose.oliveira@cloudfy.net.br
+          to: ${{vars.EMAIL}}
           from: Cloudfy Versao <noreply@cloudfy.net.br>
           secure: true              
                                                     
