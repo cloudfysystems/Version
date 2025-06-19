@@ -275,14 +275,15 @@ jobs:
       contents: write
     defaults:
       run:
-        working-directory: ./flutter/speed   
+        working-directory: ./flutterrepo
     steps:
       - uses: actions/checkout@v4
         with:
           repository: cloudfysystems/FLUTTER
+          fetch-depth: 0  # necessário para evitar "unrelated histories
           ref: main  # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }}
-          path: flutter  # ou um token pessoal (PAT) 
+          path: flutterrepo  # ou um token pessoal (PAT) 
       # checkout do repositorio de versão
       - uses: actions/checkout@v4
         with:
@@ -293,7 +294,7 @@ jobs:
         run: |  
           git config --global user.name "cloudfysystems"
           git config --global user.email "cloudfysystem@gmail.com"        
-          git pull origin production --allow-unrelated-histories         
+          git pull origin production          
           $commits = git log origin/production..origin/main --pretty=format:"- %s" --no-merges
           echo "commit_messages<<EOF" >> $env:GITHUB_OUTPUT
           echo "$commits" >> $env:GITHUB_OUTPUT
