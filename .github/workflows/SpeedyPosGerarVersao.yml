@@ -288,13 +288,13 @@ jobs:
           $json.speedy.patch++
           $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"
            echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV
-      - name: Download artifact
+      - name: Download artifact windows
         if: ${{ inputs.windows }}
         uses: actions/download-artifact@v4
         with:
           name: InstaladorSpeedyWindows
           path: ./downloaded
-      - name: Download artifact
+      - name: Download artifact Android
         if: ${{ inputs.android }}
         uses: actions/download-artifact@v4
         with:
