@@ -332,7 +332,7 @@ jobs:
             
             Segue o link para download:<br>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/CloudfySpeedyPos.exe">CloudfySpeedyPos.exe</a></p>
-            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}android/app-release.apk">CloudfySpeedyPos.apk</a></p>
+            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/app-release.apk">CloudfySpeedyPos.apk</a></p>
 
             <p><b>Menos foco, mais ansiedade!</b></p>
 
