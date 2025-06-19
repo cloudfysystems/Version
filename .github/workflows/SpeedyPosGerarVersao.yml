@@ -299,7 +299,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ApkBundleSpeedyAndroid
-          path: ./downloadedApk    
+          path: ./downloadedApk
+      - name: Listar diretorio
+        working-directory: ./downloadedApk        
+        run: |
+             dir
+        continue-on-error: true         
 
       - name: Criando o release 
         uses: softprops/action-gh-release@v1
