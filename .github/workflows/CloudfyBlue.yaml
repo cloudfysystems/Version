@@ -279,7 +279,7 @@ jobs:
           tag_name: v${{ env.VERSAO }}Blue
           name: v${{ env.VERSAO }} Blue 
           files: |
-             downloaded/Cloudfyblue.Setup.${{env.VERSAO}}.exe
+             downloaded/Cloudfyblue Setup ${{env.VERSAO}}.exe
           body:  Release gerado automaticamente para windows.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}                 
@@ -301,7 +301,7 @@ jobs:
             ${{ steps.log.outputs.commit_messages }}<br><br>
             
             Segue o link para download:<br>
-            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}Blue/Cloudfyblue.Setup.${{env.VERSAO}}.exe">Cloudfyblue.Setup.${{env.VERSAO}}.exe</a></p>
+            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}Blue/Cloudfyblue.Setup.${{env.VERSAO}}.exe">Cloudfyblue Setup ${{env.VERSAO}}.exe</a></p>
             
 
             <p><b>Menos foco, mais ansiedade!</b></p>
