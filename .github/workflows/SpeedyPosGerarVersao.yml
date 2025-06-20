@@ -296,8 +296,7 @@ jobs:
           git config --global user.name "cloudfysystems"
           git config --global user.email "cloudfysystem@gmail.com"        
           git pull origin production          
-          $commits = git log origin/production..origin/main --pretty=format:"%s (%an)" --no-merges
-          $commits = $commits -replace "`r?`n", "<br>"
+          $commits = git log origin/production..origin/main --pretty=format:"%s (%an)<br>" --no-merges          
           echo "commit_messages<<EOF" >> $env:GITHUB_OUTPUT
           echo "$commits" >> $env:GITHUB_OUTPUT
           echo "EOF" >> $env:GITHUB_OUTPUT
@@ -344,7 +343,7 @@ jobs:
             downloadedApk/bundle/release/app-release.aab
           body: Release gerado automaticamente para windows.
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}          
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3
         with:
