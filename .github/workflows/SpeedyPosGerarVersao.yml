@@ -27,8 +27,7 @@ env:
   SIGNATURE_TENANT_ID: ${{ secrets.SIGNATURE_TENANT_ID }}
 
 jobs:
-  Windows:
-    if: ${{ inputs.windows }}
+  Windows:    
     runs-on: windows-latest
 
     defaults:
@@ -39,6 +38,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        if: ${{ inputs.windows }}
         with:
           repository: cloudfysystems/FLUTTER
           ref: main # ou a branch/tag desejada
@@ -50,10 +50,12 @@ jobs:
       #   run: azuresigntool sign -kvu "${{env.SIGNATURE_VAULT_ID}}" -kvc "${{env.SIGNATURE_CERTIFICATE_NAME}}" -kvi "${{env.SIGNATURE_APP_ID}}" -kvs "${{env.SIGNATURE_PASSWORD}}" --azure-key-vault-tenant-id "${{env.#SIGNATURE_TENANT_ID}}" -tr http://timestamp.digicert.com -td sha256 ./dlls/CliSiTef64I.dll
       # checkout do repositorio de versão
       - uses: actions/checkout@v4
+        if: ${{ inputs.windows }}
         with:
           path: version-repo
         # Lendo a versão atual do repositório
       - name: Ler versão atual
+        if: ${{ inputs.windows }}
         working-directory: version-repo
         shell: powershell
         run: |
@@ -64,11 +66,13 @@ jobs:
           echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV
 
       - name: Gerando o env/prod.json
+        if: ${{ inputs.windows }}
         run: |
           New-Item -ItemType Directory -Path "./env" -Force | Out-Null
           Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
         shell: pwsh
       - name: Atualiza versão no arquivo Dart
+        if: ${{ inputs.windows }}
         shell: pwsh
         run: |
           $filePath = "lib/Environment/Version.dart"
@@ -76,15 +80,18 @@ jobs:
           (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath
 
       - name: Criar pasta dist
+        if: ${{ inputs.windows }} 
         run: |
           mkdir dist
         shell: pwsh
 
       - name: Atualizar versão
+        if: ${{ inputs.windows }}
         shell: pwsh
         run: |
           (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSAO" | Set-Content pubspec.yaml
       - name: Ajeitar o longpath do git
+        if: ${{ inputs.windows }}
         run: |
           git config --system core.longpaths true
       - name: 🐦 Setup Shorebird
@@ -102,9 +109,11 @@ jobs:
       #
 
       - name: Build Windows EXE
+        if: ${{ inputs.windows }}
         run: shorebird release windows --dart-define-from-file="env/prod.json" --no-confirm --flutter-version="3.32.3"
         continue-on-error: true
       - name: Verificar executável gerado com sucesso
+        if: ${{ inputs.windows }}
         shell: pwsh
         run: |
           if (!(Test-Path "build/windows/x64/runner/Release/speed.exe")) {
@@ -117,6 +126,7 @@ jobs:
       #- name: Assinar o executável
       #  run: sign.bat
       - name: Gerar o instalador
+        if: ${{ inputs.windows }}
         run: |
           .\sign.bat  
           makensis windowsinstallmaker.nsi
@@ -125,19 +135,20 @@ jobs:
       #  run: signinstall.bat
 
       - name: Upload do executável
+        if: ${{ inputs.windows }}
         uses: actions/upload-artifact@v4
         with:
           name: InstaladorSpeedyWindows
           path: flutter/speed/dist/CloudfySpeedyPos.exe
 
-  Android:
-    if: ${{ inputs.android }}
+  Android:    
     runs-on: windows-latest
     defaults:
       run:
         working-directory: ./flutter/speed
     steps:
       - uses: actions/checkout@v4
+        if: ${{ inputs.android }}
         with:
           repository: cloudfysystems/FLUTTER
           ref: main # ou a branch/tag desejada
@@ -145,10 +156,12 @@ jobs:
           path: flutter
       # checkout do repositorio de versão
       - uses: actions/checkout@v4
+        if: ${{ inputs.android }}
         with:
           path: version-repo
         # Lendo a versão atual do repositório
       - name: Ler versão atual
+        if: ${{ inputs.android }}
         working-directory: version-repo
         shell: powershell
         run: |
@@ -159,17 +172,20 @@ jobs:
           echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV
 
       - name: Gerando o env/prod.json
+        if: ${{ inputs.android }}
         run: |
           New-Item -ItemType Directory -Path "./env" -Force | Out-Null
           Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
         shell: pwsh
       - name: Atualiza versão no arquivo Dart
+        if: ${{ inputs.android }}
         shell: pwsh
         run: |
           $filePath = "lib/Environment/Version.dart"
           $novaVersao = "${{ env.VERSAO }}"  # ou outro valor dinâmico
           (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath
       - name: Criar arquivo.jks a partir de base64
+        if: ${{ inputs.android }}
         run: |
           New-Item -ItemType Directory -Path certificado -Force | Out-Null
           $base64 = "${{ secrets.KEYSTORE }}"
@@ -177,37 +193,45 @@ jobs:
           [System.IO.File]::WriteAllBytes("certificado\certificado-keystore.jks", $bytes)
         shell: pwsh
       - name: Resolver problema incremental do gradle
+        if: ${{ inputs.android }}
         run: |
           Add-Content -Path './android/gradle.properties' -Value 'kotlin.incremental=false'
         shell: pwsh
       - name: Atualizar versão
+        if: ${{ inputs.android }}
         shell: pwsh
         run: |
           (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSION+$env:BUILD" | Set-Content pubspec.yaml
       - name: Ajeitar o longpath do git
+        if: ${{ inputs.android }}
         run: |
           git config --system core.longpaths true
       - name: 🐦 Setup Shorebird
+        if: ${{ inputs.android }}
         uses: shorebirdtech/setup-shorebird@v1
         with:
           cache: true
 
       - name: Criar o arquivo key.properties
+        if: ${{ inputs.android }}
         run: |
           $conteudo = "storePassword=${{ secrets.SENHA_KEYSTORE }}`r`nkeyPassword=${{ secrets.SENHA_KEYSTORE }}`r`nkeyAlias=cloudfycardapio`r`nstoreFile=../../certificado/certificado-keystore.jks"
           Set-Content -Path "android/key.properties" -Value $conteudo
         shell: pwsh
 
       - name: Set Up Java
+        if: ${{ inputs.android }}
         uses: actions/setup-java@v3.12.0
         with:
           distribution: "oracle"
           java-version: "17"
 
       - name: Build App Bundle (AAB)
+        if: ${{ inputs.android }}
         run: shorebird release android --dart-define-from-file="env/prod.json"  --no-confirm --flutter-version="3.32.3"
         continue-on-error: true
       - name: Verificar bundle gerado com sucesso
+        if: ${{ inputs.android }}
         shell: pwsh
         run: |
           if (!(Test-Path "build/app/outputs/bundle/release/app-release.aab")) {
@@ -218,10 +242,12 @@ jobs:
           }
 
       - name: Build APK
+        if: ${{ inputs.android }}
         run: shorebird release android --dart-define-from-file="env/prod.json"  --artifact=apk --no-confirm --flutter-version="3.32.3"
         continue-on-error: true
 
       - name: Verificar apk gerado com sucesso
+        if: ${{ inputs.android }}
         shell: pwsh
 
         run: |
@@ -233,6 +259,7 @@ jobs:
           }
 
       - name: Upload da apk e do bundle
+        if: ${{ inputs.android }}
         uses: actions/upload-artifact@v4
         with:
           name: ApkBundleSpeedyAndroid
@@ -244,7 +271,7 @@ jobs:
   FinishJob:
     needs: [Android, Windows]
     runs-on: windows-latest
-    if: success()
+    if: success() && ${{ (inputs.android || inputs.windows) }}
     permissions:
       contents: write
     defaults:
@@ -269,7 +296,8 @@ jobs:
           git config --global user.name "cloudfysystems"
           git config --global user.email "cloudfysystem@gmail.com"        
           git pull origin production          
-          $commits = git log origin/production..origin/main --pretty=format:"- %s" --no-merges
+          $commits = git log origin/production..origin/main --pretty=format:"%s (%an)" --no-merges
+          $commits = $commits -replace "`r?`n", "<br>"
           echo "commit_messages<<EOF" >> $env:GITHUB_OUTPUT
           echo "$commits" >> $env:GITHUB_OUTPUT
           echo "EOF" >> $env:GITHUB_OUTPUT
@@ -332,7 +360,7 @@ jobs:
 
             Commits incluídos:<br><br>
 
-            ${{ steps.log.outputs.commit_messages }}<br><br>
+            <b>${{ steps.log.outputs.commit_messages }}</b><br><br>
 
             Segue o link para download:<br>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/CloudfySpeedyPos.exe">CloudfySpeedyPos.exe</a></p>
