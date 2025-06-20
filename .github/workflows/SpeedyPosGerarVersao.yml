@@ -33,14 +33,14 @@ jobs:
       contents: write
 
     steps:
-      - name: Instalar AzureSignTool
-        run: dotnet tool install --global AzureSignTool
       - uses: actions/checkout@v4
         with:
           repository: cloudfysystems/FLUTTER
           ref: main # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }}
           path: flutter
+      - name: Instalar AzureSignTool
+        run: dotnet tool install --global AzureSignTool
       - name: assinar dll
         run: azuresigntool sign -kvu "%SIGNATURE_VAULT_ID%" -kvc "%SIGNATURE_CERTIFICATE_NAME%" -kvi "%SIGNATURE_APP_ID%" -kvs "%SIGNATURE_PASSWORD%" --azure-key-vault-tenant-id "%SIGNATURE_TENANT_ID%" -tr http://timestamp.digicert.com -td sha256 ./dlls/CliSiTef64I.dll
       # checkout do repositorio de versão
