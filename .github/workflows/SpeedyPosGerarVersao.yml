@@ -109,8 +109,9 @@ jobs:
       #
 
       - name: Build Windows EXE
+        shell: pwsh
         if: ${{ inputs.windows }}
-        run: shorebird release windows --dart-define-from-file="env/prod.json" --no-confirm --flutter-version="3.32.3"
+        run: shorebird release windows --flutter-version 3.32.3 --no-confirm '--' --dart-define-from-file=env/prod.json
         continue-on-error: true
       - name: Verificar executável gerado com sucesso
         if: ${{ inputs.windows }}
@@ -226,9 +227,9 @@ jobs:
           distribution: "oracle"
           java-version: "17"
 
-      - name: Build App Bundle (AAB)
+      - name: Build App Bundle(AAB) e Apk       
         if: ${{ inputs.android }}
-        run: shorebird release android --dart-define-from-file="env/prod.json"  --no-confirm --flutter-version="3.32.3"
+        run: shorebird release android --flutter-version 3.32.3 --no-confirm --artifact apk '--' --dart-define-from-file=env/prod.json
         continue-on-error: true
       - name: Verificar bundle gerado com sucesso
         if: ${{ inputs.android }}
@@ -240,11 +241,7 @@ jobs:
           } else {
           Write-Host "✅ Build gerado com sucesso."
           }
-
-      - name: Build APK
-        if: ${{ inputs.android }}
-        run: shorebird release android --dart-define-from-file="env/prod.json"  --artifact=apk --no-confirm --flutter-version="3.32.3"
-        continue-on-error: true
+      
 
       - name: Verificar apk gerado com sucesso
         if: ${{ inputs.android }}
