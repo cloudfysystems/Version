@@ -8,11 +8,11 @@ on:
       #  required: true
       #  default: '1.0.0'
       windows:
-        description: 'Gerar versão Windows?'        
+        description: "Gerar versão Windows?"
         default: true
         type: boolean
       android:
-        description: 'Gerar versão Android?'        
+        description: "Gerar versão Android?"
         default: true
         type: boolean
 env:
@@ -21,33 +21,34 @@ env:
   SENHA_CERTIFICADO_CLOUDFY: ${{ secrets.SENHA_CERTIFICADO_CLOUDFY }}
   SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_KEY }}
 
-  
-
-
-jobs:                  
+jobs:
   Windows:
     if: ${{ inputs.windows }}
-    runs-on: windows-latest    
-    
+    runs-on: windows-latest
+
     defaults:
       run:
         working-directory: ./flutter/speed
     permissions:
-      contents: write    
-        
+      contents: write
+
     steps:
+      - name: Instalar AzureSignTool
+        run: dotnet tool install --global AzureSignTool
       - uses: actions/checkout@v4
         with:
           repository: cloudfysystems/FLUTTER
-          ref: main  # ou a branch/tag desejada
+          ref: main # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }}
-          path: flutter  
+          path: flutter
+      - name: assinar dll
+        run: azuresigntool sign -kvu "%SIGNATURE_VAULT_ID%" -kvc "%SIGNATURE_CERTIFICATE_NAME%" -kvi "%SIGNATURE_APP_ID%" -kvs "%SIGNATURE_PASSWORD%" --azure-key-vault-tenant-id "%SIGNATURE_TENANT_ID%" -tr http://timestamp.digicert.com -td sha256 ./dlls/CliSiTef64I.dll
       # checkout do repositorio de versão
       - uses: actions/checkout@v4
         with:
-          path: version-repo     
-       # Lendo a versão atual do repositório
-      - name: Ler versão atual 
+          path: version-repo
+        # Lendo a versão atual do repositório
+      - name: Ler versão atual
         working-directory: version-repo
         shell: powershell
         run: |
@@ -55,25 +56,24 @@ jobs:
           $json.speedy.patch++          
           echo "Versao patch: $($json.speedy.patch)"
           echo "Versao gerada: $($json.speedy.simple).$($json.speedy.patch)"
-          echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV          
-
+          echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV
 
       - name: Gerando o env/prod.json
         run: |
-            New-Item -ItemType Directory -Path "./env" -Force | Out-Null
-            Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'            
+          New-Item -ItemType Directory -Path "./env" -Force | Out-Null
+          Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
         shell: pwsh
       - name: Atualiza versão no arquivo Dart
         shell: pwsh
         run: |
           $filePath = "lib/Environment/Version.dart"
           $novaVersao = "${{ env.VERSAO }}"  # ou outro valor dinâmico
-          (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath         
-    
+          (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath
+
       - name: Criar pasta dist
         run: |
-            mkdir dist
-        shell: pwsh     
+          mkdir dist
+        shell: pwsh
 
       - name: Atualizar versão
         shell: pwsh
@@ -81,13 +81,12 @@ jobs:
           (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSAO" | Set-Content pubspec.yaml
       - name: Ajeitar o longpath do git
         run: |
-             git config --system core.longpaths true
+          git config --system core.longpaths true
       - name: 🐦 Setup Shorebird
-        uses: shorebirdtech/setup-shorebird@v1        
+        uses: shorebirdtech/setup-shorebird@v1
         with:
           cache: true
 
-          
       #- name: Mostrar caminho e conteúdo do prod.json
       #  run: |
       #      $filePath = Resolve-Path "./env/prod.json"
@@ -95,56 +94,56 @@ jobs:
       #      Write-Host "📄 Conteúdo do arquivo:"
       #      Get-Content $filePath | ForEach-Object { Write-Host $_ }
       #  shell: pwsh
-#
+      #
 
-                
-
-      - name: Build Windows EXE        
-        run: shorebird release windows --dart-define-from-file="env/prod.json" --no-confirm --flutter-version="3.32.3" 
+      - name: Build Windows EXE
+        run: shorebird release windows --dart-define-from-file="env/prod.json" --no-confirm --flutter-version="3.32.3"
         continue-on-error: true
       - name: Verificar executável gerado com sucesso
-        shell: pwsh        
+        shell: pwsh
         run: |
-            if (!(Test-Path "build/windows/x64/runner/Release/speed.exe")) {
-            Write-Error "Arquivo 'speed.exe' não encontrado. Abortando workflow."
-            exit 1
-            } else {
-            Write-Host "✅ Build gerado com sucesso."
-            }
-        
+          if (!(Test-Path "build/windows/x64/runner/Release/speed.exe")) {
+          Write-Error "Arquivo 'speed.exe' não encontrado. Abortando workflow."
+          exit 1
+          } else {
+          Write-Host "✅ Build gerado com sucesso."
+          }
+
       #- name: Assinar o executável
       #  run: sign.bat
       - name: Gerar o instalador
-        run: makensis windowsinstallmaker.nsi
+        run: |
+          sign.bat  
+          makensis windowsinstallmaker.nsi
+          signinstall.bat
       #- name: Assinar o instalador
-      #  run: signinstall.bat        
-    
+      #  run: signinstall.bat
+
       - name: Upload do executável
-        uses: actions/upload-artifact@v4        
+        uses: actions/upload-artifact@v4
         with:
           name: InstaladorSpeedyWindows
           path: flutter/speed/dist/CloudfySpeedyPos.exe
-                   
 
   Android:
     if: ${{ inputs.android }}
-    runs-on: windows-latest       
+    runs-on: windows-latest
     defaults:
       run:
-        working-directory: ./flutter/speed    
-    steps:        
+        working-directory: ./flutter/speed
+    steps:
       - uses: actions/checkout@v4
         with:
           repository: cloudfysystems/FLUTTER
-          ref: main  # ou a branch/tag desejada
-          token: ${{ secrets.GH_TOKEN }}  # ou um token pessoal (PAT)
-          path: flutter  
+          ref: main # ou a branch/tag desejada
+          token: ${{ secrets.GH_TOKEN }} # ou um token pessoal (PAT)
+          path: flutter
       # checkout do repositorio de versão
       - uses: actions/checkout@v4
         with:
-          path: version-repo     
-       # Lendo a versão atual do repositório
-      - name: Ler versão atual 
+          path: version-repo
+        # Lendo a versão atual do repositório
+      - name: Ler versão atual
         working-directory: version-repo
         shell: powershell
         run: |
@@ -152,30 +151,29 @@ jobs:
           $json.speedy.patch++          
           echo "Versao patch: $($json.speedy.patch)"
           echo "Versao gerada: $($json.speedy.simple).$($json.speedy.patch)"
-          echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV          
-
+          echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV
 
       - name: Gerando o env/prod.json
         run: |
-            New-Item -ItemType Directory -Path "./env" -Force | Out-Null
-            Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'            
+          New-Item -ItemType Directory -Path "./env" -Force | Out-Null
+          Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
         shell: pwsh
       - name: Atualiza versão no arquivo Dart
         shell: pwsh
         run: |
           $filePath = "lib/Environment/Version.dart"
           $novaVersao = "${{ env.VERSAO }}"  # ou outro valor dinâmico
-          (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath  
+          (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath
       - name: Criar arquivo.jks a partir de base64
         run: |
-            New-Item -ItemType Directory -Path certificado -Force | Out-Null
-            $base64 = "${{ secrets.KEYSTORE }}"
-            $bytes = [System.Convert]::FromBase64String($base64)
-            [System.IO.File]::WriteAllBytes("certificado\certificado-keystore.jks", $bytes)
+          New-Item -ItemType Directory -Path certificado -Force | Out-Null
+          $base64 = "${{ secrets.KEYSTORE }}"
+          $bytes = [System.Convert]::FromBase64String($base64)
+          [System.IO.File]::WriteAllBytes("certificado\certificado-keystore.jks", $bytes)
         shell: pwsh
       - name: Resolver problema incremental do gradle
         run: |
-            Add-Content -Path './android/gradle.properties' -Value 'kotlin.incremental=false'            
+          Add-Content -Path './android/gradle.properties' -Value 'kotlin.incremental=false'
         shell: pwsh
       - name: Atualizar versão
         shell: pwsh
@@ -183,69 +181,65 @@ jobs:
           (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSION+$env:BUILD" | Set-Content pubspec.yaml
       - name: Ajeitar o longpath do git
         run: |
-             git config --system core.longpaths true    
+          git config --system core.longpaths true
       - name: 🐦 Setup Shorebird
         uses: shorebirdtech/setup-shorebird@v1
         with:
-          cache: true   
-        
+          cache: true
 
       - name: Criar o arquivo key.properties
         run: |
-           $conteudo = "storePassword=${{ secrets.SENHA_KEYSTORE }}`r`nkeyPassword=${{ secrets.SENHA_KEYSTORE }}`r`nkeyAlias=cloudfycardapio`r`nstoreFile=../../certificado/certificado-keystore.jks"
-           Set-Content -Path "android/key.properties" -Value $conteudo
+          $conteudo = "storePassword=${{ secrets.SENHA_KEYSTORE }}`r`nkeyPassword=${{ secrets.SENHA_KEYSTORE }}`r`nkeyAlias=cloudfycardapio`r`nstoreFile=../../certificado/certificado-keystore.jks"
+          Set-Content -Path "android/key.properties" -Value $conteudo
         shell: pwsh
 
       - name: Set Up Java
         uses: actions/setup-java@v3.12.0
         with:
-            distribution: 'oracle'
-            java-version: '17'            
-               
+          distribution: "oracle"
+          java-version: "17"
 
-      - name: Build App Bundle (AAB)                
-        run: shorebird release android --dart-define-from-file="env/prod.json"  --no-confirm --flutter-version="3.32.3" 
+      - name: Build App Bundle (AAB)
+        run: shorebird release android --dart-define-from-file="env/prod.json"  --no-confirm --flutter-version="3.32.3"
         continue-on-error: true
       - name: Verificar bundle gerado com sucesso
-        shell: pwsh        
+        shell: pwsh
         run: |
-            if (!(Test-Path "build/app/outputs/bundle/release/app-release.aab")) {
-            Write-Error "Arquivo 'app-release.aab' não encontrado. Abortando workflow."
-            exit 1
-            } else {
-            Write-Host "✅ Build gerado com sucesso."
-            }  
+          if (!(Test-Path "build/app/outputs/bundle/release/app-release.aab")) {
+          Write-Error "Arquivo 'app-release.aab' não encontrado. Abortando workflow."
+          exit 1
+          } else {
+          Write-Host "✅ Build gerado com sucesso."
+          }
 
-
-      - name: Build APK        
-        run: shorebird release android --dart-define-from-file="env/prod.json"  --artifact=apk --no-confirm --flutter-version="3.32.3" 
+      - name: Build APK
+        run: shorebird release android --dart-define-from-file="env/prod.json"  --artifact=apk --no-confirm --flutter-version="3.32.3"
         continue-on-error: true
 
       - name: Verificar apk gerado com sucesso
         shell: pwsh
-        
-        run: |
-            if (!(Test-Path "build/app/outputs/flutter-apk/app-release.apk")) {
-            Write-Error "Arquivo 'app-release.apk' não encontrado. Abortando workflow."
-            exit 1
-            } else {
-            Write-Host "✅ Build gerado com sucesso."
-            }  
 
-    
+        run: |
+          if (!(Test-Path "build/app/outputs/flutter-apk/app-release.apk")) {
+          Write-Error "Arquivo 'app-release.apk' não encontrado. Abortando workflow."
+          exit 1
+          } else {
+          Write-Host "✅ Build gerado com sucesso."
+          }
+
       - name: Upload da apk e do bundle
         uses: actions/upload-artifact@v4
         with:
           name: ApkBundleSpeedyAndroid
-          path: |            
+          path: |
             flutter/speed/build/app/outputs/flutter-apk/app-release.apk 
             flutter/speed/build/app/outputs/bundle/release/app-release.aab
-     
-  #Job que vai atualizar o git, sincronizar os fontes        
+
+  #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
-    needs: [Android, Windows]    
+    needs: [Android, Windows]
     runs-on: windows-latest
-    if: success() 
+    if: success()
     permissions:
       contents: write
     defaults:
@@ -255,10 +249,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: cloudfysystems/FLUTTER
-          fetch-depth: 0  # necessário para evitar "unrelated histories
-          ref: main  # ou a branch/tag desejada
+          fetch-depth: 0 # necessário para evitar "unrelated histories
+          ref: main # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }}
-          path: flutterrepo  # ou um token pessoal (PAT) 
+          path: flutterrepo # ou um token pessoal (PAT)
       # checkout do repositorio de versão
       - uses: actions/checkout@v4
         with:
@@ -266,7 +260,7 @@ jobs:
       - name: Recuperando os commits entre produção e main
         id: log
         shell: pwsh
-        run: |  
+        run: |
           git config --global user.name "cloudfysystems"
           git config --global user.email "cloudfysystem@gmail.com"        
           git pull origin production          
@@ -278,10 +272,10 @@ jobs:
 
           git merge origin/main --no-ff -m "gerando versao na falcatrua" --allow-unrelated-histories
 
-          git push origin production 
-       # Lendo a versão atual do repositório
+          git push origin production
+        # Lendo a versão atual do repositório
       - name: Ler versão atual e atualizar o numero da versao
-        working-directory: version-repo        
+        working-directory: version-repo
         shell: powershell
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json
@@ -301,32 +295,32 @@ jobs:
           name: ApkBundleSpeedyAndroid
           path: ./downloadedApk
       - name: Listar diretorio
-        working-directory: ./downloadedApk        
+        working-directory: ./downloadedApk
         run: |
-             dir
-        continue-on-error: true         
+          dir
+        continue-on-error: true
 
-      - name: Criando o release 
+      - name: Criando o release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.VERSAO }}
-          name: v${{ env.VERSAO }} Speedy 
+          name: v${{ env.VERSAO }} Speedy
           files: |
-             downloaded/CloudfySpeedyPos.exe
-             downloadedApk/flutter-apk/app-release.apk
-             downloadedApk/bundle/release/app-release.aab
-          body:  Release gerado automaticamente para windows.
+            downloaded/CloudfySpeedyPos.exe
+            downloadedApk/flutter-apk/app-release.apk
+            downloadedApk/bundle/release/app-release.aab
+          body: Release gerado automaticamente para windows.
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}                 
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Envia e-mail com resumo
-        uses: dawidd6/action-send-mail@v3        
+        uses: dawidd6/action-send-mail@v3
         with:
-          server_address: mail.cloudfy.net.br  
+          server_address: mail.cloudfy.net.br
           server_port: 465
           username: ${{ secrets.EMAIL_USER }}
           password: ${{ secrets.EMAIL_PASS }}
-          subject: 'Speedy POS - Gerado versão em produção '
-          html_body : |
+          subject: "Speedy POS - Gerado versão em produção "
+          html_body: |
             <p><b>Olá time!</b></p>
 
             Foi gerada uma nova versão em produção do SpeedyPOS, na versão ${{env.VERSAO}}!<br><br>
@@ -334,7 +328,7 @@ jobs:
             Commits incluídos:<br><br>
 
             ${{ steps.log.outputs.commit_messages }}<br><br>
-            
+
             Segue o link para download:<br>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/CloudfySpeedyPos.exe">CloudfySpeedyPos.exe</a></p>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/app-release.apk">CloudfySpeedyPos.apk</a></p>
@@ -343,10 +337,10 @@ jobs:
 
           to: ${{vars.EMAIL}}
           from: Cloudfy Versão <noreply@cloudfy.net.br>
-          secure: true              
-                                                    
+          secure: true
+
       # commit da atualização da versão
-      - name: Commit das alterações        
+      - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
         with:
           author_name: cloudfysystems
@@ -355,14 +349,4 @@ jobs:
           cwd: ./version-repo
           add: "version.json"
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }} 
-     
-        
-
-
-
-      
-
-     
-
-      
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
