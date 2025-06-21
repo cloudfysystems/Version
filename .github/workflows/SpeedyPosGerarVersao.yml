@@ -293,7 +293,7 @@ jobs:
           git config --global user.name "cloudfysystems"
           git config --global user.email "cloudfysystem@gmail.com"        
           git pull origin production          
-          $commits = git log origin/production..origin/main --pretty=format:"%s (%an)<br>" --no-merges          
+          $commits = git log origin/production..origin/main --pretty=format:"- %s (%an)<br>" --no-merges          
           echo "commit_messages<<EOF" >> $env:GITHUB_OUTPUT
           echo "$commits" >> $env:GITHUB_OUTPUT
           echo "EOF" >> $env:GITHUB_OUTPUT

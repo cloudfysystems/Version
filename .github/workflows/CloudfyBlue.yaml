@@ -19,6 +19,11 @@ env:
   VERSION: ${{vars.VERSAO}}
   BUILD: ${{vars.build}}
   NODE_OPTIONS: "--max-old-space-size=4096"
+  SIGNATURE_APP_ID: ${{ secrets.SIGNATURE_APP_ID }}
+  SIGNATURE_CERTIFICATE_NAME: ${{ secrets.SIGNATURE_CERTIFICATE_NAME }}
+  SIGNATURE_VAULT_ID: ${{ secrets.SIGNATURE_VAULT_ID }}
+  SIGNATURE_PASSWORD: ${{ secrets.SIGNATURE_PASSWORD }}
+  SIGNATURE_TENANT_ID: ${{ secrets.SIGNATURE_TENANT_ID }}
 
 jobs:
   Windows:
@@ -122,6 +127,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "16"
+      - name: Instalar AzureSignTool
+        run: dotnet tool install --global AzureSignTool    
       - name: Instalar Ionic CLI v5
         run: |
           npm install -g ionic@5.4.16
@@ -215,7 +222,7 @@ jobs:
   FinishJob:
     needs: [Windows]    
     runs-on: windows-latest
-    if: success() 
+    if: success() && ${{ (inputs.windows) }}
     permissions:
       contents: write
     defaults:
@@ -241,7 +248,7 @@ jobs:
           git config --global user.email "cloudfysystem@gmail.com"        
           git pull origin production                         
           
-          $commits = git log origin/production..origin/Ionic5 --pretty=format:"- %s" --no-merges
+          $commits = git log origin/production..origin/Ionic5 --pretty=format:"- %s (%an)<br>" --no-merges
           echo "commit_messages<<EOF" >> $env:GITHUB_OUTPUT
           echo "$commits" >> $env:GITHUB_OUTPUT
           echo "EOF" >> $env:GITHUB_OUTPUT
