@@ -185,6 +185,11 @@ jobs:
           $filePath = "lib/Environment/Version.dart"
           $novaVersao = "${{ env.VERSAO }}"  # ou outro valor dinâmico
           (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath
+      - name: Atualizar versão
+        if: ${{ inputs.android }}
+        shell: pwsh
+        run: |
+          (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSAO" | Set-Content pubspec.yaml     
       - name: Criar arquivo.jks a partir de base64
         if: ${{ inputs.android }}
         run: |
