@@ -2,11 +2,11 @@
     "speedy":  {
                    "build":  "1",
                    "version":  "1.0.0",
-                   "patch":  9,
+                   "patch":  10,
                    "simple":  "1.0"
                },
     "blue":  {
-                 "patch":  20,
+                 "patch":  21,
                  "simple":  "1.3"
              }
 }
