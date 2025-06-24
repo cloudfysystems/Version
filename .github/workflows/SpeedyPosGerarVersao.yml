@@ -203,11 +203,6 @@ jobs:
         run: |
           Add-Content -Path './android/gradle.properties' -Value 'kotlin.incremental=false'
         shell: pwsh
-      - name: Atualizar versão
-        if: ${{ inputs.android }}
-        shell: pwsh
-        run: |
-          (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSION+$env:BUILD" | Set-Content pubspec.yaml
       - name: Ajeitar o longpath do git
         if: ${{ inputs.android }}
         run: |
