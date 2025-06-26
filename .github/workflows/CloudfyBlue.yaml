@@ -176,18 +176,8 @@ jobs:
       - name: Instalar Ionic CLI v5
         if: ${{ inputs.android }}
         run: |
-          npm install -g ionic@5.4.16
-          npm i -g cordova
-      - name: Adicionar plataform android
-        if: ${{ inputs.android }}
-        run: ionic cordova platform add android
-      - name: instalando o plugman
-        if: ${{ inputs.android }}
-        run: npm install -g plugman@3.0.1
-      - name: Compilar o plugin da cloudfy
-        if: ${{ inputs.android }}
-        run: |
-          plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy
+          npm install -g ionic@5.4.16          
+          npm i -g cordova          
       - name: Remover dependências do package.json
         if: ${{ inputs.android }}
         shell: pwsh
@@ -224,6 +214,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: 3.10
+      #- name: Instalar Python 3.10
+      #  uses: actions/setup-python@v5
+      #  with:
+      #      python-version: '3.10'
+      - name: rodando o npm i
+        if: ${{ inputs.android }}
+        run: npm install
+        # Ionic CLI 5    
+      - name: Adicionar plataform android
+        if: ${{ inputs.android }}
+        run: ionic cordova platform add android
+      - name: instalando o plugman
+        if: ${{ inputs.android }}
+        run: npm install -g plugman@3.0.1
+      - name: Compilar o plugin da cloudfy
+        if: ${{ inputs.android }}
+        run: |
+          plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy   
       # Java 8
       - name: Instalar Java 8
         if: ${{ inputs.android }}
@@ -238,14 +246,7 @@ jobs:
         with:
           gradle-version: 4.10.3
 
-      #- name: Instalar Python 3.10
-      #  uses: actions/setup-python@v5
-      #  with:
-      #      python-version: '3.10'
-      - name: rodando o npm i
-        if: ${{ inputs.android }}
-        run: npm install
-        # Ionic CLI 5
+      
 
       #- name: Atualizar node-gyp
       #  run: npm install -g node-gyp@7
@@ -319,7 +320,7 @@ jobs:
           name: InstaladorBlueWindows
           path: ./downloaded
       - name: Download artifact Android
-        if: ${{ inputs.android }}
+        if: false
         uses: actions/download-artifact@v4
         with:
           name: ApkBundleSpeedyAndroid
