@@ -182,7 +182,7 @@ jobs:
         if: ${{ inputs.android }}
         run: |
           npm install -g ionic@5.4.16          
-          npm i -g cordova
+          npm i -g cordova@9
           npm i -g cordova-res@0.15.1      
       - name: Remover dependências do package.json
         if: ${{ inputs.android }}
