@@ -224,7 +224,7 @@ jobs:
         # Ionic CLI 5    
       - name: Adicionar plataform android
         if: ${{ inputs.android }}
-        run: ionic cordova platform add android
+        run: ionic cordova platform add android --verbose
       - name: instalando o plugman
         if: ${{ inputs.android }}
         run: npm install -g plugman@3.0.1
