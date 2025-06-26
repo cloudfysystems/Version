@@ -237,6 +237,7 @@ jobs:
         run: |
           plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy   
       - name: Copiar arquivos do android
+        if: ${{ inputs.android }}
         run: |
           Copy-Item -Path "AndroidFiles\*" -Destination "platforms\android" -Recurse -Force
       # Java 8
@@ -262,15 +263,21 @@ jobs:
       - name: Gerar a apk
         if: ${{ inputs.android }}
         run: ionic cordova build android --prod --release
-
-        # Verificação das versões
-      - name: Verificar versões
+      # Assinando o apk
+      - name: Assinar APK
         if: ${{ inputs.android }}
         run: |
-          java -version
-          gradle -v
-          node -v
-          ionic -v
+          zipalign -v 4  platforms\android\app\build\outputs\apk\release\app-release-unsigned.apk CloudfyBlue.apk
+          apksigner sign --ks cloudcommerce.keystore --ks-pass pass:${{secrets.SENHA_KEYSTORE}} --v1-signing-enabled true --v2-signing-enabled true CloudfyBlue.apk
+       # Faz upload dos artifacts 
+      - name: Upload do apk 
+        if: ${{ inputs.android }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ApkBundleSpeedyAndroid
+          path: |            
+            ionic5/PDV/CloudfyBlue.apk     
+        
   #Job que vai atualizar o git, sincronizar os fontes        
   FinishJob:
     needs: [Android, Windows]    
