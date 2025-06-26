@@ -177,7 +177,8 @@ jobs:
         if: ${{ inputs.android }}
         run: |
           npm install -g ionic@5.4.16          
-          npm i -g cordova          
+          npm i -g cordova
+          npm i -g cordova-res@0.15.1      
       - name: Remover dependências do package.json
         if: ${{ inputs.android }}
         shell: pwsh
@@ -233,6 +234,9 @@ jobs:
         if: ${{ inputs.android }}
         run: |
           plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy   
+      - name: Copiar arquivos do android
+        run: |
+          Copy-Item -Path "AndroidFiles\*" -Destination "platforms\android" -Recurse -Force
       # Java 8
       - name: Instalar Java 8
         if: ${{ inputs.android }}
