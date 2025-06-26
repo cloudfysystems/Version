@@ -172,7 +172,7 @@ jobs:
         if: ${{ inputs.android }}
         uses: actions/setup-node@v4
         with:
-          node-version: "16"      
+          node-version: "12"      
       - name: Instalar Ionic CLI v5
         if: ${{ inputs.android }}
         run: |
@@ -201,7 +201,7 @@ jobs:
 
           # Salvar o JSON modificado
           $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8
-
+      
       - name: Configurar ambiente de build para node-gyp
         if: ${{ inputs.android }}
         shell: pwsh
@@ -224,7 +224,8 @@ jobs:
         # Ionic CLI 5    
       - name: Adicionar plataform android
         if: ${{ inputs.android }}
-        run: ionic cordova platform add android --verbose
+        continue-on-error: true
+        run: ionic cordova platform add android --no-interactive
       - name: instalando o plugman
         if: ${{ inputs.android }}
         run: npm install -g plugman@3.0.1
