@@ -26,8 +26,7 @@ env:
   SIGNATURE_TENANT_ID: ${{ secrets.SIGNATURE_TENANT_ID }}
 
 jobs:
-  Windows:
-    if: ${{ inputs.windows }}
+  Windows:    
     runs-on: windows-2022
     defaults:
       run:
@@ -40,6 +39,7 @@ jobs:
     steps:
       # Checkout do repositorio IONIC 5
       - uses: actions/checkout@v4
+        if: ${{ inputs.windows }}
         with:
           repository: cloudfysystems/IONIC
           ref: Ionic5 # Branch padrão
@@ -47,10 +47,15 @@ jobs:
           path: ionic5
       # checkout do repositorio de versão
       - uses: actions/checkout@v4
+        if: ${{ inputs.windows }}
         with:
-          path: version-repo     
+          path: version-repo 
+      - name: Instalar AzureSignTool
+        if: ${{ inputs.windows }}
+        run: dotnet tool install --global AzureSignTool        
       # Lendo a versão atual do repositório
       - name: Ler versão atual e atualizar package.json
+        if: ${{ inputs.windows }}
         working-directory: version-repo
         shell: powershell
         run: |
@@ -61,6 +66,7 @@ jobs:
           echo "VERSAO=$($json.blue.simple).$($json.blue.patch)" >> $env:GITHUB_ENV
       # com a versão atual gerada, atualizamos o package.json
       - name: Atualizar package.json
+        if: ${{ inputs.windows }}
         shell: pwsh
         run: |
           $package = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
@@ -72,37 +78,45 @@ jobs:
 
       # instalando o node.js 16
       - name: Instalar Node.js 16
+        if: ${{ inputs.windows }}
         uses: actions/setup-node@v4
         with:
           node-version: "16"
       # setando o build do vscode e as variáveis para o nodegyp
       - name: Configurar ambiente de build para node-gyp
+        if: ${{ inputs.windows }}
         shell: pwsh
         run: |
           echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
           npm config set msvs_version 2022
       # instalando o python 3.10 (Necessário para compilar o serialport 12)
       - name: Instalar Python 3.10
+        if: ${{ inputs.windows }}
         uses: actions/setup-python@v5
         with:
           python-version: 3.10
       # instalando o electron-builder 26 para gerar o instalador e assinar
       - name: Instalando o electron-builder
+        if: ${{ inputs.windows }}
         run: |
           npm install -g electron-builder@26.0.12
         # instalando as dependências do projeto
       - name: rodando o npm i
+        if: ${{ inputs.windows }}
         run: npm install
       # instalando o client do ionic 5
       - name: Instalar Ionic CLI v5
+        if: ${{ inputs.windows }}
         run: |
           npm install -g ionic@5.4.16
       # Gerando o build do release
       - name: Criando o release
+        if: ${{ inputs.windows }}
         run: |
           npm run BuildDesktop
         # Faz upload dos artifacts 
       - name: Upload do executavel windows 
+        if: ${{ inputs.windows }}
         uses: actions/upload-artifact@v4
         with:
           name: InstaladorBlueWindows
@@ -111,37 +125,71 @@ jobs:
       
       
 
-  Android:
-    if: ${{ inputs.android }}
+  Android:    
     runs-on: windows-2022
     defaults:
       run:
-        working-directory: ./PDV
+        working-directory: ionic5/PDV
+    permissions:
+      contents: write
     steps:
+      # Checkout do repositorio IONIC 5
       - uses: actions/checkout@v4
+        if: ${{ inputs.android }}
         with:
           repository: cloudfysystems/IONIC
-          ref: Ionic5 # ou a branch/tag desejada
-          token: ${{ secrets.GH_TOKEN }} # ou um token pessoal (PAT)
+          ref: Ionic5 # Branch padrão
+          token: ${{ secrets.GH_TOKEN }}
+          path: ionic5
+      # checkout do repositorio de versão
+      - uses: actions/checkout@v4
+        if: ${{ inputs.android }}
+        with:
+          path: version-repo     
+      # Lendo a versão atual do repositório
+      - name: Ler versão atual e atualizar package.json
+        if: ${{ inputs.android }}
+        working-directory: version-repo
+        shell: powershell
+        run: |
+          $json = Get-Content "version.json" | ConvertFrom-Json
+          $json.blue.patch++                    
+          echo "Versao patch: $($json.blue.patch)"
+          echo "Versao gerada: $($json.blue.simple).$($json.blue.patch)"
+          echo "VERSAO=$($json.blue.simple).$($json.blue.patch)" >> $env:GITHUB_ENV
+      # com a versão atual gerada, atualizamos o package.json
+      - name: Atualizar package.json
+        if: ${{ inputs.android }}
+        shell: pwsh
+        run: |
+          $package = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
+          $package.version = "${{ env.VERSAO }}"
+          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "package.json"
+          $package = Get-Content -Raw -Path "src/Electron/prod/package.json" | ConvertFrom-Json
+          $package.version = "${{ env.VERSAO }}"
+          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "src/Electron/prod/package.json"
       - name: Instalar Node.js 16
+        if: ${{ inputs.android }}
         uses: actions/setup-node@v4
         with:
-          node-version: "16"
-      - name: Instalar AzureSignTool
-        run: dotnet tool install --global AzureSignTool    
+          node-version: "16"      
       - name: Instalar Ionic CLI v5
+        if: ${{ inputs.android }}
         run: |
           npm install -g ionic@5.4.16
-          npm i -g cordova@9.0.0
+          npm i -g cordova
       - name: Adicionar plataform android
+        if: ${{ inputs.android }}
         run: ionic cordova platform add android
       - name: instalando o plugman
+        if: ${{ inputs.android }}
         run: npm install -g plugman@3.0.1
       - name: Compilar o plugin da cloudfy
+        if: ${{ inputs.android }}
         run: |
           plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy
       - name: Remover dependências do package.json
-        if: false
+        if: ${{ inputs.android }}
         shell: pwsh
         run: |
           $packageJsonPath = "package.json"
@@ -150,7 +198,7 @@ jobs:
           $json = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
 
           # Lista de pacotes a remover
-          $packagesToRemove = @("@thiagoelg/node-printer", "serialport")
+          $packagesToRemove = @("serialport")
 
           foreach ($pkg in $packagesToRemove) {
               if ($json.dependencies.$pkg) {
@@ -165,33 +213,27 @@ jobs:
           $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8
 
       - name: Configurar ambiente de build para node-gyp
+        if: ${{ inputs.android }}
         shell: pwsh
         run: |
           echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
           npm config set msvs_version 2022
-      - name: Atualizar node-gyp para suportar VS2022
-        run: |
-          npm install node-gyp@8.4.0 -g
-      - name: Instalar Python 2.7
-        run: |
-          choco install python2 --force -y
-          echo "C:\Python27" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
-          echo "C:\Python27\Scripts" | Out-File -Append -Encoding ascii $env:GITHUB_PATH           
-          # Cria um alias 'python2' apontando para 'python'
-          New-Item -ItemType SymbolicLink -Path "C:\Python27\python2.exe" -Target "C:\Python27\python.exe"
-      - name: Verificar Python
-        run: |
-          where python
-          python --version
-          python2 --version
+       # instalando o python 3.10 (Necessário para compilar o serialport 12)
+      - name: Instalar Python 3.10
+        if: ${{ inputs.windows }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.10
       # Java 8
       - name: Instalar Java 8
+        if: ${{ inputs.android }}
         uses: actions/setup-java@v4
         with:
           distribution: "temurin" # ou 'adopt', se preferir
           java-version: "8"
       # Gradle 4
       - name: Instalar Gradle 4.10.3
+        if: ${{ inputs.android }}
         uses: gradle/gradle-build-action@v2
         with:
           gradle-version: 4.10.3
@@ -201,6 +243,7 @@ jobs:
       #  with:
       #      python-version: '3.10'
       - name: rodando o npm i
+        if: ${{ inputs.android }}
         run: npm install
         # Ionic CLI 5
 
@@ -209,10 +252,12 @@ jobs:
       #- name: instalando o grpc
       #  run: npm install grpc --grpc_node_binary_host_mirror=https://node-precompiled-binaries.grpc.io
       - name: Gerar a apk
+        if: ${{ inputs.android }}
         run: ionic cordova build android --prod --release
 
         # Verificação das versões
       - name: Verificar versões
+        if: ${{ inputs.android }}
         run: |
           java -version
           gradle -v
