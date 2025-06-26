@@ -13,7 +13,7 @@ on:
         type: boolean
       android:
         description: "Gerar versão Android?"
-        default: false
+        default: true
         type: boolean
 env:
   VERSION: ${{vars.VERSAO}}
@@ -147,10 +147,7 @@ jobs:
       - uses: actions/checkout@v4
         if: ${{ inputs.android }}
         with:
-          path: version-repo
-      - name: Listar conteúdo do ANDROID_HOME
-        shell: pwsh
-        run: dir "$env:ANDROID_HOME"
+          path: version-repo      
       - name: Add zipalign to PATH (Windows)
         run: echo "$env:ANDROID_HOME\build-tools\34.0.0" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         shell: pwsh    
@@ -216,24 +213,13 @@ jobs:
         shell: pwsh
         run: |
           echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
-          npm config set msvs_version 2022
-       # instalando o python 3.10 (Necessário para compilar o serialport 12)
-      - name: Instalar Python 3.10
-        if: ${{ inputs.windows }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.10
-      #- name: Instalar Python 3.10
-      #  uses: actions/setup-python@v5
-      #  with:
-      #      python-version: '3.10'
+          npm config set msvs_version 2022             
       - name: rodando o npm i
         if: ${{ inputs.android }}
         run: npm install
         # Ionic CLI 5    
       - name: Adicionar plataform android
-        if: ${{ inputs.android }}
-        continue-on-error: true
+        if: ${{ inputs.android }}        
         run: ionic cordova platform add android --no-interactive
       - name: instalando o plugman
         if: ${{ inputs.android }}
@@ -259,7 +245,16 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           gradle-version: 4.10.3
-
+      - name: Cache Gradle
+        if: ${{ inputs.android }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-    
       
 
       #- name: Atualizar node-gyp
@@ -268,7 +263,20 @@ jobs:
       #  run: npm install grpc --grpc_node_binary_host_mirror=https://node-precompiled-binaries.grpc.io
       - name: Gerar a apk
         if: ${{ inputs.android }}
-        run: ionic cordova build android --prod --release
+        run: ionic cordova build android --prod --release      
+      - name: Cache Gradle
+        if: ${{ inputs.android }}  
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+      - name: Gerar o appbundle
+        if: ${{ inputs.android }}
+        run: cordova build android --prod --release -- -- --packageType=bundle            
       # Assinando o apk
       - name: Assinar APK
         if: ${{ inputs.android }}
@@ -280,7 +288,7 @@ jobs:
         if: ${{ inputs.android }}
         uses: actions/upload-artifact@v4
         with:
-          name: ApkBundleSpeedyAndroid
+          name: ApkBundleBlueAndroid
           path: |            
             ionic5/PDV/CloudfyBlue.apk     
         
@@ -343,7 +351,7 @@ jobs:
         if: false
         uses: actions/download-artifact@v4
         with:
-          name: ApkBundleSpeedyAndroid
+          name: ApkBundleBlueAndroid
           path: ./downloadedApk               
 
       - name: Criando o release 
@@ -353,6 +361,7 @@ jobs:
           name: v${{ env.VERSAO }} Blue 
           files: |
              downloaded/Cloudfyblue Setup ${{env.VERSAO}}.exe
+             downloadedApk/CloudfyBlue.apk
           body:  Release gerado automaticamente para windows.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}                 
@@ -375,6 +384,7 @@ jobs:
             
             Segue o link para download:<br>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}Blue/Cloudfyblue.Setup.${{env.VERSAO}}.exe">Cloudfyblue Setup ${{env.VERSAO}}.exe</a></p>
+            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}Blue/CloudfyBlue.apk">CloudfyBlue.apk</a></p>
             
 
             <p><b>Menos foco, mais ansiedade!</b></p>
