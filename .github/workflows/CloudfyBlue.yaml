@@ -346,7 +346,7 @@ jobs:
           name: InstaladorBlueWindows
           path: ./downloaded
       - name: Download artifact Android
-        if: false
+        if: ${{ inputs.android }}
         uses: actions/download-artifact@v4
         with:
           name: ApkBundleBlueAndroid
