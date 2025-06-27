@@ -263,17 +263,7 @@ jobs:
       #  run: npm install grpc --grpc_node_binary_host_mirror=https://node-precompiled-binaries.grpc.io
       - name: Gerar a apk
         if: ${{ inputs.android }}
-        run: ionic cordova build android --prod --release      
-      - name: Cache Gradle
-        if: ${{ inputs.android }}  
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+        run: ionic cordova build android --prod --release            
       - name: Gerar o appbundle
         if: ${{ inputs.android }}
         run: cordova build android --prod --release -- -- --packageType=bundle            
@@ -283,6 +273,13 @@ jobs:
         run: |
           zipalign -v 4  platforms\android\app\build\outputs\apk\release\app-release-unsigned.apk CloudfyBlue.apk
           apksigner sign --ks cloudcommerce.keystore --ks-pass pass:${{secrets.SENHA_KEYSTORE}} --v1-signing-enabled true --v2-signing-enabled true CloudfyBlue.apk
+      - name: Stop Gradle Daemon (garantir liberação de lock)
+        run: gradle --stop    
+      - name: Assinar AAB
+        if: ${{ inputs.android }}
+        run: |
+          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore cloudcommerce.keystore -storepass ${{secrets.SENHA_KEYSTORE}} -keypass ${{secrets.SENHA_KEYSTORE}} platforms\android\app\build\outputs\bundle\release\app.aab cloudcommerce
+          zipalign -v 4  platforms\android\app\build\outputs\bundle\release\app.aab CloudfyBlue.aab             
        # Faz upload dos artifacts 
       - name: Upload do apk 
         if: ${{ inputs.android }}
@@ -290,7 +287,8 @@ jobs:
         with:
           name: ApkBundleBlueAndroid
           path: |            
-            ionic5/PDV/CloudfyBlue.apk     
+            ionic5/PDV/CloudfyBlue.apk
+            ionic5/PDV/CloudfyBlue.aab     
         
   #Job que vai atualizar o git, sincronizar os fontes        
   FinishJob:
@@ -362,6 +360,7 @@ jobs:
           files: |
              downloaded/Cloudfyblue Setup ${{env.VERSAO}}.exe
              downloadedApk/CloudfyBlue.apk
+             downloadedApk/CloudfyBlue.aab             
           body:  Release gerado automaticamente para windows.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}                 
@@ -385,6 +384,7 @@ jobs:
             Segue o link para download:<br>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}Blue/Cloudfyblue.Setup.${{env.VERSAO}}.exe">Cloudfyblue Setup ${{env.VERSAO}}.exe</a></p>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}Blue/CloudfyBlue.apk">CloudfyBlue.apk</a></p>
+            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}Blue/CloudfyBlue.aab">CloudfyBlue.aab</a></p>
             
 
             <p><b>Menos foco, mais ansiedade!</b></p>
