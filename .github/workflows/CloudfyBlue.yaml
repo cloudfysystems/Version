@@ -272,6 +272,7 @@ jobs:
           zipalign -v 4  platforms\android\app\build\outputs\apk\release\app-release-unsigned.apk CloudfyBlue.apk
           apksigner sign --ks cloudcommerce.keystore --ks-pass pass:${{secrets.SENHA_KEYSTORE}} --v1-signing-enabled true --v2-signing-enabled true CloudfyBlue.apk
       - name: Stop Gradle Daemon (garantir liberação de lock)
+        if: ${{ inputs.android }}
         run: gradle --stop
       - name: Assinar AAB
         if: ${{ inputs.android }}
