@@ -28,7 +28,7 @@ env:
   SIGNATURE_TENANT_ID: ${{ secrets.SIGNATURE_TENANT_ID }}
 
 jobs:
-  Windows:    
+  Windows:
     runs-on: windows-2022
     defaults:
       run:
@@ -51,10 +51,10 @@ jobs:
       - uses: actions/checkout@v4
         if: ${{ inputs.windows }}
         with:
-          path: version-repo 
+          path: version-repo
       - name: Instalar AzureSignTool
         if: ${{ inputs.windows }}
-        run: dotnet tool install --global AzureSignTool        
+        run: dotnet tool install --global AzureSignTool
       # Lendo a versão atual do repositório
       - name: Ler versão atual e atualizar package.json
         if: ${{ inputs.windows }}
@@ -116,25 +116,23 @@ jobs:
         if: ${{ inputs.windows }}
         run: |
           npm run BuildDesktop
-        # Faz upload dos artifacts 
-      - name: Upload do executavel windows 
+        # Faz upload dos artifacts
+      - name: Upload do executavel windows
         if: ${{ inputs.windows }}
         uses: actions/upload-artifact@v4
         with:
           name: InstaladorBlueWindows
-          path: |            
-            ionic5/PDV/dist/Cloudfyblue Setup ${{ env.VERSAO }}.exe             
-      
-      
+          path: |
+            ionic5/PDV/dist/Cloudfyblue Setup ${{ env.VERSAO }}.exe
 
-  Android:    
+  Android:
     runs-on: windows-2022
     defaults:
       run:
         working-directory: ionic5/PDV
     permissions:
       contents: write
-    steps:     
+    steps:
       # Checkout do repositorio IONIC 5
       - uses: actions/checkout@v4
         if: ${{ inputs.android }}
@@ -147,10 +145,11 @@ jobs:
       - uses: actions/checkout@v4
         if: ${{ inputs.android }}
         with:
-          path: version-repo      
+          path: version-repo
       - name: Add zipalign to PATH (Windows)
+        if: ${{ inputs.android }}
         run: echo "$env:ANDROID_HOME\build-tools\34.0.0" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        shell: pwsh    
+        shell: pwsh
       # Lendo a versão atual do repositório
       - name: Ler versão atual e atualizar package.json
         if: ${{ inputs.android }}
@@ -173,17 +172,17 @@ jobs:
           $package = Get-Content -Raw -Path "src/Electron/prod/package.json" | ConvertFrom-Json
           $package.version = "${{ env.VERSAO }}"
           $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "src/Electron/prod/package.json"
-      - name: Instalar Node.js 12 
+      - name: Instalar Node.js 12
         if: ${{ inputs.android }}
         uses: actions/setup-node@v4
         with:
-          node-version: "12"      
+          node-version: "12"
       - name: Instalar Ionic CLI v5
         if: ${{ inputs.android }}
         run: |
           npm install -g ionic@5.4.16          
           npm i -g cordova@9
-          npm i -g cordova-res@0.15.1      
+          npm i -g cordova-res@0.15.1
       - name: Remover dependências do package.json
         if: ${{ inputs.android }}
         shell: pwsh
@@ -207,19 +206,19 @@ jobs:
 
           # Salvar o JSON modificado
           $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8
-      
+
       - name: Configurar ambiente de build para node-gyp
         if: ${{ inputs.android }}
         shell: pwsh
         run: |
           echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
-          npm config set msvs_version 2022             
+          npm config set msvs_version 2022
       - name: rodando o npm i
         if: ${{ inputs.android }}
         run: npm install
-        # Ionic CLI 5    
+        # Ionic CLI 5
       - name: Adicionar plataform android
-        if: ${{ inputs.android }}        
+        if: ${{ inputs.android }}
         run: ionic cordova platform add android --no-interactive
       - name: instalando o plugman
         if: ${{ inputs.android }}
@@ -227,7 +226,7 @@ jobs:
       - name: Compilar o plugin da cloudfy
         if: ${{ inputs.android }}
         run: |
-          plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy   
+          plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy
       - name: Copiar arquivos do android
         if: ${{ inputs.android }}
         run: |
@@ -254,8 +253,7 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
-            gradle-${{ runner.os }}-    
-      
+            gradle-${{ runner.os }}-
 
       #- name: Atualizar node-gyp
       #  run: npm install -g node-gyp@7
@@ -263,10 +261,10 @@ jobs:
       #  run: npm install grpc --grpc_node_binary_host_mirror=https://node-precompiled-binaries.grpc.io
       - name: Gerar a apk
         if: ${{ inputs.android }}
-        run: ionic cordova build android --prod --release            
+        run: ionic cordova build android --prod --release
       - name: Gerar o appbundle
         if: ${{ inputs.android }}
-        run: cordova build android --prod --release -- -- --packageType=bundle            
+        run: cordova build android --prod --release -- -- --packageType=bundle
       # Assinando o apk
       - name: Assinar APK
         if: ${{ inputs.android }}
@@ -274,25 +272,25 @@ jobs:
           zipalign -v 4  platforms\android\app\build\outputs\apk\release\app-release-unsigned.apk CloudfyBlue.apk
           apksigner sign --ks cloudcommerce.keystore --ks-pass pass:${{secrets.SENHA_KEYSTORE}} --v1-signing-enabled true --v2-signing-enabled true CloudfyBlue.apk
       - name: Stop Gradle Daemon (garantir liberação de lock)
-        run: gradle --stop    
+        run: gradle --stop
       - name: Assinar AAB
         if: ${{ inputs.android }}
         run: |
           jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore cloudcommerce.keystore -storepass ${{secrets.SENHA_KEYSTORE}} -keypass ${{secrets.SENHA_KEYSTORE}} platforms\android\app\build\outputs\bundle\release\app.aab cloudcommerce
-          zipalign -v 4  platforms\android\app\build\outputs\bundle\release\app.aab CloudfyBlue.aab             
-       # Faz upload dos artifacts 
-      - name: Upload do apk 
+          zipalign -v 4  platforms\android\app\build\outputs\bundle\release\app.aab CloudfyBlue.aab
+        # Faz upload dos artifacts
+      - name: Upload do apk
         if: ${{ inputs.android }}
         uses: actions/upload-artifact@v4
         with:
           name: ApkBundleBlueAndroid
-          path: |            
+          path: |
             ionic5/PDV/CloudfyBlue.apk
-            ionic5/PDV/CloudfyBlue.aab     
-        
-  #Job que vai atualizar o git, sincronizar os fontes        
+            ionic5/PDV/CloudfyBlue.aab
+
+  #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
-    needs: [Android, Windows]    
+    needs: [Android, Windows]
     runs-on: windows-latest
     if: success() && ${{ (inputs.windows) }}
     permissions:
@@ -315,11 +313,11 @@ jobs:
       - name: Recuperando os commits entre produção e main
         id: log
         shell: pwsh
-        run: |  
+        run: |
           git config --global user.name "cloudfysystems"
           git config --global user.email "cloudfysystem@gmail.com"        
           git pull origin production                         
-          
+
           $commits = git log origin/production..origin/Ionic5 --pretty=format:"- %s (%an)<br>" --no-merges
           echo "commit_messages<<EOF" >> $env:GITHUB_OUTPUT
           echo "$commits" >> $env:GITHUB_OUTPUT
@@ -328,11 +326,11 @@ jobs:
 
           git merge origin/Ionic5 --no-ff -m "gerando versao na falcatrua" --allow-unrelated-histories
 
-          git push origin production     
-          
-       # Lendo a versão atual do repositório
+          git push origin production
+
+        # Lendo a versão atual do repositório
       - name: Ler versão atual e atualizar o numero da versao
-        working-directory: version-repo        
+        working-directory: version-repo
         shell: powershell
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json
@@ -350,29 +348,29 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ApkBundleBlueAndroid
-          path: ./downloadedApk               
+          path: ./downloadedApk
 
-      - name: Criando o release 
+      - name: Criando o release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.VERSAO }}Blue
-          name: v${{ env.VERSAO }} Blue 
+          name: v${{ env.VERSAO }} Blue
           files: |
-             downloaded/Cloudfyblue Setup ${{env.VERSAO}}.exe
-             downloadedApk/CloudfyBlue.apk
-             downloadedApk/CloudfyBlue.aab             
-          body:  Release gerado automaticamente para windows.
+            downloaded/Cloudfyblue Setup ${{env.VERSAO}}.exe
+            downloadedApk/CloudfyBlue.apk
+            downloadedApk/CloudfyBlue.aab
+          body: Release gerado automaticamente para windows.
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}                 
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Envia e-mail com resumo
-        uses: dawidd6/action-send-mail@v3        
+        uses: dawidd6/action-send-mail@v3
         with:
-          server_address: mail.cloudfy.net.br  
+          server_address: mail.cloudfy.net.br
           server_port: 465
           username: ${{ secrets.EMAIL_USER }}
           password: ${{ secrets.EMAIL_PASS }}
-          subject: 'Cloudfy blue - Gerado versão em produção '
-          html_body : |
+          subject: "Cloudfy blue - Gerado versão em produção "
+          html_body: |
             <p><b>Olá time!</b></p>
 
             Foi gerada uma nova versão em produção do Cloudfy blue, na versão ${{env.VERSAO}}!<br><br>
@@ -380,21 +378,21 @@ jobs:
             Commits incluídos:<br><br>
 
             ${{ steps.log.outputs.commit_messages }}<br><br>
-            
+
             Segue o link para download:<br>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}Blue/Cloudfyblue.Setup.${{env.VERSAO}}.exe">Cloudfyblue Setup ${{env.VERSAO}}.exe</a></p>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}Blue/CloudfyBlue.apk">CloudfyBlue.apk</a></p>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}Blue/CloudfyBlue.aab">CloudfyBlue.aab</a></p>
-            
+
 
             <p><b>Menos foco, mais ansiedade!</b></p>
 
           to: ${{vars.EMAIL}}
           from: Cloudfy Versão <noreply@cloudfy.net.br>
-          secure: true              
-                                                    
+          secure: true
+
       # commit da atualização da versão
-      - name: Commit das alterações        
+      - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
         with:
           author_name: cloudfysystems
