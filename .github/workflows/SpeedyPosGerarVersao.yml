@@ -27,7 +27,7 @@ env:
   SIGNATURE_TENANT_ID: ${{ secrets.SIGNATURE_TENANT_ID }}
 
 jobs:
-  Windows:    
+  Windows:
     runs-on: windows-latest
 
     defaults:
@@ -81,7 +81,7 @@ jobs:
           (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath
 
       - name: Criar pasta dist
-        if: ${{ inputs.windows }} 
+        if: ${{ inputs.windows }}
         run: |
           mkdir dist
         shell: pwsh
@@ -112,7 +112,7 @@ jobs:
       - name: Build Windows EXE
         shell: pwsh
         if: ${{ inputs.windows }}
-        run: shorebird release windows --flutter-version 3.32.3 --no-confirm '--' --dart-define-from-file=env/prod.json
+        run: shorebird release windows --flutter-version 3.32.8 --no-confirm '--' --dart-define-from-file=env/prod.json
         continue-on-error: true
       - name: Verificar executável gerado com sucesso
         if: ${{ inputs.windows }}
@@ -143,7 +143,7 @@ jobs:
           name: InstaladorSpeedyWindows
           path: flutter/speed/dist/CloudfySpeedyPos.exe
 
-  Android:    
+  Android:
     runs-on: windows-latest
     defaults:
       run:
@@ -190,7 +190,7 @@ jobs:
         if: ${{ inputs.android }}
         shell: pwsh
         run: |
-          (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSAO" | Set-Content pubspec.yaml     
+          (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSAO" | Set-Content pubspec.yaml
       - name: Criar arquivo.jks a partir de base64
         if: ${{ inputs.android }}
         run: |
@@ -228,9 +228,9 @@ jobs:
           distribution: "oracle"
           java-version: "17"
 
-      - name: Build App Bundle(AAB) e Apk       
+      - name: Build App Bundle(AAB) e Apk
         if: ${{ inputs.android }}
-        run: shorebird release android --flutter-version 3.32.3 --no-confirm --artifact apk '--' --dart-define-from-file=env/prod.json
+        run: shorebird release android --flutter-version 3.32.8 --no-confirm --artifact apk '--' --dart-define-from-file=env/prod.json
         continue-on-error: true
       - name: Verificar bundle gerado com sucesso
         if: ${{ inputs.android }}
@@ -242,7 +242,6 @@ jobs:
           } else {
           Write-Host "✅ Build gerado com sucesso."
           }
-      
 
       - name: Verificar apk gerado com sucesso
         if: ${{ inputs.android }}
@@ -341,7 +340,7 @@ jobs:
             downloadedApk/bundle/release/app-release.aab
           body: Release gerado automaticamente para windows.
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}          
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3
         with:
