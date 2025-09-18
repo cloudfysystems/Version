@@ -112,7 +112,7 @@ jobs:
       - name: Build Windows EXE
         shell: pwsh
         if: ${{ inputs.windows }}
-        run: shorebird release windows --flutter-version 3.32.8 --no-confirm '--' --dart-define-from-file=env/prod.json
+        run: shorebird release windows --flutter-version 3.35.4 --no-confirm '--' --dart-define-from-file=env/prod.json
         continue-on-error: true
       - name: Verificar executável gerado com sucesso
         if: ${{ inputs.windows }}
