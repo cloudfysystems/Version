@@ -97,6 +97,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: 3.10
+      # Removendo node_modules e package-lock.json
+      - name: Removendo node_modules e package-lock.json
+        run: |
+          echo "Removendo dependências antigas"
+          Remove-Item -Recurse -Force node_modules, package-lock.json -ErrorAction SilentlyContinue
       # instalando o electron-builder 26 para gerar o instalador e assinar
       - name: Instalando o electron-builder
         if: ${{ inputs.windows }}
