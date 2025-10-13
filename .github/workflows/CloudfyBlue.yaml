@@ -102,6 +102,8 @@ jobs:
         run: |
           echo "Removendo dependências antigas"
           Remove-Item -Recurse -Force node_modules, package-lock.json -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "ionic5/node_modules" -ErrorAction SilentlyContinue
+          Remove-Item -Force "ionic5/package-lock.json" -ErrorAction SilentlyContinue
       # instalando o electron-builder 26 para gerar o instalador e assinar
       - name: Instalando o electron-builder
         if: ${{ inputs.windows }}
