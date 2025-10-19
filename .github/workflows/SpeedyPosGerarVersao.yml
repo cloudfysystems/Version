@@ -44,9 +44,6 @@ jobs:
           ref: main # ou a branch/tag desejada
           token: ${{ secrets.GH_TOKEN }}
           path: flutter
-      - name: Instalar AzureSignTool
-        if: ${{ inputs.windows }}
-        run: dotnet tool install --global AzureSignTool
       - name: Instalar NSIS
         run: |
           choco install nsis -y
@@ -54,6 +51,10 @@ jobs:
 
       - name: Verificar instalação
         run: makensis /VERSION
+      - name: Instalar AzureSignTool
+        if: ${{ inputs.windows }}
+        run: dotnet tool install --global AzureSignTool
+
       # - name: assinar dll
       #   run: azuresigntool sign -kvu "${{env.SIGNATURE_VAULT_ID}}" -kvc "${{env.SIGNATURE_CERTIFICATE_NAME}}" -kvi "${{env.SIGNATURE_APP_ID}}" -kvs "${{env.SIGNATURE_PASSWORD}}" --azure-key-vault-tenant-id "${{env.#SIGNATURE_TENANT_ID}}" -tr http://timestamp.digicert.com -td sha256 ./dlls/CliSiTef64I.dll
       # checkout do repositorio de versão
