@@ -80,7 +80,7 @@ jobs:
         if: ${{ inputs.windows }}
         run: |
           New-Item -ItemType Directory -Path "./env" -Force | Out-Null
-          Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
+          Set-Content -Path "./env/prod.json" -Value '${{ secrets.ENV_PROD }}'
         shell: pwsh
       - name: Atualiza versão no arquivo Dart
         if: ${{ inputs.windows }}
@@ -189,7 +189,7 @@ jobs:
         if: ${{ inputs.android }}
         run: |
           New-Item -ItemType Directory -Path "./env" -Force | Out-Null
-          Set-Content -Path "./env/prod.json" -Value '${{ vars.env_prod }}'
+          Set-Content -Path "./env/prod.json" -Value '${{ secrets.ENV_PROD }}'
         shell: pwsh
       - name: Atualiza versão no arquivo Dart
         if: ${{ inputs.android }}
