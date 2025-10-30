@@ -242,14 +242,14 @@ jobs:
 
       - name: Build App Bundle(AAB) e Apk
         if: ${{ inputs.android }}
-        run: shorebird release android --flutter-version 3.32.8 --no-confirm --artifact apk '--' --dart-define-from-file=env/prod.json
+        run: shorebird release android --flavor prod --flutter-version 3.32.8 --no-confirm --artifact apk '--' --dart-define-from-file=env/prod.json
         continue-on-error: true
       - name: Verificar bundle gerado com sucesso
         if: ${{ inputs.android }}
         shell: pwsh
         run: |
-          if (!(Test-Path "build/app/outputs/bundle/release/app-release.aab")) {
-          Write-Error "Arquivo 'app-release.aab' não encontrado. Abortando workflow."
+          if (!(Test-Path "build/app/outputs/bundle/prodRelease/app-prod-release.aab")) {
+          Write-Error "Arquivo 'app-prod-release.aab' não encontrado. Abortando workflow."
           exit 1
           } else {
           Write-Host "✅ Build gerado com sucesso."
@@ -260,7 +260,7 @@ jobs:
         shell: pwsh
 
         run: |
-          if (!(Test-Path "build/app/outputs/flutter-apk/app-release.apk")) {
+          if (!(Test-Path "build/app/outputs/apk/prod/release/app-prod-release.apk")) {
           Write-Error "Arquivo 'app-release.apk' não encontrado. Abortando workflow."
           exit 1
           } else {
@@ -273,8 +273,8 @@ jobs:
         with:
           name: ApkBundleSpeedyAndroid
           path: |
-            flutter/speed/build/app/outputs/flutter-apk/app-release.apk 
-            flutter/speed/build/app/outputs/bundle/release/app-release.aab
+            flutter/speed/build/app/outputs/apk/prod/release/app-prod-release.apk 
+            flutter/speed/build/app/outputs/bundle/prodRelease/app-prod-release.aab
 
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
@@ -349,8 +349,8 @@ jobs:
           name: v${{ env.VERSAO }} Speedy
           files: |
             downloaded/CloudfySpeedyPos.exe
-            downloadedApk/flutter-apk/app-release.apk
-            downloadedApk/bundle/release/app-release.aab
+            downloadedApk/apk/prod/release/app-prod-release.apk
+            downloadedApk/bundle/prodRelease/app-prod-release.aab
           body: Release gerado automaticamente para windows.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -373,7 +373,7 @@ jobs:
 
             Segue o link para download:<br>
             <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/CloudfySpeedyPos.exe">CloudfySpeedyPos.exe</a></p>
-            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/app-release.apk">CloudfySpeedyPos.apk</a></p>
+            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/app-prod-release.apk">CloudfySpeedyPos.apk</a></p>
 
             <p><b>Menos foco, mais ansiedade!</b></p>
 
