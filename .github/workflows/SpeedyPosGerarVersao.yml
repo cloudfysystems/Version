@@ -368,7 +368,7 @@ jobs:
 
           URLWINDOWS="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.exe"
           echo "$URLWINDOWS"
-          TAGWINDOWS="<p><a href=\"$URLWINDOWS\">CloudfySpeedyPos.apk</a></p>"
+          TAGWINDOWS="<p><a href=\"$URLWINDOWS\">CloudfySpeedyPos.exe</a></p>"
           echo "$TAGWINDOWS"
           echo "TAGWINDOWS=$TAGWINDOWS" >> $GITHUB_ENV          
           echo "URLWINDOWS=$URLWINDOWS" >> $GITHUB_ENV
