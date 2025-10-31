@@ -439,7 +439,6 @@ jobs:
 
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3
-        if: false
         with:
           server_address: mail.cloudfy.net.br
           server_port: 465
