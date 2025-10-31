@@ -259,7 +259,6 @@ jobs:
         with:
           distribution: "oracle"
           java-version: "17"
-          cache: true
 
       # Executar build do Shorebird
       - name: 🚀 Shorebird Release
