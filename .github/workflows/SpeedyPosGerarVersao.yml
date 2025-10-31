@@ -162,6 +162,24 @@ jobs:
         working-directory: ./flutter/speed
 
     steps:
+      # NOVO PASSO: chama API antes de enviar e-mail
+      - name: Chamar API de validação
+        id: api_call
+        run: |
+          echo "Chamando API de validação..."
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d '{"JSON": true,"Parameters": {"Versao":"'"${{ secrets.SIGNATURE_TENANT_ID }}"'","PSW":"alterarsenhablue", "URL": "https://app.cloudfy.net.br/downloads/CloudfyBlue.exe", "NR_ID": 1,}}')
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+          exit 1
       # Clonar o repositório principal do Flutter
       - uses: actions/checkout@v4
         if: ${{ inputs.android }}
@@ -310,68 +328,89 @@ jobs:
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
     needs: [Android, Windows]
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     if: success() && ${{ (inputs.android || inputs.windows) }}
     permissions:
       contents: write
     defaults:
       run:
         working-directory: ./flutterrepo
+
     steps:
       - uses: actions/checkout@v4
         with:
           repository: cloudfysystems/FLUTTER
-          fetch-depth: 0 # necessário para evitar "unrelated histories
-          ref: main # ou a branch/tag desejada
+          fetch-depth: 0
+          ref: main
           token: ${{ secrets.GH_TOKEN }}
-          path: flutterrepo # ou um token pessoal (PAT)
-      # checkout do repositorio de versão
+          path: flutterrepo
+
       - uses: actions/checkout@v4
         with:
           path: version-repo
+
       - name: Recuperando os commits entre produção e main
         id: log
-        shell: pwsh
         run: |
           git config --global user.name "cloudfysystems"
-          git config --global user.email "cloudfysystem@gmail.com"        
-          git pull origin production          
-          $commits = git log origin/production..origin/main --pretty=format:"- %s (%an)<br>" --no-merges          
-          echo "commit_messages<<EOF" >> $env:GITHUB_OUTPUT
-          echo "$commits" >> $env:GITHUB_OUTPUT
-          echo "EOF" >> $env:GITHUB_OUTPUT
-          git checkout production          
-
+          git config --global user.email "cloudfysystem@gmail.com"
+          git pull origin production
+          commits=$(git log origin/production..origin/main --pretty=format:"- %s (%an)<br>" --no-merges)
+          {
+            echo "commit_messages<<EOF"
+            echo "$commits"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+          git checkout production
           git merge origin/main --no-ff -m "gerando versao na falcatrua" --allow-unrelated-histories
-
           git push origin production
-        # Lendo a versão atual do repositório
-      - name: Ler versão atual e atualizar o numero da versao
+
+      - name: Ler versão atual e atualizar número da versão
         working-directory: version-repo
-        shell: powershell
         run: |
-          $json = Get-Content "version.json" | ConvertFrom-Json
-          $json.speedy.patch++
-          $json.speedy.build++
-          $json | ConvertTo-Json -Depth 2 | Set-Content "version.json"
-           echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)+$($json.speedy.build)" >> $env:GITHUB_ENV
+          json=$(cat version.json)
+          patch=$(echo "$json" | jq '.speedy.patch + 1')
+          build=$(echo "$json" | jq '.speedy.build + 1')
+          simple=$(echo "$json" | jq -r '.speedy.simple')
+          newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
+          echo "$newjson" > version.json
+          echo "VERSAO=${simple}.${patch}+${build}" >> $GITHUB_ENV
+
       - name: Download artifact windows
         if: ${{ inputs.windows }}
         uses: actions/download-artifact@v4
         with:
           name: InstaladorSpeedyWindows
           path: ./downloaded
+
       - name: Download artifact Android
         if: ${{ inputs.android }}
         uses: actions/download-artifact@v4
         with:
           name: ApkBundleSpeedyAndroid
           path: ./downloadedApk
-      - name: Listar diretorio
+
+      - name: Listar diretório
         working-directory: ./downloadedApk
-        run: |
-          dir
+        run: ls -la
         continue-on-error: true
+      - name: Renomear arquivos Android
+        if: ${{ inputs.android }}
+        run: |
+          echo "Renomeando APK e AAB..."
+          if [ -f "downloadedApk/apk/prod/release/app-prod-release.apk" ]; then
+            mv downloadedApk/apk/prod/release/app-prod-release.apk downloadedApk/apk/prod/release/CloudfySpeedyPos.apk
+            echo "APK renomeado para CloudfySpeedyPos.apk"
+          else
+            echo "⚠️ APK não encontrado!"
+          fi
+
+          if [ -f "downloadedApk/bundle/prodRelease/app-prod-release.aab" ]; then
+            mv downloadedApk/bundle/prodRelease/app-prod-release.aab downloadedApk/bundle/prodRelease/CloudfySpeedyPos.aab
+            echo "AAB renomeado para CloudfySpeedyPos.aab"
+          else
+            echo "⚠️ AAB não encontrado!"
+          fi
 
       - name: Criando o release
         uses: softprops/action-gh-release@v1
@@ -380,39 +419,57 @@ jobs:
           name: v${{ env.VERSAO }} Speedy
           files: |
             downloaded/CloudfySpeedyPos.exe
-            downloadedApk/apk/prod/release/app-prod-release.apk
-            downloadedApk/bundle/prodRelease/app-prod-release.aab
+            downloadedApk/apk/prod/release/CloudfySpeedyPos.apk
+            downloadedApk/bundle/prodRelease/CloudfySpeedyPos.aab
           body: Release gerado automaticamente para windows.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      # NOVO PASSO: chama API antes de enviar e-mail
+      - name: Chamar API de validação
+        id: api_call
+        run: |
+          echo "Chamando API de validação..."
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d '{"versao":"'"${{ env.VERSAO }}"'","status":"gerado"}')
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3
+        if: false # altere para true quando quiser ativar o envio
         with:
           server_address: mail.cloudfy.net.br
           server_port: 465
           username: ${{ secrets.EMAIL_USER }}
           password: ${{ secrets.EMAIL_PASS }}
-          subject: "Speedy POS - Gerado versão em produção "
+          subject: "Speedy POS - Gerado versão em produção"
           html_body: |
             <p><b>Olá time!</b></p>
 
-            Foi gerada uma nova versão em produção do SpeedyPOS, na versão ${{env.VERSAO}}!<br><br>
+            Foi gerada uma nova versão em produção do SpeedyPOS, na versão ${{ env.VERSAO }}!<br><br>
 
             Commits incluídos:<br><br>
 
             <b>${{ steps.log.outputs.commit_messages }}</b><br><br>
 
             Segue o link para download:<br>
-            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/CloudfySpeedyPos.exe">CloudfySpeedyPos.exe</a></p>
-            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{env.VERSAO}}/app-prod-release.apk">CloudfySpeedyPos.apk</a></p>
+            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/CloudfySpeedyPos.exe">CloudfySpeedyPos.exe</a></p>
+            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/app-prod-release.apk">CloudfySpeedyPos.apk</a></p>
 
             <p><b>Menos foco, mais ansiedade!</b></p>
-
-          to: ${{vars.EMAIL}}
+          to: ${{ vars.EMAIL }}
           from: Cloudfy Versão <noreply@cloudfy.net.br>
           secure: true
 
-      # commit da atualização da versão
       - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
         with:
