@@ -358,8 +358,7 @@ jobs:
           build=$(echo "$json" | jq '.speedy.build' | tr -d '"')
           simple=$(echo "$json" | jq -r '.speedy.simple')
 
-          newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
-          echo "$newjson" > version.json
+          newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")          
 
           VERSAO="${simple}.${patch}"
           echo "Versão gerada: $VERSAO"
@@ -382,8 +381,7 @@ jobs:
           build=$(echo "$json" | jq '.speedy.build + 1' | tr -d '"')
           simple=$(echo "$json" | jq -r '.speedy.simple')
 
-          newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
-          echo "$newjson" > version.json
+          newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")          
 
           VERSAO="${simple}.${patch}"
           echo "Versão gerada: $VERSAO"
