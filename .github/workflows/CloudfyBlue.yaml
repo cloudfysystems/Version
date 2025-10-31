@@ -304,7 +304,7 @@ jobs:
       contents: write
     defaults:
       run:
-        working-directory: ./flutterrepo
+        working-directory: ./ionic5
 
     steps:
       # Checkout do repositório IONIC 5
