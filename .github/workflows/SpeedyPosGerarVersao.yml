@@ -162,6 +162,20 @@ jobs:
         working-directory: ./flutter/speed
 
     steps:
+      # Clonar o repositório principal do Flutter
+      - uses: actions/checkout@v4
+        if: ${{ inputs.android }}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+
+      # Clonar o repositório de versão
+      - uses: actions/checkout@v4
+        if: ${{ inputs.android }}
+        with:
+          path: version-repo
       # NOVO PASSO: chama API antes de enviar e-mail
       - name: Chamar API de validação
         id: api_call
@@ -180,20 +194,6 @@ jobs:
             exit 1
           fi
           exit 1
-      # Clonar o repositório principal do Flutter
-      - uses: actions/checkout@v4
-        if: ${{ inputs.android }}
-        with:
-          repository: cloudfysystems/FLUTTER
-          ref: main
-          token: ${{ secrets.GH_TOKEN }}
-          path: flutter
-
-      # Clonar o repositório de versão
-      - uses: actions/checkout@v4
-        if: ${{ inputs.android }}
-        with:
-          path: version-repo
 
       # Ler e atualizar a versão
       - name: Ler versão atual
