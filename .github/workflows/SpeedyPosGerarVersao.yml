@@ -349,26 +349,29 @@ jobs:
           git merge origin/main --no-ff -m "gerando versao na falcatrua" --allow-unrelated-histories
           git push origin production
 
-      - name: Ler versão atual e atualizar número da versão
+      - name: Ler versão atual e atualizar número da versão windows
         working-directory: version-repo
         #if: ${{ inputs.windows }}
-        if: false
         run: |
           json=$(cat version.json)
-          patch=$(echo "$json" | jq '.speedy.patch + 1')
-          build=$(echo "$json" | jq '.speedy.build')
+          patch=$(echo "$json" | jq '.speedy.patch + 1' | tr -d '"')
+          build=$(echo "$json" | jq '.speedy.build' | tr -d '"')
           simple=$(echo "$json" | jq -r '.speedy.simple')
+
           newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
-          echo "$newjson" > version.json          
-          VERSAO=${simple}.${patch}
-          echo "$VERSAO"
-          echo "$VERSAO" >> $GITHUB_ENV
+          echo "$newjson" > version.json
+
+          VERSAO="${simple}.${patch}"
+          echo "Versão gerada: $VERSAO"
+
+          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
+
           URLWINDOWS="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.exe"
           echo "$URLWINDOWS"
-          echo "URLWINDOWS=$URLWINDOWS" >> $GITHUB_ENV
-          TAGWINDOWS="<p><a href=\"$URLWINDOWS\">CloudfySpeedyPos.exe</a></p>"
+          TAGWINDOWS="<p><a href=\"$URLWINDOWS\">CloudfySpeedyPos.apk</a></p>"
           echo "$TAGWINDOWS"
-          echo "TAGWINDOWS=$TAGWINDOWS" >> $GITHUB_ENV
+          echo "TAGWINDOWS=$TAGWINDOWS" >> $GITHUB_ENV          
+          echo "URLWINDOWS=$URLWINDOWS" >> $GITHUB_ENV
 
       - name: Ler versão atual e atualizar número da versão android
         #if: ${{ inputs.android }}
@@ -446,7 +449,7 @@ jobs:
 
       # NOVO PASSO: chama API antes de enviar e-mail
       # NOVO PASSO: chama API antes de enviar e-mail
-      - name: Chamar API de alteração de dados android
+      - name: Chamar API de alteração de dados windows
         #if: ${{ inputs.android }}
         id: api_call_android
         run: |
