@@ -357,10 +357,12 @@ jobs:
           build=$(echo "$json" | jq '.speedy.build')
           simple=$(echo "$json" | jq -r '.speedy.simple')
           newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
-          echo "$newjson" > version.json
-          echo "VERSAO=${simple}.${patch}" >> $GITHUB_ENV
-          echo "URLWINDOWS=https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/CloudfySpeedyPos.exe" >> $GITHUB_ENV
-          echo "TAGWINDOWS=\"<p><a href="${{env.URLWINDOWS}}">CloudfySpeedyPos.exe</a></p>\"" >> $GITHUB_ENV
+          echo "$newjson" > version.json          
+          VERSAO=${simple}.${patch}
+          echo "$VERSAO" >> $GITHUB_ENV
+          URLWINDOWS=https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.exe
+          echo "URLWINDOWS=$URLWINDOWS" >> $GITHUB_ENV
+          echo "TAGWINDOWS=\"<p><a href="$URLWINDOWS">CloudfySpeedyPos.exe</a></p>\"" >> $GITHUB_ENV
 
       - name: Ler versão atual e atualizar número da versão android
         #if: ${{ inputs.android }}
@@ -372,9 +374,11 @@ jobs:
           simple=$(echo "$json" | jq -r '.speedy.simple')
           newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
           echo "$newjson" > version.json
-          echo "VERSAO=${simple}.${patch}" >> $GITHUB_ENV
-          echo "URLANDROID=https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/CloudfySpeedyPos.apk" >> $GITHUB_ENV
-          echo "TAGANDROID=\"<p><a href="${{env.URLANDROID}}">CloudfySpeedyPos.apk</a></p>\"" >> $GITHUB_ENV
+          VERSAO=${simple}.${patch}
+          echo "$VERSAO" >> $GITHUB_ENV
+          URLANDROID=https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.apk
+          echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
+          echo "TAGANDROID=\"<p><a href="$URLANDROID">CloudfySpeedyPos.apk</a></p>\"" >> $GITHUB_ENV
 
       - name: Download artifact windows
         if: ${{ inputs.windows }}
@@ -436,7 +440,7 @@ jobs:
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLWINDOWS}}", "NR_ID": 5}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROID}}", "NR_ID": 5}}')
 
           echo "Código HTTP: $response"
           cat response.txt
@@ -453,7 +457,7 @@ jobs:
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROID}}", "NR_ID": 4}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLWINDOWS}}", "NR_ID": 4}}')
 
           echo "Código HTTP: $response"
           cat response.txt
