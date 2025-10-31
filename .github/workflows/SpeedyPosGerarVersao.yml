@@ -441,7 +441,7 @@ jobs:
 
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
-    needs: [Android, Windows]
+    needs: [Android, Windows, AndroidUbuntu]
     runs-on: windows-latest
     if: success() && ${{ (inputs.android || inputs.windows) }}
     permissions:
