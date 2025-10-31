@@ -309,7 +309,7 @@ jobs:
             flutter/speed/build/app/outputs/bundle/prodRelease/app-prod-release.aab
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
-    needs: [Android, Windows]
+    #needs: [Android, Windows]
     runs-on: ubuntu-latest
     if: success() && ${{ (inputs.android || inputs.windows) }}
     permissions:
@@ -350,7 +350,7 @@ jobs:
 
       - name: Ler versão atual e atualizar número da versão
         working-directory: version-repo
-        if: ${{ inputs.windows }}
+        #if: ${{ inputs.windows }}
         run: |
           json=$(cat version.json)
           patch=$(echo "$json" | jq '.speedy.patch + 1')
@@ -360,10 +360,10 @@ jobs:
           echo "$newjson" > version.json
           echo "VERSAO=${simple}.${patch}" >> $GITHUB_ENV
           echo "URLWINDOWS=https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/CloudfySpeedyPos.exe" >> $GITHUB_ENV
-          echo "TAGWINDOWS=\"<p><a href="${{env.URLWINDOWS}}">CloudfySpeedyPos.exe</a></p>\" >> $GITHUB_ENV
+          echo "TAGWINDOWS=\"<p><a href="${{env.URLWINDOWS}}">CloudfySpeedyPos.exe</a></p>\"" >> $GITHUB_ENV
 
       - name: Ler versão atual e atualizar número da versão android
-        if: ${{ inputs.android }}
+        #if: ${{ inputs.android }}
         working-directory: version-repo
         run: |
           json=$(cat version.json)
@@ -374,7 +374,7 @@ jobs:
           echo "$newjson" > version.json
           echo "VERSAO=${simple}.${patch}" >> $GITHUB_ENV
           echo "URLANDROID=https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/CloudfySpeedyPos.apk" >> $GITHUB_ENV
-          echo "TAGANDROID=\"<p><a href="${{env.URLANDROID}}">CloudfySpeedyPos.apk</a></p>\" >> $GITHUB_ENV
+          echo "TAGANDROID=\"<p><a href="${{env.URLANDROID}}">CloudfySpeedyPos.apk</a></p>\"" >> $GITHUB_ENV
 
       - name: Download artifact windows
         if: ${{ inputs.windows }}
@@ -413,6 +413,7 @@ jobs:
           fi
 
       - name: Criando o release
+        if: false
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.VERSAO }}
@@ -428,7 +429,7 @@ jobs:
       # NOVO PASSO: chama API antes de enviar e-mail
       # NOVO PASSO: chama API antes de enviar e-mail
       - name: Chamar API de alteração de dados android
-        if: ${{ inputs.android }}
+        #if: ${{ inputs.android }}
         id: api_call_android
         run: |
           echo "Chamando API de validação..."
@@ -445,7 +446,7 @@ jobs:
             exit 1
           fi
       - name: Chamar API de alteração de dados android
-        if: ${{ inputs.windows }}
+        #if: ${{ inputs.windows }}
         id: api_call_windows
         run: |
           echo "Chamando API de validação..."
