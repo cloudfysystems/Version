@@ -1,12 +1,12 @@
 {
-    "speedy":  {
-                   "build":  9,
-                   "version":  "1.0.0",
-                   "patch":  24,
-                   "simple":  "1.0"
-               },
-    "blue":  {
-                 "patch":  36,
-                 "simple":  "1.3"
-             }
+  "speedy": {
+    "build": 10,
+    "version": "1.0.0",
+    "patch": 25,
+    "simple": "1.0"
+  },
+  "blue": {
+    "patch": 36,
+    "simple": "1.3"
+  }
 }
