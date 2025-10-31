@@ -352,6 +352,7 @@ jobs:
       - name: Ler versão atual e atualizar número da versão
         working-directory: version-repo
         #if: ${{ inputs.windows }}
+        if: false
         run: |
           json=$(cat version.json)
           patch=$(echo "$json" | jq '.speedy.patch + 1')
@@ -374,19 +375,24 @@ jobs:
         working-directory: version-repo
         run: |
           json=$(cat version.json)
-          patch=$(echo "$json" | jq '.speedy.patch + 1')
-          build=$(echo "$json" | jq '.speedy.build + 1')
+          patch=$(echo "$json" | jq '.speedy.patch + 1' | tr -d '"')
+          build=$(echo "$json" | jq '.speedy.build + 1' | tr -d '"')
           simple=$(echo "$json" | jq -r '.speedy.simple')
+
           newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
           echo "$newjson" > version.json
-          VERSAO=${simple}.${patch}
-          echo "$VERSAO"
-          echo "$VERSAO" >> $GITHUB_ENV
+
+          VERSAO="${simple}.${patch}"
+          echo "Versão gerada: $VERSAO"
+
+          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
+
           URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.apk"
           echo "$URLANDROID"
           TAGANDROID="<p><a href=\"$URLANDROID\">CloudfySpeedyPos.apk</a></p>"
           echo "$TAGANDROID"
-          echo "TAGANDROID=$TAGANDROID" >> $GITHUB_ENV
+          echo "TAGANDROID=$TAGANDROID" >> $GITHUB_ENV          
+          echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
 
       - name: Download artifact windows
         if: ${{ inputs.windows }}
@@ -504,6 +510,7 @@ jobs:
 
       - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
+        if: false
         with:
           author_name: cloudfysystems
           author_email: cloudfysystems@gmail.com
