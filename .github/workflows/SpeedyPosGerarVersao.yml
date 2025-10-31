@@ -309,7 +309,7 @@ jobs:
             flutter/speed/build/app/outputs/bundle/prodRelease/app-prod-release.aab
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
-    #needs: [Android, Windows]
+    needs: [Android, Windows]
     runs-on: ubuntu-latest
     if: success() && ${{ (inputs.android || inputs.windows) }}
     permissions:
@@ -351,7 +351,7 @@ jobs:
 
       - name: Ler versão atual e atualizar número da versão windows
         working-directory: version-repo
-        #if: ${{ inputs.windows }}
+        if: ${{ inputs.windows }}
         run: |
           json=$(cat version.json)
           patch=$(echo "$json" | jq '.speedy.patch + 1' | tr -d '"')
@@ -374,7 +374,7 @@ jobs:
           echo "URLWINDOWS=$URLWINDOWS" >> $GITHUB_ENV
 
       - name: Ler versão atual e atualizar número da versão android
-        #if: ${{ inputs.android }}
+        if: ${{ inputs.android }}
         working-directory: version-repo
         run: |
           json=$(cat version.json)
@@ -427,10 +427,6 @@ jobs:
           name: ApkBundleSpeedyAndroid
           path: ./downloadedApk
 
-      - name: Listar diretório
-        working-directory: ./downloadedApk
-        run: ls -la
-        continue-on-error: true
       - name: Renomear arquivos Android
         if: ${{ inputs.android }}
         run: |
@@ -502,7 +498,6 @@ jobs:
 
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3
-        if: false # altere para true quando quiser ativar o envio
         with:
           server_address: mail.cloudfy.net.br
           server_port: 465
@@ -529,7 +524,6 @@ jobs:
 
       - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
-        if: false
         with:
           author_name: cloudfysystems
           author_email: cloudfysystems@gmail.com
