@@ -259,15 +259,17 @@ jobs:
         with:
           distribution: "oracle"
           java-version: "17"
+          cache: true
 
       # Executar build do Shorebird
       - name: 🚀 Shorebird Release
         if: ${{ inputs.android }}
         id: shorebird-release
-        uses: shorebirdtech/shorebird-release@v0
+        uses: shorebirdtech/shorebird-release@v1
         with:
           args: --flavor=prod --artifact apk -- --dart-define-from-file=env/prod.json
           platform: android
+          flutter-version: 3.32.8
           working-directory: ./flutter/speed
 
       # Verificar se o bundle foi gerado
