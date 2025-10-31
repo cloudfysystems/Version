@@ -365,7 +365,9 @@ jobs:
           URLWINDOWS="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.exe"
           echo "$URLWINDOWS"
           echo "URLWINDOWS=$URLWINDOWS" >> $GITHUB_ENV
-          echo "TAGWINDOWS=\"<p><a href="$URLWINDOWS">CloudfySpeedyPos.exe</a></p>\"" >> $GITHUB_ENV
+          TAGWINDOWS="<p><a href=\"$URLWINDOWS\">CloudfySpeedyPos.exe</a></p>"
+          echo "$TAGWINDOWS"
+          echo "TAGWINDOWS=$TAGWINDOWS" >> $GITHUB_ENV
 
       - name: Ler versão atual e atualizar número da versão android
         #if: ${{ inputs.android }}
@@ -382,8 +384,9 @@ jobs:
           echo "$VERSAO" >> $GITHUB_ENV
           URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.apk"
           echo "$URLANDROID"
-          echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
-          echo "TAGANDROID=\"<p><a href="$URLANDROID">CloudfySpeedyPos.apk</a></p>\"" >> $GITHUB_ENV
+          TAGANDROID="<p><a href=\"$URLANDROID\">CloudfySpeedyPos.apk</a></p>"
+          echo "$TAGANDROID"
+          echo "TAGANDROID=$TAGANDROID" >> $GITHUB_ENV
 
       - name: Download artifact windows
         if: ${{ inputs.windows }}
