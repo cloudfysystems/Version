@@ -184,7 +184,7 @@ jobs:
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"'"${{ secrets.SIGNATURE_TENANT_ID }}"'","PSW":"alterarsenhablue", "URL": "https://app.cloudfy.net.br/downloads/CloudfyBlue.exe", "NR_ID": 1,}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"'"${{ secrets.SIGNATURE_TENANT_ID }}"'","PSW":"alterarsenhablue", "URL": "https://app.cloudfy.net.br/downloads/CloudfyBlue.exe", "NR_ID": 1}}')
 
           echo "Código HTTP: $response"
           cat response.txt
