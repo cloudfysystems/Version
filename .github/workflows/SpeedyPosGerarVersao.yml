@@ -397,6 +397,12 @@ jobs:
           echo "TAGANDROID=$TAGANDROID" >> $GITHUB_ENV          
           echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
 
+      - name: Gravar arquivo de versionamento
+        working-directory: version-repo
+        run: |
+          echo "$newjson" > version.json
+          cat version.json
+
       - name: Download artifact windows
         if: ${{ inputs.windows }}
         uses: actions/download-artifact@v4
