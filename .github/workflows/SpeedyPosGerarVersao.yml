@@ -191,6 +191,7 @@ jobs:
           echo "Versao Patch: $PATCH"
           echo "Versao Gerada: $SIMPLE.$PATCH+$BUILD"
           echo "VERSAO=$SIMPLE.$PATCH+$BUILD" >> $GITHUB_ENV
+          echo "VERSAOSIMPLE=$SIMPLE.$PATCH" >> $GITHUB_ENV
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
@@ -206,7 +207,7 @@ jobs:
         shell: bash
         run: |
           FILE="lib/Environment/Version.dart"
-          NOVA_VERSAO="${{ env.VERSAO }}"
+          NOVA_VERSAO="${{ env.VERSAOSIMPLE }}"
           sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
           cat lib/Environment/Version.dart
 
