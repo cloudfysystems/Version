@@ -337,6 +337,7 @@ jobs:
         run: |
           git config --global user.name "cloudfysystems"
           git config --global user.email "cloudfysystem@gmail.com"
+          git config --global pull.rebase false
           git pull origin production
           commits=$(git log origin/production..origin/main --pretty=format:"- %s (%an)<br>" --no-merges)
           {
@@ -359,8 +360,10 @@ jobs:
           newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
           echo "$newjson" > version.json          
           VERSAO=${simple}.${patch}
+          echo "$VERSAO"
           echo "$VERSAO" >> $GITHUB_ENV
-          URLWINDOWS=https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.exe
+          URLWINDOWS="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.exe"
+          echo "$URLWINDOWS"
           echo "URLWINDOWS=$URLWINDOWS" >> $GITHUB_ENV
           echo "TAGWINDOWS=\"<p><a href="$URLWINDOWS">CloudfySpeedyPos.exe</a></p>\"" >> $GITHUB_ENV
 
@@ -375,8 +378,10 @@ jobs:
           newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
           echo "$newjson" > version.json
           VERSAO=${simple}.${patch}
+          echo "$VERSAO"
           echo "$VERSAO" >> $GITHUB_ENV
-          URLANDROID=https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.apk
+          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.apk"
+          echo "$URLANDROID"
           echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
           echo "TAGANDROID=\"<p><a href="$URLANDROID">CloudfySpeedyPos.apk</a></p>\"" >> $GITHUB_ENV
 
