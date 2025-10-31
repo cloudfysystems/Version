@@ -176,24 +176,6 @@ jobs:
         if: ${{ inputs.android }}
         with:
           path: version-repo
-      # NOVO PASSO: chama API antes de enviar e-mail
-      - name: Chamar API de validação
-        id: api_call
-        run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"'"${{ env.VERSAO }}"'","PSW":"alterarsenhablue", "URL": "https://app.cloudfy.net.br/downloads/CloudfyBlue.exe", "NR_ID": 1}}')
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
-          exit 1
 
       # Ler e atualizar a versão
       - name: Ler versão atual
@@ -426,14 +408,33 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
       # NOVO PASSO: chama API antes de enviar e-mail
-      - name: Chamar API de validação
-        id: api_call
+      # NOVO PASSO: chama API antes de enviar e-mail
+      - name: Chamar API de alteração de dados android
+        if: ${{ inputs.android }}
+        id: api_call_android
         run: |
           echo "Chamando API de validação..."
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"versao":"'"${{ env.VERSAO }}"'","status":"gerado"}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/CloudfySpeedyPos.apk", "NR_ID": 5}}')
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+      - name: Chamar API de alteração de dados android
+        if: ${{ inputs.windows }}
+        id: api_call_windows
+        run: |
+          echo "Chamando API de validação..."
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/CloudfySpeedyPos.exe", "NR_ID": 4}}')
 
           echo "Código HTTP: $response"
           cat response.txt
