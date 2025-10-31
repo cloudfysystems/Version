@@ -358,7 +358,8 @@ jobs:
           build=$(echo "$json" | jq '.speedy.build' | tr -d '"')
           simple=$(echo "$json" | jq -r '.speedy.simple')
 
-          newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")          
+          newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
+          echo "$newjson" > version_windows.json          
 
           VERSAO="${simple}.${patch}"
           echo "Versão gerada: $VERSAO"
@@ -381,7 +382,8 @@ jobs:
           build=$(echo "$json" | jq '.speedy.build + 1' | tr -d '"')
           simple=$(echo "$json" | jq -r '.speedy.simple')
 
-          newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")          
+          newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
+          echo "$newjson" > version_android.json
 
           VERSAO="${simple}.${patch}"
           echo "Versão gerada: $VERSAO"
@@ -398,8 +400,18 @@ jobs:
       - name: Gravar arquivo de versionamento
         working-directory: version-repo
         run: |
-          echo "Valor do json $newjson"
-          echo "$newjson" > version.json
+          if [ -f "version_android.json" ]; then
+            echo "🔹 Usando version_android.json"
+            json=$(cat version_android.json)            
+          elif [ -f "version_windows.json" ]; then
+            echo "🔹 Usando version_windows.json"
+            json=$(cat version_windows.json)            
+          else
+            echo "❌ Nenhum arquivo de versão encontrado!"
+            exit 1
+          fi 
+          echo "Valor do json $json"
+          echo "$json" > version.json
 
       - name: Download artifact windows
         if: ${{ inputs.windows }}
