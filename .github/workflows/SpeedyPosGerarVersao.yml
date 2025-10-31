@@ -409,12 +409,12 @@ jobs:
           else
             echo "❌ Nenhum arquivo de versão encontrado!"
             exit 1
-          fi 
-          echo "Valor do json $json"
+          fi           
           echo "$json" > version.json
-
+          cat version.json
+      #${{ inputs.windows }}
       - name: Download artifact windows
-        if: ${{ inputs.windows }}
+        if: false
         uses: actions/download-artifact@v4
         with:
           name: InstaladorSpeedyWindows
