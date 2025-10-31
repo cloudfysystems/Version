@@ -75,8 +75,8 @@ jobs:
           $json.speedy.patch++
           echo "Versao Build: $($json.speedy.build)"
           echo "Versao patch: $($json.speedy.patch)"
-          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.patch)+$($json.speedy.build)"
-          echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)+$($json.speedy.build)" >> $env:GITHUB_ENV
+          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.patch)"
+          echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV
 
       - name: Gerando o env/prod.json
         if: ${{ inputs.windows }}
@@ -333,6 +333,7 @@ jobs:
 
       - name: Recuperando os commits entre produção e main
         id: log
+        continue-on-error: true
         run: |
           git config --global user.name "cloudfysystems"
           git config --global user.email "cloudfysystem@gmail.com"
@@ -349,6 +350,21 @@ jobs:
 
       - name: Ler versão atual e atualizar número da versão
         working-directory: version-repo
+        if: ${{ inputs.windows }}
+        run: |
+          json=$(cat version.json)
+          patch=$(echo "$json" | jq '.speedy.patch + 1')
+          build=$(echo "$json" | jq '.speedy.build')
+          simple=$(echo "$json" | jq -r '.speedy.simple')
+          newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
+          echo "$newjson" > version.json
+          echo "VERSAO=${simple}.${patch}" >> $GITHUB_ENV
+          echo "URLWINDOWS=https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/CloudfySpeedyPos.exe" >> $GITHUB_ENV
+          echo "TAGWINDOWS=\"<p><a href="${{env.URLWINDOWS}}">CloudfySpeedyPos.exe</a></p>\" >> $GITHUB_ENV
+
+      - name: Ler versão atual e atualizar número da versão android
+        if: ${{ inputs.android }}
+        working-directory: version-repo
         run: |
           json=$(cat version.json)
           patch=$(echo "$json" | jq '.speedy.patch + 1')
@@ -356,7 +372,9 @@ jobs:
           simple=$(echo "$json" | jq -r '.speedy.simple')
           newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
           echo "$newjson" > version.json
-          echo "VERSAO=${simple}.${patch}+${build}" >> $GITHUB_ENV
+          echo "VERSAO=${simple}.${patch}" >> $GITHUB_ENV
+          echo "URLANDROID=https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/CloudfySpeedyPos.apk" >> $GITHUB_ENV
+          echo "TAGANDROID=\"<p><a href="${{env.URLANDROID}}">CloudfySpeedyPos.apk</a></p>\" >> $GITHUB_ENV
 
       - name: Download artifact windows
         if: ${{ inputs.windows }}
@@ -417,7 +435,7 @@ jobs:
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/CloudfySpeedyPos.apk", "NR_ID": 5}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLWINDOWS}}", "NR_ID": 5}}')
 
           echo "Código HTTP: $response"
           cat response.txt
@@ -434,7 +452,7 @@ jobs:
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/CloudfySpeedyPos.exe", "NR_ID": 4}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROID}}", "NR_ID": 4}}')
 
           echo "Código HTTP: $response"
           cat response.txt
@@ -463,8 +481,8 @@ jobs:
             <b>${{ steps.log.outputs.commit_messages }}</b><br><br>
 
             Segue o link para download:<br>
-            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/CloudfySpeedyPos.exe">CloudfySpeedyPos.exe</a></p>
-            <p><a href="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}/app-prod-release.apk">CloudfySpeedyPos.apk</a></p>
+            ${{env.TAGWINDOWS}}
+            ${{env.TAGANDROID}}
 
             <p><b>Menos foco, mais ansiedade!</b></p>
           to: ${{ vars.EMAIL }}
