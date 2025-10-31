@@ -398,8 +398,8 @@ jobs:
       - name: Gravar arquivo de versionamento
         working-directory: version-repo
         run: |
+          echo "Valor do json $newjson"
           echo "$newjson" > version.json
-          cat version.json
 
       - name: Download artifact windows
         if: ${{ inputs.windows }}
