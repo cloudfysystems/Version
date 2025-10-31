@@ -152,8 +152,159 @@ jobs:
         with:
           name: InstaladorSpeedyWindows
           path: flutter/speed/dist/CloudfySpeedyPos.exe
+  AndroidUbuntu:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./flutter/speed
 
+    steps:
+      # Clonar o repositório principal do Flutter
+      - uses: actions/checkout@v4
+        if: ${{ inputs.android }}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+
+      # Clonar o repositório de versão
+      - uses: actions/checkout@v4
+        if: ${{ inputs.android }}
+        with:
+          path: version-repo
+
+      # Ler e atualizar a versão
+      - name: Ler versão atual
+        if: ${{ inputs.android }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version.json"
+          BUILD=$(jq '.speedy.build += 1 | .speedy.build' $VERSION_FILE)
+          PATCH=$(jq '.speedy.patch += 1 | .speedy.patch' $VERSION_FILE)
+          SIMPLE=$(jq -r '.speedy.simple' $VERSION_FILE)
+          echo "Versao Build: $BUILD"
+          echo "Versao Patch: $PATCH"
+          echo "Versao Gerada: $SIMPLE.$PATCH+$BUILD"
+          echo "VERSAO=$SIMPLE.$PATCH+$BUILD" >> $GITHUB_ENV
+
+      # Criar o arquivo env/prod.json
+      - name: Gerar env/prod.json
+        if: ${{ inputs.android }}
+        run: |
+          mkdir -p ./env
+          echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
+          cat ./env/prod.json
+
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart
+        if: ${{ inputs.android }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+
+      # Atualizar versão no pubspec.yaml
+      - name: Atualizar versão no pubspec.yaml
+        if: ${{ inputs.android }}
+        shell: bash
+        run: |
+          sed -i "s/^version:.*/version: $VERSAO/" pubspec.yaml
+          cat pubspec.yaml
+
+      # Criar arquivo .jks a partir de base64
+      - name: Criar arquivo .jks
+        if: ${{ inputs.android }}
+        shell: bash
+        run: |
+          mkdir -p certificado
+          echo "${{ secrets.KEYSTORE }}" | base64 -d > certificado/certificado-keystore.jks
+
+      # Resolver problema incremental do Gradle
+      #- name: Resolver problema incremental do gradle
+      #  if: ${{ inputs.android }}
+      #  shell: bash
+      #  run: |
+      #    echo "kotlin.incremental=false" >> ./android/gradle.properties
+
+      # Habilitar longpath do git (não necessário no Ubuntu, mas mantido por compatibilidade)
+      #- name: Ajustar git longpath
+      #  if: ${{ inputs.android }}
+      #  run: git config --global core.longpaths true
+
+      # Setup Shorebird
+      - name: 🐦 Setup Shorebird
+        if: ${{ inputs.android }}
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      # Criar arquivo key.properties
+      - name: Criar arquivo key.properties
+        if: ${{ inputs.android }}
+        shell: bash
+        run: |
+          echo "storePassword=${{ secrets.SENHA_KEYSTORE }}" > android/key.properties
+          echo "keyPassword=${{ secrets.SENHA_KEYSTORE }}" >> android/key.properties
+          echo "keyAlias=cloudfycardapio" >> android/key.properties
+          echo "storeFile=../../certificado/certificado-keystore.jks" >> android/key.properties
+
+      # Set Up Java (usando Oracle JDK 17)
+      - name: Set Up Java
+        if: ${{ inputs.android }}
+        uses: actions/setup-java@v3
+        with:
+          distribution: "oracle"
+          java-version: "17"
+
+      # Executar build do Shorebird
+      - name: 🚀 Shorebird Release
+        if: ${{ inputs.android }}
+        id: shorebird-release
+        uses: shorebirdtech/shorebird-release@v0
+        with:
+          args: --flavor=prod --artifact apk -- --dart-define-from-file=env/prod.json
+          platform: android
+          working-directory: ./flutter/speed
+
+      # Verificar se o bundle foi gerado
+      - name: Verificar bundle gerado
+        if: ${{ inputs.android }}
+        shell: bash
+        run: |
+          if [ ! -f "build/app/outputs/bundle/prodRelease/app-prod-release.aab" ]; then
+            echo "❌ Arquivo .aab não encontrado"
+            exit 1
+          else
+            echo "✅ Bundle gerado com sucesso"
+          fi
+
+      # Verificar se o APK foi gerado
+      - name: Verificar APK gerado
+        if: ${{ inputs.android }}
+        shell: bash
+        run: |
+          if [ ! -f "build/app/outputs/apk/prod/release/app-prod-release.apk" ]; then
+            echo "❌ APK não encontrado"
+            exit 1
+          else
+            echo "✅ APK gerado com sucesso"
+          fi
+
+      # Upload dos artefatos
+      - name: Upload da apk e do bundle
+        if: ${{ inputs.android }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ApkBundleSpeedyAndroid
+          path: |
+            flutter/speed/build/app/outputs/apk/prod/release/app-prod-release.apk
+            flutter/speed/build/app/outputs/bundle/prodRelease/app-prod-release.aab
   Android:
+    if: false
     runs-on: windows-latest
     defaults:
       run:
