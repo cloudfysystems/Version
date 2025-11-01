@@ -616,12 +616,7 @@ jobs:
           simple=$(echo "$json" | jq -r '.speedyWindows.simple')          
 
           newjson=$(echo "$json" | jq ".speedyWindows.version=$version | .speedyWindows.build=$build | .speedyWindows.patch=0")
-          echo "$newjson" > version.json          
-
-          VERSAO="${simple}.${version}.0"
-          echo "Versão gerada: $VERSAO"
-
-          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
+          echo "$newjson" > version.json
 
       - name: Ler versão atual e atualizar número da versão android (prod)
         if: ${{ inputs.android }}
@@ -635,11 +630,6 @@ jobs:
           newjson=$(echo "$json" | jq ".speedyAndroid.version=$version | .speedyAndroid.build=$build | .speedyAndroid.patch=0")
           echo "$newjson" > version.json
 
-          VERSAO="${simple}.${version}.0"
-          echo "Versão gerada: $VERSAO"
-
-          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
-
       - name: Ler versão atual e atualizar número da versão android (prod)
         if: ${{ inputs.android-tef }}
         working-directory: version-repo
@@ -652,35 +642,51 @@ jobs:
           newjson=$(echo "$json" | jq ".speedyAndroidTef.version=$version | .speedyAndroidTef.build=$build | .speedyAndroidTef.patch=0")
           echo "$newjson" > version.json
 
-          VERSAO="${simple}.${version}.0"
-          echo "Versão gerada: $VERSAO"
-
-          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
-
       - name: Gerando URLs da versão
         if: ${{ (steps.compute.outputs.androidCombined || inputs.windows) }}
         working-directory: version-repo
         run: |
-          URLWINDOWS="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.exe"
-          echo "$URLWINDOWS"
-          TAGWINDOWS="<p><a href=\"$URLWINDOWS\">CloudfySpeedyPos.exe</a></p>"
-          echo "$TAGWINDOWS"
-          echo "TAGWINDOWS=$TAGWINDOWS" >> $GITHUB_ENV          
-          echo "URLWINDOWS=$URLWINDOWS" >> $GITHUB_ENV
+          json=$(cat version.json)
+          version=$(echo "$json" | jq '.speedyGeneratedVersion + 1' | tr -d '"')
 
-          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.apk"
-          echo "$URLANDROID"
-          TAGANDROID="<p><a href=\"$URLANDROID\">CloudfySpeedyPos.apk</a></p>"
-          echo "$TAGANDROID"
-          echo "TAGANDROID=$TAGANDROID" >> $GITHUB_ENV          
-          echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
+          VERSAO="speedyV$version"
+          echo "Versão gerada: $VERSAO"
 
-          URLANDROIDTEF="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosTef.apk"
-          echo "$URLANDROIDTEF"
-          TAGANDROIDTEF="<p><a href=\"$URLANDROIDTEF\">CloudfySpeedyPosTef.apk</a></p>"
-          echo "$TAGANDROIDTEF"
-          echo "TAGANDROIDTEF=$TAGANDROIDTEF" >> $GITHUB_ENV          
-          echo "URLANDROIDTEF=$URLANDROIDTEF" >> $GITHUB_ENV
+          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
+
+
+          if [ "${{ inputs.windows }}" = "true" ]; then
+            URLWINDOWS="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.exe"
+            echo "$URLWINDOWS"
+            TAGWINDOWS="<p><a href=\"$URLWINDOWS\">CloudfySpeedyPos.exe</a></p>"
+            echo "$TAGWINDOWS"
+            echo "TAGWINDOWS=$TAGWINDOWS" >> $GITHUB_ENV          
+            echo "URLWINDOWS=$URLWINDOWS" >> $GITHUB_ENV
+          else
+            echo "Input windows é false, pulando configuração do Windows"
+          fi
+
+          if [ "${{ inputs.android }}" = "true" ]; then
+            URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.apk"
+            echo "$URLANDROID"
+            TAGANDROID="<p><a href=\"$URLANDROID\">CloudfySpeedyPos.apk</a></p>"
+            echo "$TAGANDROID"
+            echo "TAGANDROID=$TAGANDROID" >> $GITHUB_ENV          
+            echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
+          else
+            echo "Input android é false, pulando configuração do Windows"
+          fi
+
+          if [ "${{ inputs.android-tef }}" = "true" ]; then
+            URLANDROIDTEF="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosTef.apk"
+            echo "$URLANDROIDTEF"
+            TAGANDROIDTEF="<p><a href=\"$URLANDROIDTEF\">CloudfySpeedyPosTef.apk</a></p>"
+            echo "$TAGANDROIDTEF"
+            echo "TAGANDROIDTEF=$TAGANDROIDTEF" >> $GITHUB_ENV          
+            echo "URLANDROIDTEF=$URLANDROIDTEF" >> $GITHUB_ENV
+          else
+            echo "Input android-tef é false, pulando configuração do Windows"
+          fi
 
       - name: Download artifact windows
         if: ${{ inputs.windows }}
