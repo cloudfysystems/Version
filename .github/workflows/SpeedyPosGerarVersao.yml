@@ -71,10 +71,9 @@ jobs:
         shell: powershell
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json          
-          $json.speedy.version++   
-          Write-Host "$($json.speedy.simple).$($json.speedy.version).0"       
+          $json.speedy.version++             
           echo "Versao gerada: $($json.speedy.simple).$($json.speedy.version).0"
-          echo "VERSAO=$($($json.speedy.simple).$($json.speedy.version).0" >> $env:GITHUB_ENV
+          echo "VERSAO=$($($json.speedy.simple).$($json.speedy.version)).0" >> $env:GITHUB_ENV
 
       - name: Gerando o env/prod.json
         if: ${{ inputs.windows }}
