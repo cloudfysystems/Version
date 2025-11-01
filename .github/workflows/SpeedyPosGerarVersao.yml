@@ -665,7 +665,7 @@ jobs:
           newjson=$(echo "$json" | jq ".speedyWindows.version=$version | .speedyWindows.build=$build | .speedyWindows.patch=0")
           echo "$newjson" > version.json
 
-          VERSAOWINDOWS="${simple}.${version}.${patch}"
+          VERSAOWINDOWS="${simple}.${version}.0"
           echo "Versão gerada: $VERSAOWINDOWS"
 
           echo "VERSAOWINDOWS=$VERSAOWINDOWS" >> $GITHUB_ENV
@@ -682,7 +682,7 @@ jobs:
           newjson=$(echo "$json" | jq ".speedyAndroid.version=$version | .speedyAndroid.build=$build | .speedyAndroid.patch=0")
           echo "$newjson" > version.json
 
-          VERSAOANDROID="${simple}.${version}.${patch}"
+          VERSAOANDROID="${simple}.${version}.0"
           echo "Versão gerada: $VERSAOANDROID"
 
           echo "VERSAOWINDOWS=$VERSAOANDROID" >> $GITHUB_ENV
@@ -699,7 +699,7 @@ jobs:
           newjson=$(echo "$json" | jq ".speedyAndroidTef.version=$version | .speedyAndroidTef.build=$build | .speedyAndroidTef.patch=0")
           echo "$newjson" > version.json
 
-          VERSAOANDROIDTEF="${simple}.${version}.${patch}"
+          VERSAOANDROIDTEF="${simple}.${version}.0"
           echo "Versão gerada: $VERSAOANDROIDTEF"
 
           echo "VERSAOANDROIDTEF=$VERSAOANDROIDTEF" >> $GITHUB_ENV
