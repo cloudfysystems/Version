@@ -968,6 +968,7 @@ jobs:
         id: log
         continue-on-error: true
         run: |
+          echo "${{steps.compute.outputs.androidCombined}}"
           git config --global user.name "cloudfysystems"
           git config --global user.email "cloudfysystem@gmail.com"
           git config --global pull.rebase false
