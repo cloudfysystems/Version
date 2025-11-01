@@ -70,13 +70,10 @@ jobs:
         working-directory: version-repo
         shell: powershell
         run: |
-          $json = Get-Content "version.json" | ConvertFrom-Json
-          $json.speedy.build++
-          $json.speedy.patch++
-          echo "Versao Build: $($json.speedy.build)"
-          echo "Versao patch: $($json.speedy.patch)"
-          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.patch)"
-          echo "VERSAO=$($json.speedy.simple).$($json.speedy.patch)" >> $env:GITHUB_ENV
+          $json = Get-Content "version.json" | ConvertFrom-Json          
+          $json.speedy.version++          
+          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.version).0"
+          echo "VERSAO=$($($json.speedy.simple).$($json.speedy.version).0" >> $env:GITHUB_ENV
 
       - name: Gerando o env/prod.json
         if: ${{ inputs.windows }}
@@ -185,13 +182,13 @@ jobs:
         run: |
           VERSION_FILE="version.json"
           BUILD=$(jq '.speedy.build += 1 | .speedy.build' $VERSION_FILE)
-          PATCH=$(jq '.speedy.patch += 1 | .speedy.patch' $VERSION_FILE)
+          VERSION=$(jq '.speedy.version += 1 | .speedy.version' $VERSION_FILE)
           SIMPLE=$(jq -r '.speedy.simple' $VERSION_FILE)
           echo "Versao Build: $BUILD"
-          echo "Versao Patch: $PATCH"
-          echo "Versao Gerada: $SIMPLE.$PATCH+$BUILD"
-          echo "VERSAO=$SIMPLE.$PATCH+$BUILD" >> $GITHUB_ENV
-          echo "VERSAOSIMPLE=$SIMPLE.$PATCH" >> $GITHUB_ENV
+          echo "Versao Version: $VERSION"
+          echo "Versao Gerada: $SIMPLE.$PATCH.0"
+          echo "VERSAO=$SIMPLE.$PATCH.0+$BUILD" >> $GITHUB_ENV
+          echo "VERSAOSIMPLE=$SIMPLE.$PATCH.0" >> $GITHUB_ENV
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
@@ -355,14 +352,14 @@ jobs:
         if: ${{ inputs.windows }}
         run: |
           json=$(cat version.json)
-          patch=$(echo "$json" | jq '.speedy.patch + 1' | tr -d '"')
+          version=$(echo "$json" | jq '.speedy.version + 1' | tr -d '"')
           build=$(echo "$json" | jq '.speedy.build' | tr -d '"')
           simple=$(echo "$json" | jq -r '.speedy.simple')
 
-          newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
+          newjson=$(echo "$json" | jq ".speedy.version=$version | .speedy.build=$build")
           echo "$newjson" > version_windows.json          
 
-          VERSAO="${simple}.${patch}"
+          VERSAO="${simple}.${version}.0"
           echo "Versão gerada: $VERSAO"
 
           echo "VERSAO=$VERSAO" >> $GITHUB_ENV
@@ -379,14 +376,14 @@ jobs:
         working-directory: version-repo
         run: |
           json=$(cat version.json)
-          patch=$(echo "$json" | jq '.speedy.patch + 1' | tr -d '"')
+          version=$(echo "$json" | jq '.speedy.version + 1' | tr -d '"')
           build=$(echo "$json" | jq '.speedy.build + 1' | tr -d '"')
           simple=$(echo "$json" | jq -r '.speedy.simple')
 
-          newjson=$(echo "$json" | jq ".speedy.patch=$patch | .speedy.build=$build")
+          newjson=$(echo "$json" | jq ".speedy.version=$version | .speedy.build=$build")
           echo "$newjson" > version_android.json
 
-          VERSAO="${simple}.${patch}"
+          VERSAO="${simple}.${version}.0"
           echo "Versão gerada: $VERSAO"
 
           echo "VERSAO=$VERSAO" >> $GITHUB_ENV
