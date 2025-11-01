@@ -495,7 +495,7 @@ jobs:
         if: ${{ inputs.android-update }}
         with:
           platform: android
-          args: -- --dart-define-from-file=env/prod.json
+          args: --flavor=prod -- --dart-define-from-file=env/prod.json
           release-version: ${{env.VERSAOOLD}}
           working-directory: ./flutter/speed
 
@@ -512,6 +512,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        if: ${{ (inputs.android || inputs.windows) }}
         with:
           repository: cloudfysystems/FLUTTER
           fetch-depth: 0
@@ -525,6 +526,7 @@ jobs:
 
       - name: Recuperando os commits entre produção e main
         id: log
+        if: ${{ (inputs.android || inputs.windows) }}
         continue-on-error: true
         run: |
           git config --global user.name "cloudfysystems"
@@ -590,6 +592,7 @@ jobs:
           echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
 
       - name: Gravar arquivo de versionamento
+        if: ${{ (inputs.android || inputs.windows) }}
         working-directory: version-repo
         run: |
           if [ -f "version_android.json" ]; then
@@ -643,6 +646,7 @@ jobs:
           fi
 
       - name: Criando o release
+        if: ${{ (inputs.android || inputs.windows) }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.VERSAO }}
@@ -721,6 +725,7 @@ jobs:
 
       - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
+        if: ${{ (inputs.android || inputs.windows) }}
         with:
           author_name: cloudfysystems
           author_email: cloudfysystems@gmail.com
@@ -732,7 +737,7 @@ jobs:
   FinishJob-update:
     needs: [Android-update, Windows-update]
     runs-on: ubuntu-latest
-    if: success() && ${{ (inputs.android || inputs.windows) }}
+    if: success() && ${{ (inputs.android-update || inputs.windows-update) }}
     permissions:
       contents: write
     defaults:
@@ -741,6 +746,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        if: ${{ (inputs.android-update || inputs.windows-update) }}
         with:
           repository: cloudfysystems/FLUTTER
           fetch-depth: 0
@@ -749,10 +755,12 @@ jobs:
           path: flutterrepo
 
       - uses: actions/checkout@v4
+        if: ${{ (inputs.android-update || inputs.windows-update) }}
         with:
           path: version-repo
 
       - name: Recuperando os commits entre produção e main
+        if: ${{ (inputs.android-update || inputs.windows-update) }}
         id: log
         continue-on-error: true
         run: |
@@ -807,6 +815,7 @@ jobs:
           echo "VERSAO=$VERSAO" >> $GITHUB_ENV
 
       - name: Gravar arquivo de versionamento
+        if: ${{ (inputs.android-update || inputs.windows-update) }}
         working-directory: version-repo
         run: |
           if [ -f "version_android.json" ]; then
@@ -887,6 +896,7 @@ jobs:
 
       - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
+        if: ${{ (inputs.android-update || inputs.windows-update) }}
         with:
           author_name: cloudfysystems
           author_email: cloudfysystems@gmail.com
