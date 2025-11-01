@@ -521,6 +521,7 @@ jobs:
           path: flutterrepo
 
       - uses: actions/checkout@v4
+        if: ${{ (inputs.android || inputs.windows) }}
         with:
           path: version-repo
 
@@ -622,6 +623,7 @@ jobs:
           name: ApkBundleSpeedyAndroid
           path: ./downloadedApk
       - name: Listar o working directory
+        if: ${{ (inputs.android || inputs.windows) }}
         working-directory: .
         run: |
           ls -la
@@ -791,7 +793,7 @@ jobs:
           newjson=$(echo "$json" | jq ".speedy.version=$version | .speedy.build=$build | .speedy.patch=$patch")
           echo "$newjson" > version_windows.json          
 
-          VERSAO="${simple}.${version}.0"
+          VERSAO="${simple}.${version}.${patch}"
           echo "Versão gerada: $VERSAO"
 
           echo "VERSAO=$VERSAO" >> $GITHUB_ENV
@@ -809,7 +811,7 @@ jobs:
           newjson=$(echo "$json" | jq ".speedy.version=$version | .speedy.build=$build | .speedy.patch=$patch")
           echo "$newjson" > version_android.json
 
-          VERSAO="${simple}.${version}.0"
+          VERSAO="${simple}.${version}.${patch}"
           echo "Versão gerada: $VERSAO"
 
           echo "VERSAO=$VERSAO" >> $GITHUB_ENV
