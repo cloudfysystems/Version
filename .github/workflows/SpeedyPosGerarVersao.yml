@@ -441,9 +441,28 @@ jobs:
         working-directory: ./flutter/speed
 
     steps:
+      - name: Calculando a combinação dos booleans Android
+        id: compute
+        working-directory: .
+        run: |
+          ANDROID=${{ github.event.inputs.android-update }}
+          TEF=${{ github.event.inputs.android-tef-update }}
+
+          # Converte string para 0/1
+          if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
+          if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
+
+          # OR lógico
+          if [ $((ANDROID_BOOL | TEF_BOOL)) -eq 1 ]; then
+            COMBINED=true
+          else
+            COMBINED=false
+          fi
+
+          echo "combined=$COMBINED" >> $GITHUB_OUTPUT
       # Clonar o repositório principal do Flutter
       - uses: actions/checkout@v4
-        if: ${{ inputs.android-update }}
+        if: ${{ steps.compute.outputs.combined }}
         with:
           repository: cloudfysystems/FLUTTER
           ref: main
@@ -452,56 +471,54 @@ jobs:
 
       # Clonar o repositório de versão
       - uses: actions/checkout@v4
-        if: ${{ inputs.android-update }}
+        if: ${{ steps.compute.outputs.combined }}
         with:
           path: version-repo
 
       # Ler e atualizar a versão
-      - name: Ler versão atual
-        if: ${{ inputs.android-update }}
+      - name: Ler versão atual (prod)
+        if: ${{ inputs.android }}
         working-directory: version-repo
         shell: bash
         run: |
           VERSION_FILE="version.json"
-          BUILD=$(jq '.speedy.build' $VERSION_FILE)
-          VERSION=$(jq '.speedy.version' $VERSION_FILE)
-          SIMPLE=$(jq -r '.speedy.simple' $VERSION_FILE)
-          PATCH=$(jq -r '.speedy.patch  += 1 | .speedy.patch' $VERSION_FILE)
+          BUILD=$(jq '.speedyAndroid.build' $VERSION_FILE)
+          VERSION=$(jq '.speedyAndroid.version' $VERSION_FILE)
+          SIMPLE=$(jq -r '.speedyAndroid.simple' $VERSION_FILE)
+          PATCH=$(jq -r '.speedyAndroid.patch += 1 | .speedyAndroid.patch' $VERSION_FILE)
           echo "Versao Build: $BUILD"
           echo "Versao Version: $VERSION"
-          echo "Versao Gerada: $SIMPLE.$VERSION.$PATCH"
+          echo "Versao Gerada: $SIMPLE.$VERSION.0"
           echo "VERSAO=$SIMPLE.$VERSION.$PATCH+$BUILD" >> $GITHUB_ENV
           echo "VERSAOOLD=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
 
+      - name: Ler versão atual (tef)
+        if: ${{ inputs.android-tef }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version.json"
+          BUILD=$(jq '.speedyAndroidTef.build' $VERSION_FILE)
+          VERSION=$(jq '.speedyAndroidTef.version' $VERSION_FILE)
+          SIMPLE=$(jq -r '.speedyAndroidTef.simple' $VERSION_FILE)
+          PATCH=$(jq -r '.speedyAndroidTef.patch += 1 | .speedyAndroidTef.patch' $VERSION_FILE)
+          echo "Versao tef Build: $BUILD"
+          echo "Versao tef Version: $VERSION"
+          echo "Versao tef Gerada: $SIMPLE.$VERSION.0"
+          echo "VERSAOTEF=$SIMPLE.$VERSION.$PATCH+$BUILD" >> $GITHUB_ENV
+          echo "VERSAOTEFOLD=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
+
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
-        if: ${{ inputs.android-update }}
+        if: ${{ steps.compute.outputs.combined }}
         run: |
           mkdir -p ./env
           echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
           cat ./env/prod.json
 
-      # Atualizar versão no arquivo Dart
-      - name: Atualiza versão no arquivo Dart
-        if: ${{ inputs.android-update }}
-        shell: bash
-        run: |
-          FILE="lib/Environment/Version.dart"
-          NOVA_VERSAO="${{ env.VERSAO }}"
-          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
-          cat lib/Environment/Version.dart
-
-      # Atualizar versão no pubspec.yaml
-      - name: Atualizar versão no pubspec.yaml
-        if: ${{ inputs.android-update }}
-        shell: bash
-        run: |
-          sed -i "s/^version:.*/version: $VERSAO/" pubspec.yaml
-          cat pubspec.yaml
-
       # Criar arquivo .jks a partir de base64
       - name: Criar arquivo .jks
-        if: ${{ inputs.android-update }}
+        if: ${{ steps.compute.outputs.combined }}
         shell: bash
         run: |
           mkdir -p certificado
@@ -509,14 +526,14 @@ jobs:
 
       # Setup Shorebird
       - name: 🐦 Setup Shorebird
-        if: ${{ inputs.android-update }}
+        if: ${{ steps.compute.outputs.combined }}
         uses: shorebirdtech/setup-shorebird@v1
         with:
           cache: true
 
       # Criar arquivo key.properties
       - name: Criar arquivo key.properties
-        if: ${{ inputs.android-update }}
+        if: ${{ steps.compute.outputs.combined }}
         shell: bash
         run: |
           echo "storePassword=${{ secrets.SENHA_KEYSTORE }}" > android/key.properties
@@ -526,20 +543,50 @@ jobs:
 
       # Set Up Java (usando Oracle JDK 17)
       - name: Set Up Java
-        if: ${{ inputs.android-update }}
+        if: ${{ steps.compute.outputs.combined }}
         uses: actions/setup-java@v3
         with:
           distribution: "oracle"
           java-version: "17"
 
-      - name: Gerar Patch Android
+        # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart (prod)
+        if: ${{ inputs.android-update }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+
+      - name: Gerar Patch Android (Prod)
         uses: shorebirdtech/shorebird-patch@v1
         id: shorebird-patch
         if: ${{ inputs.android-update }}
         with:
           platform: android
-          args: --flavor=prod -- --dart-define-from-file=env/prod.json
+          args: --flavor=prod -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=prod
           release-version: ${{env.VERSAOOLD}}
+          working-directory: ./flutter/speed
+
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart (tef)
+        if: ${{ inputs.android-update }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAOTEF }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+
+      - name: Gerar Patch Android (tef)
+        uses: shorebirdtech/shorebird-patch@v1
+        id: shorebird-patch-tef
+        if: ${{ inputs.android-update }}
+        with:
+          platform: android
+          args: --flavor=tef -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=tef
+          release-version: ${{env.VERSAOTEFOLD}}
           working-directory: ./flutter/speed
 
   #Job que vai atualizar o git, sincronizar os fontes
@@ -618,6 +665,11 @@ jobs:
           newjson=$(echo "$json" | jq ".speedyWindows.version=$version | .speedyWindows.build=$build | .speedyWindows.patch=0")
           echo "$newjson" > version.json
 
+          VERSAOWINDOWS="${simple}.${version}.${patch}"
+          echo "Versão gerada: $VERSAOWINDOWS"
+
+          echo "VERSAOWINDOWS=$VERSAOWINDOWS" >> $GITHUB_ENV
+
       - name: Ler versão atual e atualizar número da versão android (prod)
         if: ${{ inputs.android }}
         working-directory: version-repo
@@ -630,6 +682,11 @@ jobs:
           newjson=$(echo "$json" | jq ".speedyAndroid.version=$version | .speedyAndroid.build=$build | .speedyAndroid.patch=0")
           echo "$newjson" > version.json
 
+          VERSAOANDROID="${simple}.${version}.${patch}"
+          echo "Versão gerada: $VERSAOANDROID"
+
+          echo "VERSAOWINDOWS=$VERSAOANDROID" >> $GITHUB_ENV
+
       - name: Ler versão atual e atualizar número da versão android (prod)
         if: ${{ inputs.android-tef }}
         working-directory: version-repo
@@ -641,6 +698,11 @@ jobs:
 
           newjson=$(echo "$json" | jq ".speedyAndroidTef.version=$version | .speedyAndroidTef.build=$build | .speedyAndroidTef.patch=0")
           echo "$newjson" > version.json
+
+          VERSAOANDROIDTEF="${simple}.${version}.${patch}"
+          echo "Versão gerada: $VERSAOANDROIDTEF"
+
+          echo "VERSAOANDROIDTEF=$VERSAOANDROIDTEF" >> $GITHUB_ENV
 
       - name: Gerando URLs da versão
         if: ${{ (steps.compute.outputs.androidCombined || inputs.windows) }}
@@ -771,7 +833,7 @@ jobs:
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROID}}", "NR_ID": 5}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROID }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROID}}", "NR_ID": 5}}')
 
           echo "Código HTTP: $response"
           cat response.txt
@@ -788,7 +850,7 @@ jobs:
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROIDTEF}}", "NR_ID": 11}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDTEF }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROIDTEF}}", "NR_ID": 11}}')
 
           echo "Código HTTP: $response"
           cat response.txt
@@ -805,7 +867,7 @@ jobs:
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLWINDOWS}}", "NR_ID": 4}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOWINDOWS }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLWINDOWS}}", "NR_ID": 4}}')
 
           echo "Código HTTP: $response"
           cat response.txt
@@ -865,8 +927,27 @@ jobs:
         working-directory: ./flutterrepo
 
     steps:
+      - name: Calculando a combinação dos booleans Android
+        id: compute
+        working-directory: .
+        run: |
+          ANDROID=${{ github.event.inputs.android-update }}
+          TEF=${{ github.event.inputs.android-tef-update }}
+
+          # Converte string para 0/1
+          if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
+          if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
+
+          # OR lógico
+          if [ $((ANDROID_BOOL | TEF_BOOL)) -eq 1 ]; then
+            COMBINED=true
+          else
+            COMBINED=false
+          fi
+
+          echo "androidCombined=$COMBINED" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v4
-        if: ${{ (inputs.android-update || inputs.windows-update) }}
+        if: ${{ (steps.compute.outputs.androidCombined || inputs.windows-update) }}
         with:
           repository: cloudfysystems/FLUTTER
           fetch-depth: 0
@@ -875,12 +956,12 @@ jobs:
           path: flutterrepo
 
       - uses: actions/checkout@v4
-        if: ${{ (inputs.android-update || inputs.windows-update) }}
+        if: ${{ (steps.compute.outputs.androidCombined || inputs.windows-update) }}
         with:
           path: version-repo
 
       - name: Recuperando os commits entre produção e main
-        if: ${{ (inputs.android-update || inputs.windows-update) }}
+        if: ${{ (steps.compute.outputs.androidCombined || inputs.windows-update) }}
         id: log
         continue-on-error: true
         run: |
@@ -903,56 +984,56 @@ jobs:
         if: ${{ inputs.windows-update }}
         run: |
           json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedy.version' | tr -d '"')
-          build=$(echo "$json" | jq '.speedy.build' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedy.simple')
-          patch=$(echo "$json" | jq -r '.speedy.patch + 1')
+          version=$(echo "$json" | jq '.speedyWindows.version' | tr -d '"')
+          build=$(echo "$json" | jq '.speedyWindows.build' | tr -d '"')
+          simple=$(echo "$json" | jq -r '.speedyWindows.simple')
+          patch=$(echo "$json" | jq -r '.speedyWindows.patch + 1')          
 
-          newjson=$(echo "$json" | jq ".speedy.version=$version | .speedy.build=$build | .speedy.patch=$patch")
-          echo "$newjson" > version_windows.json          
 
-          VERSAO="${simple}.${version}.${patch}"
-          echo "Versão gerada: $VERSAO"
+          newjson=$(echo "$json" | jq ".speedyWindows.version=$version | .speedyWindows.build=$build | .speedyWindows.patch=$patch")
+          echo "$newjson" > version.json          
 
-          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
+          VERSAOWINDOWS="${simple}.${version}.${patch}"
+          echo "Versão gerada: $VERSAOWINDOWS"
 
-      - name: Ler versão atual e atualizar número da versão android
+          echo "VERSAOWINDOWS=$VERSAOWINDOWS" >> $GITHUB_ENV
+
+      - name: Ler versão atual e atualizar número da versão android (Prod)
         if: ${{ inputs.android-update }}
         working-directory: version-repo
         run: |
           json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedy.version' | tr -d '"')
-          build=$(echo "$json" | jq '.speedy.build' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedy.simple')
-          patch=$(echo "$json" | jq -r '.speedy.patch + 1')
+          version=$(echo "$json" | jq '.speedyAndroid.version' | tr -d '"')
+          build=$(echo "$json" | jq '.speedyAndroid.build' | tr -d '"')
+          simple=$(echo "$json" | jq -r '.speedyAndroid.simple')
+          patch=$(echo "$json" | jq -r '.speedyAndroid.patch + 1')
 
-          newjson=$(echo "$json" | jq ".speedy.version=$version | .speedy.build=$build | .speedy.patch=$patch")
-          echo "$newjson" > version_android.json
+          newjson=$(echo "$json" | jq ".speedyAndroid.version=$version | .speedyAndroid.build=$build | .speedyAndroid.patch=$patch")
+          echo "$newjson" > version.json
 
-          VERSAO="${simple}.${version}.${patch}"
-          echo "Versão gerada: $VERSAO"
+          VERSAOANDROID="${simple}.${version}.${patch}"
+          echo "Versão gerada: $VERSAOANDROID"
 
-          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
+          echo "VERSAOANDROID=$VERSAOANDROID" >> $GITHUB_ENV
 
-      - name: Gravar arquivo de versionamento
-        if: ${{ (inputs.android-update || inputs.windows-update) }}
+      - name: Ler versão atual e atualizar número da versão android (tef)
+        if: ${{ inputs.android-tef-update }}
         working-directory: version-repo
         run: |
-          if [ -f "version_android.json" ]; then
-            echo "🔹 Usando version_android.json"
-            json=$(cat version_android.json)            
-          elif [ -f "version_windows.json" ]; then
-            echo "🔹 Usando version_windows.json"
-            json=$(cat version_windows.json)            
-          else
-            echo "❌ Nenhum arquivo de versão encontrado!"
-            exit 1
-          fi           
-          echo "$json" > version.json
-          cat version.json
+          json=$(cat version.json)
+          version=$(echo "$json" | jq '.speedyAndroidTef.version' | tr -d '"')
+          build=$(echo "$json" | jq '.speedyAndroidTef.build' | tr -d '"')
+          simple=$(echo "$json" | jq -r '.speedyAndroidTef.simple')
+          patch=$(echo "$json" | jq -r '.speedyAndroidTef.patch + 1')
 
-      # NOVO PASSO: chama API antes de enviar e-mail
-      # NOVO PASSO: chama API antes de enviar e-mail
+          newjson=$(echo "$json" | jq ".speedyAndroidTef.version=$version | .speedyAndroidTef.build=$build | .speedyAndroidTef.patch=$patch")
+          echo "$newjson" > version.json
+
+          VERSAOANDROIDTEF="${simple}.${version}.${patch}"
+          echo "Versão gerada: $VERSAOANDROIDTEF"
+
+          echo "VERSAOANDROIDTEF=$VERSAOANDROIDTEF" >> $GITHUB_ENV
+
       - name: Chamar API de alteração de dados android
         if: ${{ inputs.android-update }}
         id: api_call_android
@@ -961,7 +1042,25 @@ jobs:
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 5}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROID }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 5}}')
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Chamar API de alteração de dados android
+        if: ${{ inputs.android-update }}
+        id: api_call_android-tef
+        run: |
+          echo "Chamando API de validação..."
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDTEF }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 5}}')
 
           echo "Código HTTP: $response"
           cat response.txt
@@ -978,7 +1077,7 @@ jobs:
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 4}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOWINDOWS }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 4}}')
 
           echo "Código HTTP: $response"
           cat response.txt
@@ -990,7 +1089,7 @@ jobs:
 
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3
-        if: ${{ (inputs.android-update || inputs.windows-update) }}
+        if: ${{ (steps.compute.outputs.androidCombined || inputs.windows-update) }}
         with:
           server_address: mail.cloudfy.net.br
           server_port: 465
@@ -1016,7 +1115,7 @@ jobs:
 
       - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
-        if: ${{ (inputs.android-update || inputs.windows-update) }}
+        if: ${{ (steps.compute.outputs.androidCombined || inputs.windows-update) }}
         with:
           author_name: cloudfysystems
           author_email: cloudfysystems@gmail.com
