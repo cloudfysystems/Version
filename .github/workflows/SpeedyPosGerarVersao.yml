@@ -404,7 +404,7 @@ jobs:
         if: ${{ inputs.android }}
         shell: bash
         run: |
-          sed -i "s/^version:.*/version: $VERSAOTEF/" pubspec.yaml
+          sed -i "s/^version:.*/version: ${{ env.VERSAOTEF }}/" pubspec.yaml
           cat pubspec.yaml
 
       - name: 🚀 Shorebird Release (Tef)
