@@ -775,7 +775,7 @@ jobs:
             exit 1
           fi
       - name: Chamar API de alteração de dados android(tef)
-        if: ${{ inputs.android-android-tef }}
+        if: ${{ inputs.android-tef }}
         id: api_call_android-tef
         run: |
           echo "Chamando API de validação..."
