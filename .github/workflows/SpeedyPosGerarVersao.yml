@@ -87,7 +87,8 @@ jobs:
         shell: powershell
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json          
-          $json.speedy.version++             
+          $json.speedy.version++
+          $json.speedy.patch = 0             
           echo "Versao gerada: $($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)"
           echo "VERSAO=$($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)" >> $env:GITHUB_ENV
 
@@ -300,8 +301,8 @@ jobs:
           PATCH=$(jq -r '.speedy.patch' $VERSION_FILE)
           echo "Versao Build: $BUILD"
           echo "Versao Version: $VERSION"
-          echo "Versao Gerada: $SIMPLE.$VERSION.$PATCH"
-          echo "VERSAO=$SIMPLE.$VERSION.$PATCH+$BUILD" >> $GITHUB_ENV
+          echo "Versao Gerada: $SIMPLE.$VERSION.0"
+          echo "VERSAO=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
