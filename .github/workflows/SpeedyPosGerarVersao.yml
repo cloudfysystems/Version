@@ -87,10 +87,10 @@ jobs:
         shell: powershell
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json          
-          $json.speedy.version++
-          $json.speedy.patch = 0             
-          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)"
-          echo "VERSAO=$($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)" >> $env:GITHUB_ENV
+          $json.speedyWindows.version++
+          $json.speedyWindows.patch = 0             
+          echo "Versao gerada: $($json.speedyWindows.simple).$($json.speedyWindows.version).$($json.speedyWindows.patch)"
+          echo "VERSAO=$($json.speedyWindows.simple).$($json.speedyWindows.version).$($json.speedyWindows.patch)" >> $env:GITHUB_ENV
 
       - name: Gerando o env/prod.json
         if: ${{ inputs.windows }}
@@ -199,10 +199,10 @@ jobs:
         shell: powershell
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json          
-          $json.speedy.patch++             
-          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)"
-          echo "VERSAOOLD=$($json.speedy.simple).$($json.speedy.version).0" >> $env:GITHUB_ENV
-          echo "VERSAO=$($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)" >> $env:GITHUB_ENV
+          $json.speedyWindows.patch++             
+          echo "Versao gerada: $($json.speedyWindows.simple).$($json.speedyWindows.version).$($json.speedyWindows.patch)"
+          echo "VERSAOOLD=$($json.speedyWindows.simple).$($json.speedyWindows.version).0" >> $env:GITHUB_ENV
+          echo "VERSAO=$($json.speedyWindows.simple).$($json.speedyWindows.version).$($json.speedyWindows.patch)" >> $env:GITHUB_ENV
 
       - name: Gerando o env/prod.json
         if: ${{ inputs.windows-update }}
@@ -289,20 +289,35 @@ jobs:
           path: version-repo
 
       # Ler e atualizar a versão
-      - name: Ler versão atual
-        if: ${{ steps.compute.outputs.combined }}
+      - name: Ler versão atual (prod)
+        if: ${{ inputs.android }}
         working-directory: version-repo
         shell: bash
         run: |
           VERSION_FILE="version.json"
-          BUILD=$(jq '.speedy.build += 1 | .speedy.build' $VERSION_FILE)
-          VERSION=$(jq '.speedy.version += 1 | .speedy.version' $VERSION_FILE)
-          SIMPLE=$(jq -r '.speedy.simple' $VERSION_FILE)
-          PATCH=$(jq -r '.speedy.patch' $VERSION_FILE)
+          BUILD=$(jq '.speedyAndroid.build += 1 | .speedyAndroid.build' $VERSION_FILE)
+          VERSION=$(jq '.speedyAndroid.version += 1 | .speedyAndroid.version' $VERSION_FILE)
+          SIMPLE=$(jq -r '.speedyAndroid.simple' $VERSION_FILE)
+          PATCH=$(jq -r '.speedyAndroid.patch' $VERSION_FILE)
           echo "Versao Build: $BUILD"
           echo "Versao Version: $VERSION"
           echo "Versao Gerada: $SIMPLE.$VERSION.0"
           echo "VERSAO=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
+
+      - name: Ler versão atual (tef)
+        if: ${{ inputs.android-tef }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version.json"
+          BUILD=$(jq '.speedyAndroidTef.build += 1 | .speedyAndroidTef.build' $VERSION_FILE)
+          VERSION=$(jq '.speedyAndroidTef.version += 1 | .speedyAndroidTef.version' $VERSION_FILE)
+          SIMPLE=$(jq -r '.speedyAndroidTef.simple' $VERSION_FILE)
+          PATCH=$(jq -r '.speedyAndroidTef.patch' $VERSION_FILE)
+          echo "Versao tef Build: $BUILD"
+          echo "Versao tef Version: $VERSION"
+          echo "Versao tef Gerada: $SIMPLE.$VERSION.0"
+          echo "VERSAOTEF=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
@@ -312,31 +327,13 @@ jobs:
           echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
           cat ./env/prod.json
 
-      # Atualizar versão no arquivo Dart
-      - name: Atualiza versão no arquivo Dart
-        if: ${{ steps.compute.outputs.combined }}
-        shell: bash
-        run: |
-          FILE="lib/Environment/Version.dart"
-          NOVA_VERSAO="${{ env.VERSAO }}"
-          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
-          cat lib/Environment/Version.dart
-
-      # Atualizar versão no pubspec.yaml
-      - name: Atualizar versão no pubspec.yaml
-        if: ${{ steps.compute.outputs.combined }}
-        shell: bash
-        run: |
-          sed -i "s/^version:.*/version: $VERSAO/" pubspec.yaml
-          cat pubspec.yaml
-
       # Criar arquivo .jks a partir de base64
       - name: Criar arquivo .jks
         if: ${{ steps.compute.outputs.combined }}
         shell: bash
         run: |
           mkdir -p certificado
-          echo "${{ steps.compute.outputs.combined }}" | base64 -d > certificado/certificado-keystore.jks
+          echo "${{ secrets.KEYSTORE }}" | base64 -d > certificado/certificado-keystore.jks
 
       # Setup Shorebird
       - name: 🐦 Setup Shorebird
@@ -363,6 +360,24 @@ jobs:
           distribution: "oracle"
           java-version: "17"
 
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart(prod)
+        if: ${{ inputs.android }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+
+      # Atualizar versão no pubspec.yaml
+      - name: Atualizar versão no pubspec.yaml(prod)
+        if: ${{ inputs.android }}
+        shell: bash
+        run: |
+          sed -i "s/^version:.*/version: $VERSAO/" pubspec.yaml
+          cat pubspec.yaml
+
       # Executar build do Shorebird
       - name: 🚀 Shorebird Release (Prod)
         if: ${{ inputs.android }}
@@ -373,6 +388,24 @@ jobs:
           platform: android
           flutter-version: 3.32.8
           working-directory: ./flutter/speed
+
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart(tef)
+        if: ${{ inputs.android }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAOTEF }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+
+      # Atualizar versão no pubspec.yaml
+      - name: Atualizar versão no pubspec.yaml(tef)
+        if: ${{ inputs.android }}
+        shell: bash
+        run: |
+          sed -i "s/^version:.*/version: $VERSAOTEF/" pubspec.yaml
+          cat pubspec.yaml
 
       - name: 🚀 Shorebird Release (Tef)
         if: ${{ inputs.android-tef }}
@@ -578,41 +611,62 @@ jobs:
         if: ${{ inputs.windows }}
         run: |
           json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedy.version + 1' | tr -d '"')
-          build=$(echo "$json" | jq '.speedy.build' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedy.simple')          
+          version=$(echo "$json" | jq '.speedyWindows.version + 1' | tr -d '"')
+          build=$(echo "$json" | jq '.speedyWindows.build' | tr -d '"')
+          simple=$(echo "$json" | jq -r '.speedyWindows.simple')          
 
-          newjson=$(echo "$json" | jq ".speedy.version=$version | .speedy.build=$build | .speedy.patch=0")
-          echo "$newjson" > version_windows.json          
+          newjson=$(echo "$json" | jq ".speedyWindows.version=$version | .speedyWindows.build=$build | .speedyWindows.patch=0")
+          echo "$newjson" > version.json          
 
           VERSAO="${simple}.${version}.0"
           echo "Versão gerada: $VERSAO"
 
           echo "VERSAO=$VERSAO" >> $GITHUB_ENV
 
+      - name: Ler versão atual e atualizar número da versão android (prod)
+        if: ${{ inputs.android }}
+        working-directory: version-repo
+        run: |
+          json=$(cat version.json)
+          version=$(echo "$json" | jq '.speedyAndroid.version + 1' | tr -d '"')
+          build=$(echo "$json" | jq '.speedyAndroid.build + 1' | tr -d '"')
+          simple=$(echo "$json" | jq -r '.speedyAndroid.simple')
+
+          newjson=$(echo "$json" | jq ".speedyAndroid.version=$version | .speedyAndroid.build=$build | .speedyAndroid.patch=0")
+          echo "$newjson" > version.json
+
+          VERSAO="${simple}.${version}.0"
+          echo "Versão gerada: $VERSAO"
+
+          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
+
+      - name: Ler versão atual e atualizar número da versão android (prod)
+        if: ${{ inputs.android-tef }}
+        working-directory: version-repo
+        run: |
+          json=$(cat version.json)
+          version=$(echo "$json" | jq '.speedyAndroidTef.version + 1' | tr -d '"')
+          build=$(echo "$json" | jq '.speedyAndroidTef.build + 1' | tr -d '"')
+          simple=$(echo "$json" | jq -r '.speedyAndroidTef.simple')
+
+          newjson=$(echo "$json" | jq ".speedyAndroidTef.version=$version | .speedyAndroidTef.build=$build | .speedyAndroidTef.patch=0")
+          echo "$newjson" > version.json
+
+          VERSAO="${simple}.${version}.0"
+          echo "Versão gerada: $VERSAO"
+
+          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
+
+      - name: Gerando URLs da versão
+        if: ${{ (steps.compute.outputs.androidCombined || inputs.windows) }}
+        working-directory: version-repo
+        run: |
           URLWINDOWS="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.exe"
           echo "$URLWINDOWS"
           TAGWINDOWS="<p><a href=\"$URLWINDOWS\">CloudfySpeedyPos.exe</a></p>"
           echo "$TAGWINDOWS"
           echo "TAGWINDOWS=$TAGWINDOWS" >> $GITHUB_ENV          
           echo "URLWINDOWS=$URLWINDOWS" >> $GITHUB_ENV
-
-      - name: Ler versão atual e atualizar número da versão android
-        if: ${{ inputs.android }}
-        working-directory: version-repo
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedy.version + 1' | tr -d '"')
-          build=$(echo "$json" | jq '.speedy.build + 1' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedy.simple')
-
-          newjson=$(echo "$json" | jq ".speedy.version=$version | .speedy.build=$build | .speedy.patch=0")
-          echo "$newjson" > version_android.json
-
-          VERSAO="${simple}.${version}.0"
-          echo "Versão gerada: $VERSAO"
-
-          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
 
           URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.apk"
           echo "$URLANDROID"
@@ -627,23 +681,6 @@ jobs:
           echo "$TAGANDROIDTEF"
           echo "TAGANDROIDTEF=$TAGANDROIDTEF" >> $GITHUB_ENV          
           echo "URLANDROIDTEF=$URLANDROIDTEF" >> $GITHUB_ENV
-
-      - name: Gravar arquivo de versionamento
-        if: ${{ (steps.compute.outputs.androidCombined || inputs.windows) }}
-        working-directory: version-repo
-        run: |
-          if [ -f "version_android.json" ]; then
-            echo "🔹 Usando version_android.json"
-            json=$(cat version_android.json)            
-          elif [ -f "version_windows.json" ]; then
-            echo "🔹 Usando version_windows.json"
-            json=$(cat version_windows.json)            
-          else
-            echo "❌ Nenhum arquivo de versão encontrado!"
-            exit 1
-          fi           
-          echo "$json" > version.json
-          cat version.json
 
       - name: Download artifact windows
         if: ${{ inputs.windows }}
