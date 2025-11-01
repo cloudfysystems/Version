@@ -72,8 +72,8 @@ jobs:
         run: |
           $json = Get-Content "version.json" | ConvertFrom-Json          
           $json.speedy.version++             
-          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.version).0"
-          echo "VERSAO=$($($json.speedy.simple).$($json.speedy.version)).0" >> $env:GITHUB_ENV
+          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)"
+          echo "VERSAO=$($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)" >> $env:GITHUB_ENV
 
       - name: Gerando o env/prod.json
         if: ${{ inputs.windows }}
@@ -184,11 +184,11 @@ jobs:
           BUILD=$(jq '.speedy.build += 1 | .speedy.build' $VERSION_FILE)
           VERSION=$(jq '.speedy.version += 1 | .speedy.version' $VERSION_FILE)
           SIMPLE=$(jq -r '.speedy.simple' $VERSION_FILE)
+          PATCH=$(jq -r '.speedy.patch' $VERSION_FILE)
           echo "Versao Build: $BUILD"
           echo "Versao Version: $VERSION"
-          echo "Versao Gerada: $SIMPLE.$VERSION.0"
-          echo "VERSAO=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
-          echo "VERSAOSIMPLE=$SIMPLE.$VERSION.0" >> $GITHUB_ENV
+          echo "Versao Gerada: $SIMPLE.$VERSION.$PATCH"
+          echo "VERSAO=$SIMPLE.$VERSION.$PATCH+$BUILD" >> $GITHUB_ENV
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
@@ -204,7 +204,7 @@ jobs:
         shell: bash
         run: |
           FILE="lib/Environment/Version.dart"
-          NOVA_VERSAO="${{ env.VERSAOSIMPLE }}"
+          NOVA_VERSAO="${{ env.VERSAO }}"
           sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
           cat lib/Environment/Version.dart
 
@@ -354,9 +354,9 @@ jobs:
           json=$(cat version.json)
           version=$(echo "$json" | jq '.speedy.version + 1' | tr -d '"')
           build=$(echo "$json" | jq '.speedy.build' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedy.simple')
+          simple=$(echo "$json" | jq -r '.speedy.simple')          
 
-          newjson=$(echo "$json" | jq ".speedy.version=$version | .speedy.build=$build")
+          newjson=$(echo "$json" | jq ".speedy.version=$version | .speedy.build=$build | .speedy.patch=0")
           echo "$newjson" > version_windows.json          
 
           VERSAO="${simple}.${version}.0"
@@ -380,7 +380,7 @@ jobs:
           build=$(echo "$json" | jq '.speedy.build + 1' | tr -d '"')
           simple=$(echo "$json" | jq -r '.speedy.simple')
 
-          newjson=$(echo "$json" | jq ".speedy.version=$version | .speedy.build=$build")
+          newjson=$(echo "$json" | jq ".speedy.version=$version | .speedy.build=$build | .speedy.patch=0")
           echo "$newjson" > version_android.json
 
           VERSAO="${simple}.${version}.0"
