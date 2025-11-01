@@ -391,7 +391,7 @@ jobs:
 
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart(tef)
-        if: ${{ inputs.android }}
+        if: ${{ inputs.android-tef }}
         shell: bash
         run: |
           FILE="lib/Environment/Version.dart"
@@ -401,7 +401,7 @@ jobs:
 
       # Atualizar versão no pubspec.yaml
       - name: Atualizar versão no pubspec.yaml(tef)
-        if: ${{ inputs.android }}
+        if: ${{ inputs.android-tef }}
         shell: bash
         run: |
           sed -i "s/^version:.*/version: ${{ env.VERSAOTEF }}/" pubspec.yaml
@@ -710,6 +710,9 @@ jobs:
         run: |
           json=$(cat version.json)
           version=$(echo "$json" | jq '.speedyGeneratedVersion + 1' | tr -d '"')
+
+          newjson=$(echo "$json" | jq ".speedyGeneratedVersion=$version")
+          echo "$newjson" > version.json
 
           VERSAO="speedyV$version"
           echo "Versão gerada: $VERSAO"
