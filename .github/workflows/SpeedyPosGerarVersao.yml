@@ -477,7 +477,7 @@ jobs:
 
       # Ler e atualizar a versão
       - name: Ler versão atual (prod)
-        if: ${{ inputs.android }}
+        if: ${{ inputs.android-update }}
         working-directory: version-repo
         shell: bash
         run: |
@@ -493,7 +493,7 @@ jobs:
           echo "VERSAOOLD=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
 
       - name: Ler versão atual (tef)
-        if: ${{ inputs.android-tef }}
+        if: ${{ inputs.android-tef-update }}
         working-directory: version-repo
         shell: bash
         run: |
