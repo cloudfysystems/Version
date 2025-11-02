@@ -28,8 +28,8 @@ on:
         default: true
         type: boolean
       android-tef-update:
-        description: "Atualizar versão Android(TEF)?"
-        default: false
+        description: "Atualizar versão Android(TEF)? (Patch)"
+        default: true
         type: boolean
 env:
   VERSION: ${{vars.VERSAO}}
@@ -685,7 +685,7 @@ jobs:
           VERSAOANDROID="${simple}.${version}.0"
           echo "Versão gerada: $VERSAOANDROID"
 
-          echo "VERSAOWINDOWS=$VERSAOANDROID" >> $GITHUB_ENV
+          echo "VERSAOANDROID=$VERSAOANDROID" >> $GITHUB_ENV
 
       - name: Ler versão atual e atualizar número da versão android (prod)
         if: ${{ inputs.android-tef }}
