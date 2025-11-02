@@ -1037,7 +1037,7 @@ jobs:
 
           echo "VERSAOANDROIDTEF=$VERSAOANDROIDTEF" >> $GITHUB_ENV
 
-      - name: Chamar API de alteração de dados android
+      - name: Chamar API de alteração de dados android (prod)
         if: ${{ inputs.android-update }}
         id: api_call_android
         run: |
@@ -1055,15 +1055,15 @@ jobs:
             exit 1
           fi
 
-      - name: Chamar API de alteração de dados android
-        if: ${{ inputs.android-update }}
+      - name: Chamar API de alteração de dados android (tef)
+        if: ${{ inputs.android-tef-update }}
         id: api_call_android-tef
         run: |
           echo "Chamando API de validação..."
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDTEF }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 5}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDTEF }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 11}}')
 
           echo "Código HTTP: $response"
           cat response.txt
