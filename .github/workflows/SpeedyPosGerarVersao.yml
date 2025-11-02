@@ -714,7 +714,7 @@ jobs:
           newjson=$(echo "$json" | jq ".speedyGeneratedVersion=$version")
           echo "$newjson" > version.json
 
-          VERSAO="v$version"
+          VERSAO="$version"
           echo "Versão gerada: $VERSAO"
 
           echo "VERSAO=$VERSAO" >> $GITHUB_ENV
