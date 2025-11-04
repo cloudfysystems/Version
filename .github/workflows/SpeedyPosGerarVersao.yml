@@ -243,7 +243,7 @@ jobs:
         if: ${{ inputs.windows-update }}
         with:
           platform: windows
-          args: -- --dart-define-from-file=env/prod.json
+          args: --allow-asset-diffs -- --dart-define-from-file=env/prod.json
           release-version: ${{env.VERSAOOLD}}
           working-directory: ./flutter/speed
 
@@ -384,7 +384,7 @@ jobs:
         id: shorebird-release
         uses: shorebirdtech/shorebird-release@v1
         with:
-          args: --flavor=prod --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=prod
+          args: --allow-asset-diffs --flavor=prod --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=prod
           platform: android
           flutter-version: 3.32.8
           working-directory: ./flutter/speed
@@ -412,7 +412,7 @@ jobs:
         id: shorebird-release-tef
         uses: shorebirdtech/shorebird-release@v1
         with:
-          args: --flavor=tef --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=tef
+          args: --allow-asset-diffs --flavor=tef --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=tef
           platform: android
           flutter-version: 3.32.8
           working-directory: ./flutter/speed
