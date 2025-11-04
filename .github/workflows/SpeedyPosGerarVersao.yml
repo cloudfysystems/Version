@@ -384,7 +384,7 @@ jobs:
         id: shorebird-release
         uses: shorebirdtech/shorebird-release@v1
         with:
-          args: --allow-asset-diffs --flavor=prod --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=prod
+          args: --flavor=prod --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=prod
           platform: android
           flutter-version: 3.32.8
           working-directory: ./flutter/speed
@@ -412,7 +412,7 @@ jobs:
         id: shorebird-release-tef
         uses: shorebirdtech/shorebird-release@v1
         with:
-          args: --allow-asset-diffs --flavor=tef --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=tef
+          args: --flavor=tef --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=tef
           platform: android
           flutter-version: 3.32.8
           working-directory: ./flutter/speed
@@ -565,7 +565,7 @@ jobs:
         if: ${{ inputs.android-update }}
         with:
           platform: android
-          args: --flavor prod -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=prod
+          args: --allow-asset-diffs --flavor prod -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=prod
           release-version: ${{env.VERSAOOLD}}
           working-directory: ./flutter/speed
 
@@ -585,7 +585,7 @@ jobs:
         if: ${{ inputs.android-tef-update }}
         with:
           platform: android
-          args: --flavor tef -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=tef
+          args: --allow-asset-diffs --flavor tef -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=tef
           release-version: ${{env.VERSAOTEFOLD}}
           working-directory: ./flutter/speed
 
