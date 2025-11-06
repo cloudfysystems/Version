@@ -139,7 +139,7 @@ jobs:
       - name: Build Windows EXE
         shell: pwsh
         if: ${{ inputs.windows }}
-        run: shorebird release windows --flutter-version 3.35.4 --no-confirm '--' --dart-define-from-file=env/prod.json
+        run: shorebird release windows --flutter-version 3.35.7 --no-confirm '--' --dart-define-from-file=env/prod.json
         continue-on-error: true
       - name: Verificar executável gerado com sucesso
         if: ${{ inputs.windows }}
@@ -386,7 +386,7 @@ jobs:
         with:
           args: --flavor=prod --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=prod
           platform: android
-          flutter-version: 3.32.8
+          flutter-version: 3.35.7
           working-directory: ./flutter/speed
 
       # Atualizar versão no arquivo Dart
@@ -414,7 +414,7 @@ jobs:
         with:
           args: --flavor=tef --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=tef
           platform: android
-          flutter-version: 3.32.8
+          flutter-version: 3.35.7
           working-directory: ./flutter/speed
 
       # Upload dos artefatos
