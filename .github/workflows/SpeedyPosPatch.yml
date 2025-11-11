@@ -1,4 +1,4 @@
-name: SpeedyPos Gerar versão
+name: SpeedyPos Patch
 
 on:
   workflow_dispatch: # Roda apenas manualmente pelo painel do GitHub
