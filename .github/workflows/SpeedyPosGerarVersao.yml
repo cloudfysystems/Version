@@ -369,7 +369,7 @@ jobs:
         id: shorebird-release-pagseguro
         uses: shorebirdtech/shorebird-release@v1
         with:
-          args: --flavor=pagseguro --split-per-abi --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=pagseguro
+          args: --flavor=pagseguro --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=pagseguro
           platform: android
           flutter-version: 3.35.7
           working-directory: ./flutter/speed
@@ -397,7 +397,8 @@ jobs:
         with:
           name: ApkBundleSpeedyAndroidPagSeguro
           path: |
-            flutter/speed/build/app/outputs/flutter-apk/app-arm64-v8a-prod-release.apk
+            flutter/speed/build/app/outputs/apk/pagseguro/release/app-pagseguro-release.apk
+            flutter/speed/build/app/outputs/bundle/pagseguroRelease/app-pagseguro-release.aab
 
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
@@ -658,8 +659,8 @@ jobs:
           fi
 
           echo "Renomeando APK e AAB (PagSeguro)..."
-          if [ -f "downloadedApk/flutter-apk/app-arm64-v8a-prod-release.apk" ]; then
-            mv downloadedApk/flutter-apk/app-arm64-v8a-prod-release.apk downloadedApk/flutter-apk/CloudfySpeedyPosPagSeguro.apk
+          if [ -f "downloadedApk/apk/pagseguro/release/app-pagseguro-release.apk" ]; then
+            mv downloadedApk/apk/pagseguro/release/app-pagseguro-release.apk downloadedApk/apk/pagseguro/release/CloudfySpeedyPosPagSeguro.apk
             echo "APK renomeado para CloudfySpeedyPosPagSeguro.apk"
           else
             echo "⚠️ APK não encontrado!"
@@ -684,7 +685,7 @@ jobs:
             downloadedApk/bundle/prodRelease/CloudfySpeedyPos.aab
             downloadedApk/apk/tef/release/CloudfySpeedyPosTef.apk
             downloadedApk/bundle/tefRelease/CloudfySpeedyPosTef.aab
-            downloadedApk/flutter-apk/CloudfySpeedyPosPagSeguro.apk
+            downloadedApk/apk/pagseguro/release/CloudfySpeedyPosPagSeguro.apk
             downloadedApk/bundle/pagseguroRelease/CloudfySpeedyPosPagSeguro.aab
           body: Release gerado automaticamente.
         env:
