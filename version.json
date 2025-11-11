@@ -1,5 +1,5 @@
 {
-  "speedyGeneratedVersion": 28,
+  "speedyGeneratedVersion": 29,
   "speedyWindows": {
     "build": 11,
     "version": 30,
@@ -19,13 +19,13 @@
     "simple": "1"
   },
   "speedyAndroidPagSeguro": {
-    "build": 16,
-    "version": 31,
+    "build": 17,
+    "version": 32,
     "patch": 0,
     "simple": "1"
   },
   "blue": {
     "patch": 37,
     "simple": "1.3"
-  }  
+  }
 }
