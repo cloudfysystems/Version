@@ -369,7 +369,7 @@ jobs:
         id: shorebird-release-pagseguro
         uses: shorebirdtech/shorebird-release@v1
         with:
-          args: --flavor=pagseguro --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=pagseguro --split-per-abi
+          args: --flavor=pagseguro --split-per-abi --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=pagseguro
           platform: android
           flutter-version: 3.35.7
           working-directory: ./flutter/speed
