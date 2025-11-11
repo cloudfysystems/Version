@@ -346,33 +346,6 @@ jobs:
           platform: android
           flutter-version: 3.35.7
           working-directory: ./flutter/speed
-      # Atualizar versão no arquivo Dart
-      - name: Atualiza versão no arquivo Dart(pagseguro)
-        if: ${{ inputs.android-pagseguro }}
-        shell: bash
-        run: |
-          FILE="lib/Environment/Version.dart"
-          NOVA_VERSAO="${{ env.VERSAOPAGSEGURO }}"
-          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
-          cat lib/Environment/Version.dart
-
-      # Atualizar versão no pubspec.yaml
-      - name: Atualizar versão no pubspec.yaml(pagseguro)
-        if: ${{ inputs.android-pagseguro }}
-        shell: bash
-        run: |
-          sed -i "s/^version:.*/version: ${{ env.VERSAOPAGSEGURO }}/" pubspec.yaml
-          cat pubspec.yaml
-
-      - name: 🚀 Shorebird Release (PagSeguro)
-        if: ${{ inputs.android-pagseguro }}
-        id: shorebird-release-pagseguro
-        uses: shorebirdtech/shorebird-release@v1
-        with:
-          args: --flavor=pagseguro --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=pagseguro
-          platform: android
-          flutter-version: 3.35.7
-          working-directory: ./flutter/speed
 
       # Upload dos artefatos
       - name: Upload da apk e do bundle (Prod)
