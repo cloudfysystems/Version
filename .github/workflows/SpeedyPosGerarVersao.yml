@@ -346,6 +346,33 @@ jobs:
           platform: android
           flutter-version: 3.35.7
           working-directory: ./flutter/speed
+        # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart(pagseguro)
+        if: ${{ inputs.android-pagseguro }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAOPAGSEGURO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+
+      # Atualizar versão no pubspec.yaml
+      - name: Atualizar versão no pubspec.yaml(pagseguro)
+        if: ${{ inputs.android-pagseguro }}
+        shell: bash
+        run: |
+          sed -i "s/^version:.*/version: ${{ env.VERSAOPAGSEGURO }}/" pubspec.yaml
+          cat pubspec.yaml
+
+      - name: 🚀 Shorebird Release (PagSeguro)
+        if: ${{ inputs.android-pagseguro }}
+        id: shorebird-release-pagseguro
+        uses: shorebirdtech/shorebird-release@v1
+        with:
+          args: --flavor=pagseguro --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=pagseguro --split-per-abi
+          platform: android
+          flutter-version: 3.35.7
+          working-directory: ./flutter/speed
 
       # Upload dos artefatos
       - name: Upload da apk e do bundle (Prod)
@@ -370,8 +397,7 @@ jobs:
         with:
           name: ApkBundleSpeedyAndroidPagSeguro
           path: |
-            flutter/speed/build/app/outputs/apk/pagseguro/release/app-pagseguro-release.apk
-            flutter/speed/build/app/outputs/bundle/pagseguroRelease/app-pagseguro-release.aab
+            flutter/speed/build/app/outputs/flutter-apk/app-arm64-v8a-prod-release.apk
 
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
@@ -632,8 +658,8 @@ jobs:
           fi
 
           echo "Renomeando APK e AAB (PagSeguro)..."
-          if [ -f "downloadedApk/apk/pagseguro/release/app-pagseguro-release.apk" ]; then
-            mv downloadedApk/apk/pagseguro/release/app-pagseguro-release.apk downloadedApk/apk/pagseguro/release/CloudfySpeedyPosPagSeguro.apk
+          if [ -f "downloadedApk/flutter-apk/app-arm64-v8a-prod-release.apk" ]; then
+            mv downloadedApk/flutter-apk/app-arm64-v8a-prod-release.apk downloadedApk/flutter-apk/CloudfySpeedyPosPagSeguro.apk
             echo "APK renomeado para CloudfySpeedyPosPagSeguro.apk"
           else
             echo "⚠️ APK não encontrado!"
@@ -658,7 +684,7 @@ jobs:
             downloadedApk/bundle/prodRelease/CloudfySpeedyPos.aab
             downloadedApk/apk/tef/release/CloudfySpeedyPosTef.apk
             downloadedApk/bundle/tefRelease/CloudfySpeedyPosTef.aab
-            downloadedApk/apk/pagseguro/release/CloudfySpeedyPosPagSeguro.apk
+            downloadedApk/flutter-apk/CloudfySpeedyPosPagSeguro.apk
             downloadedApk/bundle/pagseguroRelease/CloudfySpeedyPosPagSeguro.aab
           body: Release gerado automaticamente.
         env:
