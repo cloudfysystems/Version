@@ -18,6 +18,12 @@
     "patch": 0,
     "simple": "1"
   },
+  "speedyAndroidPagSeguro": {
+    "build": 15,
+    "version": 30,
+    "patch": 0,
+    "simple": "1"
+  },
   "blue": {
     "patch": 37,
     "simple": "1.3"
