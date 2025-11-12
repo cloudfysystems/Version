@@ -23,6 +23,10 @@ on:
         description: "Gerar versão Android(PagSeguro)?"
         default: true
         type: boolean
+      android-getnet:
+        description: "Gerar versão Android(Getnet)?"
+        default: true
+        type: boolean
 env:
   VERSION: ${{vars.VERSAO}}
   BUILD: ${{vars.build}}
@@ -175,14 +179,16 @@ jobs:
           ANDROID=${{ github.event.inputs.android }}
           TEF=${{ github.event.inputs.android-tef }}
           PAGSEGURO=${{ github.event.inputs.android-pagseguro }}
+          GETNET=${{ github.event.inputs.android-getnet }}
 
           # Converte string para 0/1
           if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
           if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
           if [ "$PAGSEGURO" = "true" ]; then PAGSEGURO_BOOL=1; else PAGSEGURO_BOOL=0; fi
+          if [ "$GETNET" = "true" ]; then GETNET_BOOL=1; else GETNET_BOOL=0; fi
 
           # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL)) -eq 1 ]; then
+          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL)) -eq 1 ]; then
             COMBINED=true
           else
             COMBINED=false
@@ -248,6 +254,21 @@ jobs:
           echo "Versao pagSeguro Version: $VERSION"
           echo "Versao pagSeguro Gerada: $SIMPLE.$VERSION.0"
           echo "VERSAOPAGSEGURO=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
+
+      - name: Ler versão atual (Getnet)
+        if: ${{ inputs.android-getnet }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version.json"
+          BUILD=$(jq '.speedyAndroidGetnet.build += 1 | .speedyAndroidGetnet.build' $VERSION_FILE)
+          VERSION=$(jq '.speedyAndroidGetnet.version += 1 | .speedyAndroidGetnet.version' $VERSION_FILE)
+          SIMPLE=$(jq -r '.speedyAndroidGetnet.simple' $VERSION_FILE)
+          PATCH=$(jq -r '.speedyAndroidGetnet.patch' $VERSION_FILE)
+          echo "Versao getnet Build: $BUILD"
+          echo "Versao getnet Version: $VERSION"
+          echo "Versao getnet Gerada: $SIMPLE.$VERSION.0"
+          echo "VERSAOGETNET=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
@@ -374,6 +395,34 @@ jobs:
           flutter-version: 3.35.7
           working-directory: ./flutter/speed
 
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart(getnet)
+        if: ${{ inputs.android-getnet }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAOGETNET }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+
+      # Atualizar versão no pubspec.yaml
+      - name: Atualizar versão no pubspec.yaml(getnet)
+        if: ${{ inputs.android-getnet }}
+        shell: bash
+        run: |
+          sed -i "s/^version:.*/version: ${{ env.VERSAOGETNET }}/" pubspec.yaml
+          cat pubspec.yaml
+
+      - name: 🚀 Shorebird Release (getnet)
+        if: ${{ inputs.android-getnet }}
+        id: shorebird-release-getnet
+        uses: shorebirdtech/shorebird-release@v1
+        with:
+          args: --flavor=getnet --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=getnet
+          platform: android
+          flutter-version: 3.35.7
+          working-directory: ./flutter/speed
+
       # Upload dos artefatos
       - name: Upload da apk e do bundle (Prod)
         if: ${{ inputs.android}}
@@ -399,6 +448,14 @@ jobs:
           path: |
             flutter/speed/build/app/outputs/apk/pagseguro/release/app-pagseguro-release.apk
             flutter/speed/build/app/outputs/bundle/pagseguroRelease/app-pagseguro-release.aab
+      - name: Upload da apk e do bundle (getnet)
+        if: ${{inputs.android-getnet}}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ApkBundleSpeedyAndroidGetNet
+          path: |
+            flutter/speed/build/app/outputs/apk/getnet/release/app-getnet-release.apk
+            flutter/speed/build/app/outputs/bundle/getnetRelease/app-getnet-release.aab
 
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
@@ -419,14 +476,16 @@ jobs:
           ANDROID=${{ github.event.inputs.android }}
           TEF=${{ github.event.inputs.android-tef }}
           PAGSEGURO=${{ github.event.inputs.android-pagseguro }}
+          GETNET=${{ github.event.inputs.android-getnet }}
 
           # Converte string para 0/1
           if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
           if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
           if [ "$PAGSEGURO" = "true" ]; then PAGSEGURO_BOOL=1; else PAGSEGURO_BOOL=0; fi
+          if [ "$GETNET" = "true" ]; then GETNET_BOOL=1; else GETNET_BOOL=0; fi
 
           # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL)) -eq 1 ]; then
+          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL)) -eq 1 ]; then
             COMBINED=true
           else
             COMBINED=false
@@ -533,6 +592,23 @@ jobs:
 
           echo "VERSAOANDROIDPAGSEGURO=$VERSAOANDROIDPAGSEGURO" >> $GITHUB_ENV
 
+      - name: Ler versão atual e atualizar número da versão android (getnet)
+        if: ${{ inputs.android-getnet }}
+        working-directory: version-repo
+        run: |
+          json=$(cat version.json)
+          version=$(echo "$json" | jq '.speedyAndroidGetnet.version + 1' | tr -d '"')
+          build=$(echo "$json" | jq '.speedyAndroidGetnet.build + 1' | tr -d '"')
+          simple=$(echo "$json" | jq -r '.speedyAndroidGetnet.simple')
+
+          newjson=$(echo "$json" | jq ".speedyAndroidGetnet.version=$version | .speedyAndroidGetnet.build=$build | .speedyAndroidGetnet.patch=0")
+          echo "$newjson" > version.json
+
+          VERSAOANDROIDGETNET="${simple}.${version}.0"
+          echo "Versão gerada: $VERSAOANDROIDGETNET"
+
+          echo "VERSAOANDROIDGETNET=$VERSAOANDROIDGETNET" >> $GITHUB_ENV
+
       - name: Gerando URLs da versão
         if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
         working-directory: version-repo
@@ -593,6 +669,17 @@ jobs:
             echo "Input android-pagseguro é false, pulando configuração do Android PagSeguro"
           fi
 
+          if [ "${{ inputs.android-getnet }}" = "true" ]; then
+            URLANDROIDGETNET="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosGetnet.apk"
+            echo "$URLANDROIDGETNET"
+            TAGANDROIDGETNET="<p><a href=\"$URLANDROIDGETNET\">CloudfySpeedyPosGetnet.apk</a></p>"
+            echo "$TAGANDROIDGETNET"
+            echo "TAGANDROIDGETNET=$TAGANDROIDGETNET" >> $GITHUB_ENV          
+            echo "URLANDROIDGETNET=$URLANDROIDGETNET" >> $GITHUB_ENV
+          else
+            echo "Input android-getnet é false, pulando configuração do Android Getnet"
+          fi
+
       - name: Download artifact windows
         if: ${{ inputs.windows }}
         uses: actions/download-artifact@v4
@@ -604,7 +691,7 @@ jobs:
         if: ${{ inputs.android }}
         uses: actions/download-artifact@v4
         with:
-          name: ApkBundleSpeedyAndroid
+          name: ApkBundleSpeedyAndroid (TEF)
           path: ./downloadedApk
       - name: Download artifact Android
         if: ${{ inputs.android-tef }}
@@ -612,12 +699,19 @@ jobs:
         with:
           name: ApkBundleSpeedyAndroidTef
           path: ./downloadedApk
-      - name: Download artifact Android
+      - name: Download artifact Android (PagSeguro)
         if: ${{ inputs.android-pagseguro }}
         uses: actions/download-artifact@v4
         with:
           name: ApkBundleSpeedyAndroidPagSeguro
           path: ./downloadedApk
+      - name: Download artifact Android (Getnet)
+        if: ${{ inputs.android-getnet }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ApkBundleSpeedyAndroidGetnet
+          path: ./downloadedApk
+
       - name: Listar o working directory
         if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
         working-directory: .
@@ -673,6 +767,21 @@ jobs:
             echo "⚠️ AAB não encontrado!"
           fi
 
+          echo "Renomeando APK e AAB (Getnet)..."
+          if [ -f "downloadedApk/apk/getnet/release/app-getnet-release.apk" ]; then
+            mv downloadedApk/apk/getnet/release/app-getnet-release.apk downloadedApk/apk/getnet/release/CloudfySpeedyPosGetnet.apk
+            echo "APK renomeado para CloudfySpeedyPosGetnet.apk"
+          else
+            echo "⚠️ APK não encontrado!"
+          fi
+
+          if [ -f "downloadedApk/bundle/getnetRelease/app-getnet-release.aab" ]; then
+            mv downloadedApk/bundle/getnetRelease/app-getnet-release.aab downloadedApk/bundle/getnetRelease/CloudfySpeedyPosGetnet.aab
+            echo "AAB renomeado para CloudfySpeedyPosGetnet.aab"
+          else
+            echo "⚠️ AAB não encontrado!"
+          fi
+
       - name: Criando o release
         if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
         uses: softprops/action-gh-release@v1
@@ -687,6 +796,8 @@ jobs:
             downloadedApk/bundle/tefRelease/CloudfySpeedyPosTef.aab
             downloadedApk/apk/pagseguro/release/CloudfySpeedyPosPagSeguro.apk
             downloadedApk/bundle/pagseguroRelease/CloudfySpeedyPosPagSeguro.aab
+            downloadedApk/apk/getnet/release/CloudfySpeedyPosGetnet.apk
+            downloadedApk/bundle/getnetRelease/CloudfySpeedyPosGetnet.aab
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -742,6 +853,23 @@ jobs:
             echo "❌ Falha na chamada da API. Abortando workflow."
             exit 1
           fi
+      - name: Chamar API de alteração de dados android(getnet)
+        if: ${{ inputs.android-getnet }}
+        id: api_call_android-getnet
+        run: |
+          echo "Chamando API de validação..."
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDGETNET }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROIDGETNET}}", "NR_ID": 13}}')
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
       - name: Chamar API de alteração de dados windows
         if: ${{ inputs.windows }}
         id: api_call_windows
@@ -783,6 +911,7 @@ jobs:
             ${{env.TAGANDROID}}
             ${{env.TAGANDROIDPAGSEGURO}}
             ${{env.TAGANDROIDTEF}}
+            ${{env.TAGANDROIDGETNET}}
 
             <p><b>Menos foco, mais ansiedade!</b></p>
           to: ${{ vars.EMAIL }}

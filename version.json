@@ -24,6 +24,12 @@
     "patch": 0,
     "simple": "1"
   },
+  "speedyAndroidGetnet": {
+    "build": 17,
+    "version": 32,
+    "patch": 0,
+    "simple": "1"
+  },
   "blue": {
     "patch": 37,
     "simple": "1.3"
