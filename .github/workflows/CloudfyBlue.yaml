@@ -99,6 +99,7 @@ jobs:
           python-version: 3.10
       # Removendo node_modules e package-lock.json
       - name: Removendo node_modules e package-lock.json
+        if: ${{ inputs.windows }}
         run: |
           echo "Removendo dependências antigas"
           Remove-Item -Recurse -Force node_modules, package-lock.json -ErrorAction SilentlyContinue
