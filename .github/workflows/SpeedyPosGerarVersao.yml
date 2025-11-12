@@ -709,7 +709,7 @@ jobs:
         if: ${{ inputs.android-getnet }}
         uses: actions/download-artifact@v4
         with:
-          name: ApkBundleSpeedyAndroidGetnet
+          name: ApkBundleSpeedyAndroidGetNet
           path: ./downloadedApk
 
       - name: Listar o working directory
