@@ -1,5 +1,5 @@
 {
-  "speedyGeneratedVersion": 29,
+  "speedyGeneratedVersion": 30,
   "speedyWindows": {
     "build": 11,
     "version": 30,
@@ -25,8 +25,8 @@
     "simple": "1"
   },
   "speedyAndroidGetnet": {
-    "build": 17,
-    "version": 32,
+    "build": 18,
+    "version": 33,
     "patch": 0,
     "simple": "1"
   },
