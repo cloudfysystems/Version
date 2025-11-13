@@ -291,8 +291,9 @@ jobs:
       - name: Assinar AAB
         if: ${{ inputs.android }}
         run: |
-          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore cloudcommerce.keystore -storepass ${{secrets.SENHA_KEYSTORE}} -keypass ${{secrets.SENHA_KEYSTORE}} platforms/android/app/build/outputs/bundle/release/app.aab  cloudcommerce
-          zipalign -v 4 platforms/android/app/build/outputs/bundle/release/app.aab CloudfyBlue.aab
+
+          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore cloudcommerce.keystore -storepass ${{secrets.SENHA_KEYSTORE}} -keypass ${{secrets.SENHA_KEYSTORE}} platforms/android/app/build/outputs/bundle/release/app-release.aab  cloudcommerce
+          zipalign -v 4 platforms/android/app/build/outputs/bundle/release/app-release.aab CloudfyBlue.aab
 
       # Upload dos artifacts
       - name: Upload do apk
