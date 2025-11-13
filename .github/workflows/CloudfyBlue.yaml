@@ -135,178 +135,154 @@ jobs:
             ionic5/PDV/dist/Cloudfyblue Setup ${{ env.VERSAO }}.exe
 
   Android:
-    runs-on: windows-2022
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ionic5/PDV
     permissions:
       contents: write
     steps:
-      # Checkout do repositorio IONIC 5
+      # Checkout do repositório IONIC 5
       - uses: actions/checkout@v4
         if: ${{ inputs.android }}
         with:
           repository: cloudfysystems/IONIC
-          ref: Ionic5 # Branch padrão
+          ref: Ionic5
           token: ${{ secrets.GH_TOKEN }}
           path: ionic5
-      # checkout do repositorio de versão
+
+      # Checkout do repositório de versão
       - uses: actions/checkout@v4
         if: ${{ inputs.android }}
         with:
           path: version-repo
-      # 2️⃣ Instalar Java 17 temporário (necessário para sdkmanager)
+
+      # Java 17 temporário (necessário para sdkmanager)
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: "17"
           distribution: "temurin"
 
-      # 3️⃣ Configurar variáveis do Android SDK
+      # Configurar variáveis do Android SDK
       - name: Set ANDROID_HOME
         run: |
-          echo "::add-path::$env:ANDROID_HOME\cmdline-tools\latest\bin"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
 
-      # 4️⃣ Instalar Build Tools 29.0.3 e NDK 21.0.611
+      # Instalar Build Tools 29.0.3 e NDK 21.0.611
       - name: Install Android Build Tools and NDK
-        shell: pwsh
         run: |
-          sdkmanager.bat "build-tools;29.0.3" "platforms;android-29" "ndk;21.0.6113669"
-          yes | sdkmanager.bat --licenses
-      - name: Add zipalign to PATH (Windows)
-        if: ${{ inputs.android }}
-        run: echo "$env:ANDROID_HOME\build-tools\29.0.3" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        shell: pwsh
-      # Lendo a versão atual do repositório
+          yes | sdkmanager "build-tools;29.0.3" "platforms;android-29" "ndk;21.0.6113669"
+          yes | sdkmanager --licenses
+
+      # Adicionar zipalign e apksigner ao PATH
+      - name: Add build-tools to PATH
+        run: echo "$ANDROID_HOME/build-tools/29.0.3" >> $GITHUB_PATH
+
+      # Ler versão atual e atualizar package.json
       - name: Ler versão atual e atualizar package.json
         if: ${{ inputs.android }}
         working-directory: version-repo
-        shell: powershell
         run: |
-          $json = Get-Content "version.json" | ConvertFrom-Json
-          $json.blue.patch++                    
-          echo "Versao patch: $($json.blue.patch)"
-          echo "Versao gerada: $($json.blue.simple).$($json.blue.patch)"
-          echo "VERSAO=$($json.blue.simple).$($json.blue.patch)" >> $env:GITHUB_ENV
-      # com a versão atual gerada, atualizamos o package.json
+          PATCH=$(jq '.blue.patch += 1 | .blue.patch' version.json)
+          SIMPLE=$(jq -r '.blue.simple' version.json)
+          echo "VERSAO=$SIMPLE.$PATCH" >> $GITHUB_ENV
+
+      # Atualizar package.json
       - name: Atualizar package.json
         if: ${{ inputs.android }}
-        shell: pwsh
         run: |
-          $package = Get-Content -Raw -Path "package.json" | ConvertFrom-Json
-          $package.version = "${{ env.VERSAO }}"
-          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "package.json"
-          $package = Get-Content -Raw -Path "src/Electron/prod/package.json" | ConvertFrom-Json
-          $package.version = "${{ env.VERSAO }}"
-          $package | ConvertTo-Json -Depth 10 | Out-File -Encoding UTF8 "src/Electron/prod/package.json"
+          jq --arg v "$VERSAO" '.version=$v' package.json > tmp.json && mv tmp.json package.json
+          jq --arg v "$VERSAO" '.version=$v' src/Electron/prod/package.json > tmp.json && mv tmp.json src/Electron/prod/package.json
+
+      # Node.js 12
       - name: Instalar Node.js 12
         if: ${{ inputs.android }}
         uses: actions/setup-node@v4
         with:
           node-version: "12"
-      - name: Instalar Ionic CLI v5
+
+      # Ionic CLI v5 e Cordova
+      - name: Instalar Ionic CLI e Cordova
         if: ${{ inputs.android }}
         run: |
-          npm install -g ionic@5.4.16          
-          npm i -g cordova@9
-          npm i -g cordova-res@0.15.1
+          npm install -g ionic@5.4.16
+          npm install -g cordova@10 cordova-res@0.15.1
+
+      # Remover dependências do package.json
       - name: Remover dependências do package.json
         if: ${{ inputs.android }}
-        shell: pwsh
         run: |
-          $packageJsonPath = "package.json"
+          jq 'del(.dependencies.serialport) | del(.devDependencies.serialport)' package.json > tmp.json && mv tmp.json package.json
 
-          # Ler o conteúdo do package.json
-          $json = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
-
-          # Lista de pacotes a remover
-          $packagesToRemove = @("serialport")
-
-          foreach ($pkg in $packagesToRemove) {
-              if ($json.dependencies.$pkg) {
-                  $json.dependencies.PSObject.Properties.Remove($pkg)
-              }
-              if ($json.devDependencies -and $json.devDependencies.$pkg) {
-                  $json.devDependencies.PSObject.Properties.Remove($pkg)
-              }
-          }
-
-          # Salvar o JSON modificado
-          $json | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath -Encoding UTF8
-
-      - name: Configurar ambiente de build para node-gyp
-        if: ${{ inputs.android }}
-        shell: pwsh
-        run: |
-          echo "GYP_MSVS_VERSION=2022" | Out-File -FilePath $env:GITHUB_ENV -Append
-          npm config set msvs_version 2022
+      # npm install
       - name: rodando o npm i
         if: ${{ inputs.android }}
         run: npm install
-        # Ionic CLI 5
-      - name: Adicionar plataform android
+
+      # Adicionar plataforma android
+      - name: Adicionar platform android
         if: ${{ inputs.android }}
         run: ionic cordova platform add android --no-interactive
-      - name: instalando o plugman
-        if: ${{ inputs.android }}
-        run: npm install -g plugman@3.0.1
-      - name: Compilar o plugin da cloudfy
+
+      # Instalar plugman e compilar plugin
+      - name: Instalando plugman e plugin Cloudfy
         if: ${{ inputs.android }}
         run: |
-          plugman install --platform android --project platforms\android --plugin CordovaPluginCloudfy
+          npm install -g plugman@3.0.1
+          plugman install --platform android --project platforms/android --plugin CordovaPluginCloudfy
+
+      # Copiar arquivos do Android
       - name: Copiar arquivos do android
         if: ${{ inputs.android }}
-        run: |
-          Copy-Item -Path "AndroidFiles\*" -Destination "platforms\android" -Recurse -Force
+        run: cp -r AndroidFiles/* platforms/android/
+
       # Java 8
       - name: Instalar Java 8
         if: ${{ inputs.android }}
         uses: actions/setup-java@v4
         with:
-          distribution: "temurin" # ou 'adopt', se preferir
+          distribution: "temurin"
           java-version: "8"
-      # Gradle 4
+
+      # Gradle 6.7.1
       - name: Instalar Gradle 6.7.1
         if: ${{ inputs.android }}
         uses: gradle/gradle-build-action@v2
         with:
           gradle-version: 6.7.1
-      - name: Cache Gradle
-        if: ${{ inputs.android }}
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
 
-      #- name: Atualizar node-gyp
-      #  run: npm install -g node-gyp@7
-      #- name: instalando o grpc
-      #  run: npm install grpc --grpc_node_binary_host_mirror=https://node-precompiled-binaries.grpc.io
+      # Build APK
       - name: Gerar a apk
         if: ${{ inputs.android }}
         run: ionic cordova build android --prod --release
+
+      # Gerar appbundle
       - name: Gerar o appbundle
         if: ${{ inputs.android }}
         run: cordova build android --prod --release -- -- --packageType=bundle
-      # Assinando o apk
+
+      # Assinar APK
       - name: Assinar APK
         if: ${{ inputs.android }}
         run: |
-          zipalign -v 4  platforms\android\app\build\outputs\apk\release\app-release-unsigned.apk CloudfyBlue.apk
+          zipalign -v 4 platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk CloudfyBlue.apk
           apksigner sign --ks cloudcommerce.keystore --ks-pass pass:${{secrets.SENHA_KEYSTORE}} --v1-signing-enabled true --v2-signing-enabled true CloudfyBlue.apk
-      - name: Stop Gradle Daemon (garantir liberação de lock)
+
+      # Stop Gradle Daemon
+      - name: Stop Gradle Daemon
         if: ${{ inputs.android }}
         run: gradle --stop
+
+      # Assinar AAB
       - name: Assinar AAB
         if: ${{ inputs.android }}
         run: |
-          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore cloudcommerce.keystore -storepass ${{secrets.SENHA_KEYSTORE}} -keypass ${{secrets.SENHA_KEYSTORE}} platforms\android\app\build\outputs\bundle\release\app.aab cloudcommerce
-          zipalign -v 4  platforms\android\app\build\outputs\bundle\release\app.aab CloudfyBlue.aab
-        # Faz upload dos artifacts
+          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore cloudcommerce.keystore -storepass ${{secrets.SENHA_KEYSTORE}} -keypass ${{secrets.SENHA_KEYSTORE}} platforms/android/app/build/outputs/bundle/release/app.aab  cloudcommerce
+          zipalign -v 4 platforms/android/app/build/outputs/bundle/release/app.aab CloudfyBlue.aab
+
+      # Upload dos artifacts
       - name: Upload do apk
         if: ${{ inputs.android }}
         uses: actions/upload-artifact@v4
