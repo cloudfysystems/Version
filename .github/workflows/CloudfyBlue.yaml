@@ -245,6 +245,16 @@ jobs:
         with:
           distribution: "temurin"
           java-version: "8"
+      - name: Atualizar JAVA_HOME
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
+          echo "$JAVA_HOME/bin" >> $GITHUB_PATH
+      - name: Verificar ambiente
+        run: |
+          java -version
+          javac -version
+          echo $JAVA_HOME
+          echo $ANDROID_SDK_ROOT
 
       # Gradle 6.7.1
       - name: Instalar Gradle 6.7.1
