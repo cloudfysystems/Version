@@ -273,7 +273,7 @@ jobs:
       # Gerar appbundle
       - name: Gerar o appbundle
         if: ${{ inputs.android }}
-        run: cordova build android --prod --release -- -- --packageType=bundle
+        run: ionic cordova build android --prod --release -- -- --packageType=bundle
 
       # Assinar APK
       - name: Assinar APK
