@@ -26,7 +26,7 @@ env:
   SIGNATURE_VAULT_ID: ${{ secrets.SIGNATURE_VAULT_ID }}
   SIGNATURE_PASSWORD: ${{ secrets.SIGNATURE_PASSWORD }}
   SIGNATURE_TENANT_ID: ${{ secrets.SIGNATURE_TENANT_ID }}
-  CORDOVA_ANDROID_GRADLE_DISTRIBUTION_URL: https\://services.gradle.org/distributions/gradle-6.7.1-bin.zip
+  CORDOVA_ANDROID_GRADLE_DISTRIBUTION_URL: https\://services.gradle.org/distributions/gradle-5.4.1-all.zip
 
 jobs:
   Windows:
