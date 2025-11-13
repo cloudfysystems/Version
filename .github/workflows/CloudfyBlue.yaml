@@ -19,7 +19,6 @@ env:
   VERSION: ${{vars.VERSAO}}
   BUILD: ${{vars.build}}
   NODE_OPTIONS: "--max-old-space-size=4096"
-  _JAVA_OPTIONS: -Xmx4096m
   GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4096m
   SIGNATURE_APP_ID: ${{ secrets.SIGNATURE_APP_ID }}
   SIGNATURE_CERTIFICATE_NAME: ${{ secrets.SIGNATURE_CERTIFICATE_NAME }}
