@@ -1,5 +1,5 @@
 {
-  "speedyGeneratedVersion": 31,
+  "speedyGeneratedVersion": 32,
   "speedyWindows": {
     "build": 11,
     "version": 30,
@@ -13,8 +13,8 @@
     "simple": "1"
   },
   "speedyAndroidTef": {
-    "build": 19,
-    "version": 34,
+    "build": 20,
+    "version": 35,
     "patch": 0,
     "simple": "1"
   },
