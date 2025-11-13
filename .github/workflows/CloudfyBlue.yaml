@@ -155,9 +155,28 @@ jobs:
         if: ${{ inputs.android }}
         with:
           path: version-repo
+      # 2️⃣ Instalar Java 17 temporário (necessário para sdkmanager)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      # 3️⃣ Configurar variáveis do Android SDK
+      - name: Set ANDROID_HOME
+        run: |
+          echo "C:\Android\Sdk" > $env:ANDROID_HOME
+          echo "::add-path::C:\Android\Sdk\cmdline-tools\latest\bin"
+
+      # 4️⃣ Instalar Build Tools 29.0.3 e NDK 21.0.611
+      - name: Install Android Build Tools and NDK
+        shell: pwsh
+        run: |
+          sdkmanager.bat "build-tools;29.0.3" "platforms;android-29" "ndk;21.0.6113669"
+          yes | sdkmanager.bat --licenses
       - name: Add zipalign to PATH (Windows)
         if: ${{ inputs.android }}
-        run: echo "$env:ANDROID_HOME\build-tools\34.0.0" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        run: echo "$env:ANDROID_HOME\build-tools\29.0.3" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         shell: pwsh
       # Lendo a versão atual do repositório
       - name: Ler versão atual e atualizar package.json
