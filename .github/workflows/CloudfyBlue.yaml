@@ -165,8 +165,7 @@ jobs:
       # 3️⃣ Configurar variáveis do Android SDK
       - name: Set ANDROID_HOME
         run: |
-          echo "C:\Android\Sdk" > $env:ANDROID_HOME
-          echo "::add-path::C:\Android\Sdk\cmdline-tools\latest\bin"
+          echo "::add-path::$env:ANDROID_HOME\cmdline-tools\latest\bin"
 
       # 4️⃣ Instalar Build Tools 29.0.3 e NDK 21.0.611
       - name: Install Android Build Tools and NDK
