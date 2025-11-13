@@ -248,11 +248,11 @@ jobs:
           distribution: "temurin" # ou 'adopt', se preferir
           java-version: "8"
       # Gradle 4
-      - name: Instalar Gradle 4.10.3
+      - name: Instalar Gradle 6.7.1
         if: ${{ inputs.android }}
         uses: gradle/gradle-build-action@v2
         with:
-          gradle-version: 4.10.3
+          gradle-version: 6.7.1
       - name: Cache Gradle
         if: ${{ inputs.android }}
         uses: actions/cache@v4
