@@ -757,7 +757,7 @@ jobs:
             echo "Input android-getnet é false, pulando configuração do Android Getnet"
           fi
 
-           if [ "${{ inputs.android-android-cielo }}" = "true" ]; then
+           if [ "${{ inputs.android-cielo }}" = "true" ]; then
             URLANDROIDCIELO="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosCielo.apk"
             echo "$URLANDROIDCIELO"
             TAGANDROIDCIELO="<p><a href=\"$URLANDROIDCIELO\">CloudfySpeedyPosCielo.apk</a></p>"
