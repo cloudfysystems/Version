@@ -801,7 +801,7 @@ jobs:
           path: ./downloadedApk
 
       - name: Download artifact Android (Cielo)
-        if: ${{ inputs.android-android-cielo }}
+        if: ${{ inputs.android-cielo }}
         uses: actions/download-artifact@v4
         with:
           name: ApkBundleSpeedyAndroidCielo
