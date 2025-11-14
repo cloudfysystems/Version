@@ -30,6 +30,12 @@
     "patch": 0,
     "simple": "1"
   },
+  "speedyAndroidCielo": {
+    "build": 19,
+    "version": 34,
+    "patch": 0,
+    "simple": "1"
+  },
   "blue": {
     "patch": 38,
     "simple": "1.3"

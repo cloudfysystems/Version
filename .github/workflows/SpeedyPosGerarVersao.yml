@@ -27,6 +27,11 @@ on:
         description: "Gerar versão Android(Getnet)?"
         default: true
         type: boolean
+      android-cielo:
+        description: "Gerar versão Android(Cielo)?"
+        default: true
+        type: boolean
+
 env:
   VERSION: ${{vars.VERSAO}}
   BUILD: ${{vars.build}}
@@ -180,15 +185,18 @@ jobs:
           TEF=${{ github.event.inputs.android-tef }}
           PAGSEGURO=${{ github.event.inputs.android-pagseguro }}
           GETNET=${{ github.event.inputs.android-getnet }}
+          CIELO=${{ github.event.inputs.android-cielo }}
 
           # Converte string para 0/1
           if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
           if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
           if [ "$PAGSEGURO" = "true" ]; then PAGSEGURO_BOOL=1; else PAGSEGURO_BOOL=0; fi
           if [ "$GETNET" = "true" ]; then GETNET_BOOL=1; else GETNET_BOOL=0; fi
+          if [ "$CIELO" = "true" ]; then CIELO_BOOL=1; else CIELO_BOOL=0; fi
+
 
           # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL)) -eq 1 ]; then
+          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL)) -eq 1 ]; then
             COMBINED=true
           else
             COMBINED=false
@@ -269,6 +277,21 @@ jobs:
           echo "Versao getnet Version: $VERSION"
           echo "Versao getnet Gerada: $SIMPLE.$VERSION.0"
           echo "VERSAOGETNET=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
+
+      - name: Ler versão atual (Cielo)
+        if: ${{ inputs.android-cielo }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version.json"
+          BUILD=$(jq '.speedyAndroidCielo.build += 1 | .speedyAndroidCielo.build' $VERSION_FILE)
+          VERSION=$(jq '.speedyAndroidCielo.version += 1 | .speedyAndroidCielo.version' $VERSION_FILE)
+          SIMPLE=$(jq -r '.speedyAndroidCielo.simple' $VERSION_FILE)
+          PATCH=$(jq -r '.speedyAndroidCielo.patch' $VERSION_FILE)
+          echo "Versao cielo Build: $BUILD"
+          echo "Versao cielo Version: $VERSION"
+          echo "Versao cielo Gerada: $SIMPLE.$VERSION.0"
+          echo "VERSAOCIELO=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
@@ -422,6 +445,33 @@ jobs:
           platform: android
           flutter-version: 3.35.7
           working-directory: ./flutter/speed
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart(cielo)
+        if: ${{ inputs.android-cielo }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAOCIELO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+
+      # Atualizar versão no pubspec.yaml
+      - name: Atualizar versão no pubspec.yaml(cielo)
+        if: ${{ inputs.android-cielo }}
+        shell: bash
+        run: |
+          sed -i "s/^version:.*/version: ${{ env.VERSAOCIELO }}/" pubspec.yaml
+          cat pubspec.yaml
+
+      - name: 🚀 Shorebird Release (cielo)
+        if: ${{ inputs.android-cielo }}
+        id: shorebird-release-cielo
+        uses: shorebirdtech/shorebird-release@v1
+        with:
+          args: --flavor=cielo --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=cielo
+          platform: android
+          flutter-version: 3.35.7
+          working-directory: ./flutter/speed
 
       # Upload dos artefatos
       - name: Upload da apk e do bundle (Prod)
@@ -456,6 +506,14 @@ jobs:
           path: |
             flutter/speed/build/app/outputs/apk/getnet/release/app-getnet-release.apk
             flutter/speed/build/app/outputs/bundle/getnetRelease/app-getnet-release.aab
+      - name: Upload da apk e do bundle (cielo)
+        if: ${{inputs.android-cielo}}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ApkBundleSpeedyAndroidCielo
+          path: |
+            flutter/speed/build/app/outputs/apk/cielo/release/app-cielo-release.apk
+            flutter/speed/build/app/outputs/bundle/cieloRelease/app-cielo-release.aab
 
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
@@ -474,24 +532,27 @@ jobs:
         working-directory: .
         run: |
           ANDROID=${{ github.event.inputs.android }}
-          TEF=${{ github.event.inputs.android-tef }}
-          PAGSEGURO=${{ github.event.inputs.android-pagseguro }}
-          GETNET=${{ github.event.inputs.android-getnet }}
+           TEF=${{ github.event.inputs.android-tef }}
+           PAGSEGURO=${{ github.event.inputs.android-pagseguro }}
+           GETNET=${{ github.event.inputs.android-getnet }}
+           CIELO=${{ github.event.inputs.android-cielo }}
 
-          # Converte string para 0/1
-          if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
-          if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
-          if [ "$PAGSEGURO" = "true" ]; then PAGSEGURO_BOOL=1; else PAGSEGURO_BOOL=0; fi
-          if [ "$GETNET" = "true" ]; then GETNET_BOOL=1; else GETNET_BOOL=0; fi
+           # Converte string para 0/1
+           if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
+           if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
+           if [ "$PAGSEGURO" = "true" ]; then PAGSEGURO_BOOL=1; else PAGSEGURO_BOOL=0; fi
+           if [ "$GETNET" = "true" ]; then GETNET_BOOL=1; else GETNET_BOOL=0; fi
+           if [ "$CIELO" = "true" ]; then CIELO_BOOL=1; else CIELO_BOOL=0; fi
 
-          # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL)) -eq 1 ]; then
-            COMBINED=true
-          else
-            COMBINED=false
-          fi
 
-          echo "combined=$COMBINED" >> $GITHUB_OUTPUT
+           # OR lógico
+           if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL)) -eq 1 ]; then
+             COMBINED=true
+           else
+             COMBINED=false
+           fi
+
+           echo "combined=$COMBINED" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v4
         if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
         with:
@@ -608,6 +669,22 @@ jobs:
           echo "Versão gerada: $VERSAOANDROIDGETNET"
 
           echo "VERSAOANDROIDGETNET=$VERSAOANDROIDGETNET" >> $GITHUB_ENV
+      - name: Ler versão atual e atualizar número da versão android (cielo)
+        if: ${{ inputs.android-cielo }}
+        working-directory: version-repo
+        run: |
+          json=$(cat version.json)
+          version=$(echo "$json" | jq '.speedyAndroidCielo.version + 1' | tr -d '"')
+          build=$(echo "$json" | jq '.speedyAndroidCielo.build + 1' | tr -d '"')
+          simple=$(echo "$json" | jq -r '.speedyAndroidCielo.simple')
+
+          newjson=$(echo "$json" | jq ".speedyAndroidCielo.version=$version | .speedyAndroidCielo.build=$build | .speedyAndroidCielo.patch=0")
+          echo "$newjson" > version.json
+
+          VERSAOANDROIDCIELO="${simple}.${version}.0"
+          echo "Versão gerada: $VERSAOANDROIDCIELO"
+
+          echo "VERSAOANDROIDCIELO=$VERSAOANDROIDCIELO" >> $GITHUB_ENV
 
       - name: Gerando URLs da versão
         if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
@@ -680,6 +757,17 @@ jobs:
             echo "Input android-getnet é false, pulando configuração do Android Getnet"
           fi
 
+           if [ "${{ inputs.android-android-cielo }}" = "true" ]; then
+            URLANDROIDCIELO="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosCielo.apk"
+            echo "$URLANDROIDCIELO"
+            TAGANDROIDCIELO="<p><a href=\"$URLANDROIDCIELO\">CloudfySpeedyPosCielo.apk</a></p>"
+            echo "$TAGANDROIDCIELO"
+            echo "TAGANDROIDCIELO=$TAGANDROIDCIELO" >> $GITHUB_ENV          
+            echo "URLANDROIDCIELO=$URLANDROIDCIELO" >> $GITHUB_ENV
+          else
+            echo "Input android-android-cielo é false, pulando configuração do Android Cielo"
+          fi
+
       - name: Download artifact windows
         if: ${{ inputs.windows }}
         uses: actions/download-artifact@v4
@@ -710,6 +798,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ApkBundleSpeedyAndroidGetNet
+          path: ./downloadedApk
+
+      - name: Download artifact Android (Cielo)
+        if: ${{ inputs.android-android-cielo }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ApkBundleSpeedyAndroidCielo
           path: ./downloadedApk
 
       - name: Listar o working directory
@@ -782,6 +877,21 @@ jobs:
             echo "⚠️ AAB não encontrado!"
           fi
 
+          echo "Renomeando APK e AAB (Cielo)..."
+          if [ -f "downloadedApk/apk/cielo/release/app-cielo-release.apk" ]; then
+            mv downloadedApk/apk/cielo/release/app-cielo-release.apk downloadedApk/apk/cielo/release/CloudfySpeedyPosCielo.apk
+            echo "APK renomeado para CloudfySpeedyPosCielo.apk"
+          else
+            echo "⚠️ APK não encontrado!"
+          fi
+
+          if [ -f "downloadedApk/bundle/cieloRelease/app-cielo-release.aab" ]; then
+            mv downloadedApk/bundle/cieloRelease/app-cielo-release.aab downloadedApk/bundle/cieloRelease/CloudfySpeedyPosCielo.aab
+            echo "AAB renomeado para CloudfySpeedyPosCielo.aab"
+          else
+            echo "⚠️ AAB não encontrado!"
+          fi
+
       - name: Criando o release
         if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
         uses: softprops/action-gh-release@v1
@@ -798,9 +908,29 @@ jobs:
             downloadedApk/bundle/pagseguroRelease/CloudfySpeedyPosPagSeguro.aab
             downloadedApk/apk/getnet/release/CloudfySpeedyPosGetnet.apk
             downloadedApk/bundle/getnetRelease/CloudfySpeedyPosGetnet.aab
+            downloadedApk/apk/cielo/release/CloudfySpeedyPosCielo.apk
+            downloadedApk/bundle/cieloRelease/CloudfySpeedyPosCielo.aab
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Chamar API de alteração de dados windows
+        if: ${{ inputs.windows }}
+        id: api_call_windows
+        run: |
+          echo "Chamando API de validação..."
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOWINDOWS }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLWINDOWS}}", "NR_ID": 4}}')
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
 
       - name: Chamar API de alteração de dados android
         if: ${{ inputs.android }}
@@ -870,15 +1000,15 @@ jobs:
             echo "❌ Falha na chamada da API. Abortando workflow."
             exit 1
           fi
-      - name: Chamar API de alteração de dados windows
-        if: ${{ inputs.windows }}
-        id: api_call_windows
+      - name: Chamar API de alteração de dados android(cielo)
+        if: ${{ inputs.android-cielo }}
+        id: api_call_android-cielo
         run: |
           echo "Chamando API de validação..."
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOWINDOWS }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLWINDOWS}}", "NR_ID": 4}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDCIELO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROIDCIELO}}", "NR_ID": 14}}')
 
           echo "Código HTTP: $response"
           cat response.txt
@@ -912,6 +1042,7 @@ jobs:
             ${{env.TAGANDROIDPAGSEGURO}}
             ${{env.TAGANDROIDTEF}}
             ${{env.TAGANDROIDGETNET}}
+            ${{env.TAGANDROIDCIELO}}
 
             <p><b>Menos foco, mais ansiedade!</b></p>
           to: ${{ vars.EMAIL }}
