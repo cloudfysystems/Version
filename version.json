@@ -1,26 +1,26 @@
 {
-  "speedyGeneratedVersion": 36,
+  "speedyGeneratedVersion": 37,
   "speedyWindows": {
     "build": 11,
-    "version": 31,
+    "version": 32,
     "patch": 0,
     "simple": "1"
   },
   "speedyAndroid": {
-    "build": 17,
-    "version": 32,
+    "build": 18,
+    "version": 33,
     "patch": 0,
     "simple": "1"
   },
   "speedyAndroidTef": {
-    "build": 21,
-    "version": 36,
+    "build": 22,
+    "version": 37,
     "patch": 0,
     "simple": "1"
   },
   "speedyAndroidPagSeguro": {
-    "build": 17,
-    "version": 32,
+    "build": 18,
+    "version": 33,
     "patch": 0,
     "simple": "1"
   },
