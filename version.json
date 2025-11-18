@@ -1,21 +1,21 @@
 {
-  "speedyGeneratedVersion": 39,
+  "speedyGeneratedVersion": 40,
   "speedyWindows": {
     "build": 11,
-    "version": 33,
-    "patch": 1,
+    "version": 34,
+    "patch": 0,
     "simple": "1"
   },
   "speedyAndroid": {
-    "build": 18,
-    "version": 33,
-    "patch": 2,
+    "build": 19,
+    "version": 34,
+    "patch": 0,
     "simple": "1"
   },
   "speedyAndroidTef": {
-    "build": 22,
-    "version": 37,
-    "patch": 3,
+    "build": 23,
+    "version": 38,
+    "patch": 0,
     "simple": "1"
   },
   "speedyAndroidPagSeguro": {
