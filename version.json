@@ -3,7 +3,7 @@
   "speedyWindows": {
     "build": 11,
     "version": 32,
-    "patch": 0,
+    "patch": 1,
     "simple": "1"
   },
   "speedyAndroid": {
@@ -15,7 +15,7 @@
   "speedyAndroidTef": {
     "build": 22,
     "version": 37,
-    "patch": 0,
+    "patch": 1,
     "simple": "1"
   },
   "speedyAndroidPagSeguro": {
