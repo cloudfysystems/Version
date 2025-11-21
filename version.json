@@ -1,5 +1,5 @@
 {
-  "speedyGeneratedVersion": 42,
+  "speedyGeneratedVersion": 43,
   "speedyWindows": {
     "build": 11,
     "version": 34,
@@ -19,20 +19,20 @@
     "simple": "1"
   },
   "speedyAndroidPagSeguro": {
-    "build": 20,
-    "version": 35,
-    "patch": 0,
-    "simple": "1"
-  },
-  "speedyAndroidGetnet": {
     "build": 21,
     "version": 36,
     "patch": 0,
     "simple": "1"
   },
-  "speedyAndroidCielo": {
+  "speedyAndroidGetnet": {
     "build": 22,
     "version": 37,
+    "patch": 0,
+    "simple": "1"
+  },
+  "speedyAndroidCielo": {
+    "build": 23,
+    "version": 38,
     "patch": 0,
     "simple": "1"
   },
