@@ -3,19 +3,19 @@
   "speedyWindows": {
     "build": 11,
     "version": 34,
-    "patch": 14,
+    "patch": 15,
     "simple": "1"
   },
   "speedyAndroid": {
     "build": 20,
     "version": 35,
-    "patch": 14,
+    "patch": 15,
     "simple": "1"
   },
   "speedyAndroidTef": {
     "build": 24,
     "version": 39,
-    "patch": 14,
+    "patch": 15,
     "simple": "1"
   },
   "speedyAndroidPagSeguro": {
