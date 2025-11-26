@@ -127,6 +127,13 @@ jobs:
         uses: shorebirdtech/setup-shorebird@v1
         with:
           cache: true
+      # Set Up Java (O Sentry precisa do java para compilar)
+      - name: Set Up Java
+        if: ${{ inputs.windows }}
+        uses: actions/setup-java@v3
+        with:
+          distribution: "oracle"
+          java-version: "17"
 
       #- name: Mostrar caminho e conteúdo do prod.json
       #  run: |
