@@ -80,6 +80,13 @@ jobs:
           $novaVersao = "${{ env.VERSAO }}"  # ou outro valor dinâmico
           (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath
 
+      # Set Up Java (O Sentry precisa do java para compilar)
+      - name: Set Up Java
+        if: ${{ inputs.windows }}
+        uses: actions/setup-java@v3
+        with:
+          distribution: "oracle"
+          java-version: "17"
       - name: Ajeitar o longpath do git
         if: ${{ inputs.windows-update }}
         run: |
