@@ -367,7 +367,7 @@ jobs:
         with:
           args: --flavor=prod --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=prod
           platform: android
-          flutter-version: 3.35.7
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
 
       # Atualizar versão no arquivo Dart
@@ -395,7 +395,7 @@ jobs:
         with:
           args: --flavor=tef --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=tef
           platform: android
-          flutter-version: 3.35.7
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
         # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart(pagseguro)
@@ -422,7 +422,7 @@ jobs:
         with:
           args: --flavor=pagseguro --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=pagseguro
           platform: android
-          flutter-version: 3.35.7
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
 
       # Atualizar versão no arquivo Dart
@@ -450,7 +450,7 @@ jobs:
         with:
           args: --flavor=getnet --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=getnet
           platform: android
-          flutter-version: 3.35.7
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart(cielo)
@@ -477,7 +477,7 @@ jobs:
         with:
           args: --flavor=cielo --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=cielo
           platform: android
-          flutter-version: 3.35.7
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
 
       # Upload dos artefatos
