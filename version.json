@@ -9,13 +9,13 @@
   "speedyAndroid": {
     "build": 22,
     "version": 37,
-    "patch": 0,
+    "patch": 1,
     "simple": "1"
   },
   "speedyAndroidTef": {
     "build": 26,
     "version": 41,
-    "patch": 0,
+    "patch": 1,
     "simple": "1"
   },
   "speedyAndroidPagSeguro": {
