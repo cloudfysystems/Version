@@ -435,12 +435,12 @@ jobs:
         working-directory: version-repo
         run: |
           json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyAndroidPagseguro.version' | tr -d '"')
-          build=$(echo "$json" | jq '.speedyAndroidPagseguro.build' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedyAndroidPagseguro.simple')
-          patch=$(echo "$json" | jq -r '.speedyAndroidPagseguro.patch + 1')
+          version=$(echo "$json" | jq '.speedyAndroidPagSeguro.version' | tr -d '"')
+          build=$(echo "$json" | jq '.speedyAndroidPagSeguro.build' | tr -d '"')
+          simple=$(echo "$json" | jq -r '.speedyAndroidPagSeguro.simple')
+          patch=$(echo "$json" | jq -r '.speedyAndroidPagSeguro.patch + 1')
 
-          newjson=$(echo "$json" | jq ".speedyAndroidPagseguro.version=$version | .speedyAndroidPagseguro.build=$build | .speedyAndroidPagseguro.patch=$patch")
+          newjson=$(echo "$json" | jq ".speedyAndroidPagSeguro.version=$version | .speedyAndroidPagSeguro.build=$build | .speedyAndroidPagSeguro.patch=$patch")
           echo "$newjson" > version.json
 
           VERSAOANDROIDPAGSEGURO="${simple}.${version}.${patch}"
