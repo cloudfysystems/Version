@@ -39,5 +39,10 @@
   "blue": {
     "patch": 38,
     "simple": "1.3"
+  },
+  "speedyAndroidPagseguro": {
+    "version": null,
+    "build": null,
+    "patch": 1
   }
 }
