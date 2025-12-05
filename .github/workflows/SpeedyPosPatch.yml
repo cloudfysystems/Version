@@ -128,13 +128,15 @@ jobs:
         run: |
           ANDROID=${{ github.event.inputs.android-update }}
           TEF=${{ github.event.inputs.android-tef-update }}
+          PAGSEGURO=${{ github.event.inputs.android-pagseguro }}
 
           # Converte string para 0/1
           if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
           if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
+          if [ "$PAGSEGURO" = "true" ]; then PAGSEGURO_BOOL=1; else PAGSEGURO_BOOL=0; fi
 
           # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL)) -eq 1 ]; then
+          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL)) -eq 1 ]; then
             COMBINED=true
           else
             COMBINED=false
@@ -188,6 +190,22 @@ jobs:
           echo "Versao tef Gerada: $SIMPLE.$VERSION.0"
           echo "VERSAOTEF=$SIMPLE.$VERSION.$PATCH+$BUILD" >> $GITHUB_ENV
           echo "VERSAOTEFOLD=$SIMPLE.$VERSION.0-tef+$BUILD" >> $GITHUB_ENV
+
+      - name: Ler versão atual (pagseguro)
+        if: ${{ inputs.android-pagseguro }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version.json"
+          BUILD=$(jq '.speedyAndroidPagSeguro.build' $VERSION_FILE)
+          VERSION=$(jq '.speedyAndroidPagSeguro.version' $VERSION_FILE)
+          SIMPLE=$(jq -r '.speedyAndroidPagSeguro.simple' $VERSION_FILE)
+          PATCH=$(jq -r '.speedyAndroidPagSeguro.patch += 1 | .speedyAndroidPagSeguro.patch' $VERSION_FILE)
+          echo "Versao tef Build: $BUILD"
+          echo "Versao tef Version: $VERSION"
+          echo "Versao tef Gerada: $SIMPLE.$VERSION.0"
+          echo "VERSAOPAGSEGURO=$SIMPLE.$VERSION.$PATCH+$BUILD" >> $GITHUB_ENV
+          echo "VERSAOPAGSEGUROOLD=$SIMPLE.$VERSION.0-pagseguro+$BUILD" >> $GITHUB_ENV
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
@@ -269,6 +287,26 @@ jobs:
           args: --allow-asset-diffs --flavor tef -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=tef
           release-version: ${{env.VERSAOTEFOLD}}
           working-directory: ./flutter/speed
+
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart (pagseguro)
+        if: ${{ inputs.android-pagseguro-update }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAOPAGSEGURO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+
+      - name: Gerar Patch Android (pagseguro)
+        uses: shorebirdtech/shorebird-patch@v1
+        id: shorebird-patch-pagseguro
+        if: ${{ inputs.android-pagseguro-update }}
+        with:
+          platform: android
+          args: --allow-asset-diffs --flavor pagseguro -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=pagseguro
+          release-version: ${{env.VERSAOPAGSEGUROOLD}}
+          working-directory: ./flutter/speed
   FinishJob-update:
     needs: [Android-update, Windows-update]
     runs-on: ubuntu-latest
@@ -286,13 +324,15 @@ jobs:
         run: |
           ANDROID=${{ github.event.inputs.android-update }}
           TEF=${{ github.event.inputs.android-tef-update }}
+          PAGSEGURO=${{ github.event.inputs.android-pagseguro }}
 
           # Converte string para 0/1
           if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
           if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
+          if [ "$PAGSEGURO" = "true" ]; then PAGSEGURO_BOOL=1; else PAGSEGURO_BOOL=0; fi
 
           # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL)) -eq 1 ]; then
+          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL)) -eq 1 ]; then
             COMBINED=true
           else
             COMBINED=false
@@ -386,6 +426,23 @@ jobs:
           echo "Versão gerada: $VERSAOANDROIDTEF"
 
           echo "VERSAOANDROIDTEF=$VERSAOANDROIDTEF" >> $GITHUB_ENV
+      - name: Ler versão atual e atualizar número da versão android (pagseguro)
+        if: ${{ inputs.android-pagseguro }}
+        working-directory: version-repo
+        run: |
+          json=$(cat version.json)
+          version=$(echo "$json" | jq '.speedyAndroidPagseguro.version' | tr -d '"')
+          build=$(echo "$json" | jq '.speedyAndroidPagseguro.build' | tr -d '"')
+          simple=$(echo "$json" | jq -r '.speedyAndroidPagseguro.simple')
+          patch=$(echo "$json" | jq -r '.speedyAndroidPagseguro.patch + 1')
+
+          newjson=$(echo "$json" | jq ".speedyAndroidPagseguro.version=$version | .speedyAndroidPagseguro.build=$build | .speedyAndroidPagseguro.patch=$patch")
+          echo "$newjson" > version.json
+
+          VERSAOANDROIDPAGSEGURO="${simple}.${version}.${patch}"
+          echo "Versão gerada: $VERSAOANDROIDPAGSEGURO"
+
+          echo "VERSAOANDROIDPAGSEGURO=$VERSAOANDROIDPAGSEGURO" >> $GITHUB_ENV
 
       - name: Chamar API de alteração de dados android (prod)
         if: ${{ inputs.android-update }}
@@ -414,6 +471,24 @@ jobs:
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
             -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDTEF }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 11}}')
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Chamar API de alteração de dados android (pagseguro)
+        if: ${{ inputs.android-pagseguro-update }}
+        id: api_call_android-pagseguro
+        run: |
+          echo "Chamando API de validação..."
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDPAGSEGURO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 12}}')
 
           echo "Código HTTP: $response"
           cat response.txt
