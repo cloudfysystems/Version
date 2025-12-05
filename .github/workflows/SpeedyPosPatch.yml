@@ -19,6 +19,10 @@ on:
         description: "Atualizar versão Android(TEF)? (Patch)"
         default: true
         type: boolean
+      android-pagseguro:
+        description: "Atualizar versão Android(PagSeguro)?"
+        default: true
+        type: boolean
 env:
   VERSION: ${{vars.VERSAO}}
   BUILD: ${{vars.build}}
@@ -290,7 +294,7 @@ jobs:
 
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart (pagseguro)
-        if: ${{ inputs.android-pagseguro-update }}
+        if: ${{ inputs.android-pagseguro }}
         shell: bash
         run: |
           FILE="lib/Environment/Version.dart"
@@ -301,7 +305,7 @@ jobs:
       - name: Gerar Patch Android (pagseguro)
         uses: shorebirdtech/shorebird-patch@v1
         id: shorebird-patch-pagseguro
-        if: ${{ inputs.android-pagseguro-update }}
+        if: ${{ inputs.android-pagseguro }}
         with:
           platform: android
           args: --allow-asset-diffs --flavor pagseguro -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=pagseguro
@@ -481,7 +485,7 @@ jobs:
           fi
 
       - name: Chamar API de alteração de dados android (pagseguro)
-        if: ${{ inputs.android-pagseguro-update }}
+        if: ${{ inputs.android-pagseguro }}
         id: api_call_android-pagseguro
         run: |
           echo "Chamando API de validação..."
