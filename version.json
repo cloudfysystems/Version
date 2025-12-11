@@ -1,21 +1,21 @@
 {
-  "speedyGeneratedVersion": 48,
+  "speedyGeneratedVersion": 50,
   "speedyWindows": {
     "build": 11,
-    "version": 36,
-    "patch": 2,
+    "version": 37,
+    "patch": 0,
     "simple": "1"
   },
   "speedyAndroid": {
-    "build": 22,
-    "version": 37,
-    "patch": 2,
+    "build": 23,
+    "version": 38,
+    "patch": 0,
     "simple": "1"
   },
   "speedyAndroidTef": {
-    "build": 26,
-    "version": 41,
-    "patch": 2,
+    "build": 27,
+    "version": 42,
+    "patch": 0,
     "simple": "1"
   },
   "speedyAndroidPagSeguro": {
@@ -31,8 +31,8 @@
     "simple": "1"
   },
   "speedyAndroidCielo": {
-    "build": 23,
-    "version": 38,
+    "build": 24,
+    "version": 39,
     "patch": 0,
     "simple": "1"
   },
