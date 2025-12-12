@@ -562,7 +562,7 @@ jobs:
         if: ${{ (steps.compute.outputs.execute == 'true') }}
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ env.VERSAO }}
+          tag_name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           files: |
             flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
@@ -573,7 +573,7 @@ jobs:
       - name: Chamar API de alteração de dados android
         if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
-          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO_Speedy${{env.DeployNameUpperCase}}/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
+          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
           echo "$URLANDROID"
           echo "Chamando API de validação..."
 
