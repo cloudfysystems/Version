@@ -487,6 +487,912 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
+  android-pagseguro:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ./flutter/speed
+
+    steps:
+      - name: Gerar Variáveis de Ambiente
+        working-directory: .
+        id: compute
+        run: |
+          echo 'DeployName=pagseguro' >> $GITHUB_ENV
+          echo 'DeployNameUpperCase=Pagseguro' >> $GITHUB_ENV
+          echo 'UrlId=12' >> $GITHUB_ENV
+          VARIABLE=${{ github.event.inputs.android-pagseguro }}
+
+          # Converte string para 0/1
+          if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi          
+
+
+          # OR lógico
+          if [ $((VARIABLE_BOOL)) -eq 1 ]; then
+            EXECUTE=true
+          else
+            EXECUTE=false
+          fi
+
+          echo "Valor do execute: $EXECUTE"
+
+          echo "execute=$EXECUTE" >> $GITHUB_OUTPUT
+      # Clonar o repositório principal do Flutter
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+
+      # Clonar o repositório de versão
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          path: version-repo
+
+      # Ler e atualizar a versão
+      - name: Ler versão atual
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version${{env.DeployNameUpperCase}}.json"
+
+          # Atualiza o JSON corretamente
+          jq '.speedy.build += 1 | .speedy.version += 1 | .speedy.patch = 0' "$VERSION_FILE" > tmp.json
+
+          mv tmp.json "$VERSION_FILE"
+
+          # Pega os valores após a atualização
+          BUILD=$(jq -r '.speedy.build' "$VERSION_FILE")
+          VERSION=$(jq -r '.speedy.version' "$VERSION_FILE")
+          SIMPLE=$(jq -r '.speedy.simple' "$VERSION_FILE")
+
+          echo "Versao Build: $BUILD"
+          echo "Versao Version: $VERSION"
+          echo "Versao Gerada: $SIMPLE.$VERSION.0"
+
+          echo "VERSAO=$SIMPLE.$VERSION.0" >> $GITHUB_ENV
+          echo "VERSAO_BUILD=$BUILD" >> $GITHUB_ENV
+
+          echo "Novo JSON:"
+          cat "$VERSION_FILE"
+
+      # Criar o arquivo env/prod.json
+      - name: Gerar env/prod.json
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          mkdir -p ./env
+          echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
+          cat ./env/prod.json
+
+      # Criar arquivo .jks a partir de base64
+      - name: Criar arquivo .jks
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          mkdir -p certificado
+          echo "${{ secrets.KEYSTORE }}" | base64 -d > certificado/certificado-keystore.jks
+
+      # Setup Shorebird
+      - name: 🐦 Setup Shorebird
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      # Criar arquivo key.properties
+      - name: Criar arquivo key.properties
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          echo "storePassword=${{ secrets.SENHA_KEYSTORE }}" > android/key.properties
+          echo "keyPassword=${{ secrets.SENHA_KEYSTORE }}" >> android/key.properties
+          echo "keyAlias=cloudfycardapio" >> android/key.properties
+          echo "storeFile=../../certificado/certificado-keystore.jks" >> android/key.properties
+
+      # Set Up Java (usando Oracle JDK 17)
+      - name: Set Up Java
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: actions/setup-java@v3
+        with:
+          distribution: "oracle"
+          java-version: "17"
+
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart e pubspec.yaml
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+          sed -i "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
+          cat pubspec.yaml
+
+      # Executar build do Shorebird
+      - name: 🚀 Shorebird Release
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        id: shorebird-release
+        uses: shorebirdtech/shorebird-release@v1
+        with:
+          args: --flavor=${{env.DeployName}} --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=${{env.DeployName}}
+          platform: android
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
+          working-directory: ./flutter/speed
+
+      - name: Renomear arquivos Android
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: .
+        run: |
+          echo "Renomeando APK"
+          if [ -f "flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk" ]; then
+            mv flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+            echo "APK renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
+          else
+            echo "⚠️ APK não encontrado!"
+          fi
+
+      - name: Criando o release
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
+          name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
+          files: |
+            flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+          body: Release gerado automaticamente.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Chamar API de alteração de dados android
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
+          echo "$URLANDROID"
+          echo "Chamando API de validação..."
+
+          JSON_DATA=$(cat <<EOF
+          {
+            "JSON": true,
+            "Parameters": {
+              "Versao": "${{ env.VERSAO }}",
+              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",
+              "URL": "$URLANDROID",
+              "NR_ID": ${{ env.UrlId }}
+            }
+          }
+          EOF
+          )
+
+          echo $JSON_DATA
+
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d "$JSON_DATA")
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Atualizar branch com merge (se necessário)
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        run: |
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
+
+          # Garante que estamos na branch correta
+          git branch --show-current
+
+          # Tenta fazer pull e merge automático
+          git pull origin HEAD --no-rebase || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build ${{env.DeployNameUpperCase}}"
+          cwd: ./version-repo
+          add: "version${{env.DeployNameUpperCase}}.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+  android-getnet:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ./flutter/speed
+
+    steps:
+      - name: Gerar Variáveis de Ambiente
+        working-directory: .
+        id: compute
+        run: |
+          echo 'DeployName=getnet' >> $GITHUB_ENV
+          echo 'DeployNameUpperCase=Getnet' >> $GITHUB_ENV
+          echo 'UrlId=13' >> $GITHUB_ENV
+          VARIABLE=${{ github.event.inputs.android-getnet }}
+
+          # Converte string para 0/1
+          if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi          
+
+
+          # OR lógico
+          if [ $((VARIABLE_BOOL)) -eq 1 ]; then
+            EXECUTE=true
+          else
+            EXECUTE=false
+          fi
+
+          echo "Valor do execute: $EXECUTE"
+
+          echo "execute=$EXECUTE" >> $GITHUB_OUTPUT
+      # Clonar o repositório principal do Flutter
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+
+      # Clonar o repositório de versão
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          path: version-repo
+
+      # Ler e atualizar a versão
+      - name: Ler versão atual
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version${{env.DeployNameUpperCase}}.json"
+
+          # Atualiza o JSON corretamente
+          jq '.speedy.build += 1 | .speedy.version += 1 | .speedy.patch = 0' "$VERSION_FILE" > tmp.json
+
+          mv tmp.json "$VERSION_FILE"
+
+          # Pega os valores após a atualização
+          BUILD=$(jq -r '.speedy.build' "$VERSION_FILE")
+          VERSION=$(jq -r '.speedy.version' "$VERSION_FILE")
+          SIMPLE=$(jq -r '.speedy.simple' "$VERSION_FILE")
+
+          echo "Versao Build: $BUILD"
+          echo "Versao Version: $VERSION"
+          echo "Versao Gerada: $SIMPLE.$VERSION.0"
+
+          echo "VERSAO=$SIMPLE.$VERSION.0" >> $GITHUB_ENV
+          echo "VERSAO_BUILD=$BUILD" >> $GITHUB_ENV
+
+          echo "Novo JSON:"
+          cat "$VERSION_FILE"
+
+      # Criar o arquivo env/prod.json
+      - name: Gerar env/prod.json
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          mkdir -p ./env
+          echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
+          cat ./env/prod.json
+
+      # Criar arquivo .jks a partir de base64
+      - name: Criar arquivo .jks
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          mkdir -p certificado
+          echo "${{ secrets.KEYSTORE }}" | base64 -d > certificado/certificado-keystore.jks
+
+      # Setup Shorebird
+      - name: 🐦 Setup Shorebird
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      # Criar arquivo key.properties
+      - name: Criar arquivo key.properties
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          echo "storePassword=${{ secrets.SENHA_KEYSTORE }}" > android/key.properties
+          echo "keyPassword=${{ secrets.SENHA_KEYSTORE }}" >> android/key.properties
+          echo "keyAlias=cloudfycardapio" >> android/key.properties
+          echo "storeFile=../../certificado/certificado-keystore.jks" >> android/key.properties
+
+      # Set Up Java (usando Oracle JDK 17)
+      - name: Set Up Java
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: actions/setup-java@v3
+        with:
+          distribution: "oracle"
+          java-version: "17"
+
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart e pubspec.yaml
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+          sed -i "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
+          cat pubspec.yaml
+
+      # Executar build do Shorebird
+      - name: 🚀 Shorebird Release
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        id: shorebird-release
+        uses: shorebirdtech/shorebird-release@v1
+        with:
+          args: --flavor=${{env.DeployName}} --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=${{env.DeployName}}
+          platform: android
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
+          working-directory: ./flutter/speed
+
+      - name: Renomear arquivos Android
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: .
+        run: |
+          echo "Renomeando APK"
+          if [ -f "flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk" ]; then
+            mv flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+            echo "APK renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
+          else
+            echo "⚠️ APK não encontrado!"
+          fi
+
+      - name: Criando o release
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
+          name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
+          files: |
+            flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+          body: Release gerado automaticamente.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Chamar API de alteração de dados android
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
+          echo "$URLANDROID"
+          echo "Chamando API de validação..."
+
+          JSON_DATA=$(cat <<EOF
+          {
+            "JSON": true,
+            "Parameters": {
+              "Versao": "${{ env.VERSAO }}",
+              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",
+              "URL": "$URLANDROID",
+              "NR_ID": ${{ env.UrlId }}
+            }
+          }
+          EOF
+          )
+
+          echo $JSON_DATA
+
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d "$JSON_DATA")
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Atualizar branch com merge (se necessário)
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        run: |
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
+
+          # Garante que estamos na branch correta
+          git branch --show-current
+
+          # Tenta fazer pull e merge automático
+          git pull origin HEAD --no-rebase || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build ${{env.DeployNameUpperCase}}"
+          cwd: ./version-repo
+          add: "version${{env.DeployNameUpperCase}}.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+  android-prod:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ./flutter/speed
+
+    steps:
+      - name: Gerar Variáveis de Ambiente
+        working-directory: .
+        id: compute
+        run: |
+          echo 'DeployName=prod' >> $GITHUB_ENV
+          echo 'DeployNameUpperCase=Prod' >> $GITHUB_ENV
+          echo 'UrlId=5' >> $GITHUB_ENV
+          VARIABLE=${{ github.event.inputs.android }}
+
+          # Converte string para 0/1
+          if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi          
+
+
+          # OR lógico
+          if [ $((VARIABLE_BOOL)) -eq 1 ]; then
+            EXECUTE=true
+          else
+            EXECUTE=false
+          fi
+
+          echo "Valor do execute: $EXECUTE"
+
+          echo "execute=$EXECUTE" >> $GITHUB_OUTPUT
+      # Clonar o repositório principal do Flutter
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+
+      # Clonar o repositório de versão
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          path: version-repo
+
+      # Ler e atualizar a versão
+      - name: Ler versão atual
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version${{env.DeployNameUpperCase}}.json"
+
+          # Atualiza o JSON corretamente
+          jq '.speedy.build += 1 | .speedy.version += 1 | .speedy.patch = 0' "$VERSION_FILE" > tmp.json
+
+          mv tmp.json "$VERSION_FILE"
+
+          # Pega os valores após a atualização
+          BUILD=$(jq -r '.speedy.build' "$VERSION_FILE")
+          VERSION=$(jq -r '.speedy.version' "$VERSION_FILE")
+          SIMPLE=$(jq -r '.speedy.simple' "$VERSION_FILE")
+
+          echo "Versao Build: $BUILD"
+          echo "Versao Version: $VERSION"
+          echo "Versao Gerada: $SIMPLE.$VERSION.0"
+
+          echo "VERSAO=$SIMPLE.$VERSION.0" >> $GITHUB_ENV
+          echo "VERSAO_BUILD=$BUILD" >> $GITHUB_ENV
+
+          echo "Novo JSON:"
+          cat "$VERSION_FILE"
+
+      # Criar o arquivo env/prod.json
+      - name: Gerar env/prod.json
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          mkdir -p ./env
+          echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
+          cat ./env/prod.json
+
+      # Criar arquivo .jks a partir de base64
+      - name: Criar arquivo .jks
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          mkdir -p certificado
+          echo "${{ secrets.KEYSTORE }}" | base64 -d > certificado/certificado-keystore.jks
+
+      # Setup Shorebird
+      - name: 🐦 Setup Shorebird
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      # Criar arquivo key.properties
+      - name: Criar arquivo key.properties
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          echo "storePassword=${{ secrets.SENHA_KEYSTORE }}" > android/key.properties
+          echo "keyPassword=${{ secrets.SENHA_KEYSTORE }}" >> android/key.properties
+          echo "keyAlias=cloudfycardapio" >> android/key.properties
+          echo "storeFile=../../certificado/certificado-keystore.jks" >> android/key.properties
+
+      # Set Up Java (usando Oracle JDK 17)
+      - name: Set Up Java
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: actions/setup-java@v3
+        with:
+          distribution: "oracle"
+          java-version: "17"
+
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart e pubspec.yaml
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+          sed -i "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
+          cat pubspec.yaml
+
+      # Executar build do Shorebird
+      - name: 🚀 Shorebird Release
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        id: shorebird-release
+        uses: shorebirdtech/shorebird-release@v1
+        with:
+          args: --flavor=${{env.DeployName}} --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=${{env.DeployName}}
+          platform: android
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
+          working-directory: ./flutter/speed
+
+      - name: Renomear arquivos Android
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: .
+        run: |
+          echo "Renomeando APK"
+          if [ -f "flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk" ]; then
+            mv flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+            echo "APK renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
+          else
+            echo "⚠️ APK não encontrado!"
+          fi
+
+          echo "Renomeando AAB"
+          if [ -f "flutter/speed/build/app/outputs/bundle/${{env.DeployName}}/${{env.DeployName}}release/app-${{env.DeployName}}-release.aab" ]; then
+            mv flutter/speed/build/app/outputs/bundle/${{env.DeployName}}/${{env.DeployName}}release/app-${{env.DeployName}}-release.aab flutter/speed/build/app/outputs/bundle/${{env.DeployName}}/${{env.DeployName}}release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.aab
+            echo "AAB renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.aab"
+          else
+            echo "⚠️ AAB não encontrado!"
+          fi
+
+      - name: Criando o release
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
+          name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
+          files: |
+            flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+            flutter/speed/build/app/outputs/bundle/${{env.DeployName}}/${{env.DeployName}}release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.aab
+          body: Release gerado automaticamente.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Chamar API de alteração de dados android
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
+          echo "$URLANDROID"
+          echo "Chamando API de validação..."
+
+          JSON_DATA=$(cat <<EOF
+          {
+            "JSON": true,
+            "Parameters": {
+              "Versao": "${{ env.VERSAO }}",
+              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",
+              "URL": "$URLANDROID",
+              "NR_ID": ${{ env.UrlId }}
+            }
+          }
+          EOF
+          )
+
+          echo $JSON_DATA
+
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d "$JSON_DATA")
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Atualizar branch com merge (se necessário)
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        run: |
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
+
+          # Garante que estamos na branch correta
+          git branch --show-current
+
+          # Tenta fazer pull e merge automático
+          git pull origin HEAD --no-rebase || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build ${{env.DeployNameUpperCase}}"
+          cwd: ./version-repo
+          add: "version${{env.DeployNameUpperCase}}.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+  android-tef:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ./flutter/speed
+
+    steps:
+      - name: Gerar Variáveis de Ambiente
+        working-directory: .
+        id: compute
+        run: |
+          echo 'DeployName=tef' >> $GITHUB_ENV
+          echo 'DeployNameUpperCase=Tef' >> $GITHUB_ENV
+          echo 'UrlId=11' >> $GITHUB_ENV
+          VARIABLE=${{ github.event.inputs.android-tef }}
+
+          # Converte string para 0/1
+          if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi          
+
+
+          # OR lógico
+          if [ $((VARIABLE_BOOL)) -eq 1 ]; then
+            EXECUTE=true
+          else
+            EXECUTE=false
+          fi
+
+          echo "Valor do execute: $EXECUTE"
+
+          echo "execute=$EXECUTE" >> $GITHUB_OUTPUT
+      # Clonar o repositório principal do Flutter
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+
+      # Clonar o repositório de versão
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          path: version-repo
+
+      # Ler e atualizar a versão
+      - name: Ler versão atual
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version${{env.DeployNameUpperCase}}.json"
+
+          # Atualiza o JSON corretamente
+          jq '.speedy.build += 1 | .speedy.version += 1 | .speedy.patch = 0' "$VERSION_FILE" > tmp.json
+
+          mv tmp.json "$VERSION_FILE"
+
+          # Pega os valores após a atualização
+          BUILD=$(jq -r '.speedy.build' "$VERSION_FILE")
+          VERSION=$(jq -r '.speedy.version' "$VERSION_FILE")
+          SIMPLE=$(jq -r '.speedy.simple' "$VERSION_FILE")
+
+          echo "Versao Build: $BUILD"
+          echo "Versao Version: $VERSION"
+          echo "Versao Gerada: $SIMPLE.$VERSION.0"
+
+          echo "VERSAO=$SIMPLE.$VERSION.0" >> $GITHUB_ENV
+          echo "VERSAO_BUILD=$BUILD" >> $GITHUB_ENV
+
+          echo "Novo JSON:"
+          cat "$VERSION_FILE"
+
+      # Criar o arquivo env/prod.json
+      - name: Gerar env/prod.json
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          mkdir -p ./env
+          echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
+          cat ./env/prod.json
+
+      # Criar arquivo .jks a partir de base64
+      - name: Criar arquivo .jks
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          mkdir -p certificado
+          echo "${{ secrets.KEYSTORE }}" | base64 -d > certificado/certificado-keystore.jks
+
+      # Setup Shorebird
+      - name: 🐦 Setup Shorebird
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      # Criar arquivo key.properties
+      - name: Criar arquivo key.properties
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          echo "storePassword=${{ secrets.SENHA_KEYSTORE }}" > android/key.properties
+          echo "keyPassword=${{ secrets.SENHA_KEYSTORE }}" >> android/key.properties
+          echo "keyAlias=cloudfycardapio" >> android/key.properties
+          echo "storeFile=../../certificado/certificado-keystore.jks" >> android/key.properties
+
+      # Set Up Java (usando Oracle JDK 17)
+      - name: Set Up Java
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: actions/setup-java@v3
+        with:
+          distribution: "oracle"
+          java-version: "17"
+
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart e pubspec.yaml
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+          sed -i "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
+          cat pubspec.yaml
+
+      # Executar build do Shorebird
+      - name: 🚀 Shorebird Release
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        id: shorebird-release
+        uses: shorebirdtech/shorebird-release@v1
+        with:
+          args: --flavor=${{env.DeployName}} --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=${{env.DeployName}}
+          platform: android
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
+          working-directory: ./flutter/speed
+
+      - name: Renomear arquivos Android
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: .
+        run: |
+          echo "Renomeando APK"
+          if [ -f "flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk" ]; then
+            mv flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+            echo "APK renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
+          else
+            echo "⚠️ APK não encontrado!"
+          fi
+
+      - name: Criando o release
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
+          name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
+          files: |
+            flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+          body: Release gerado automaticamente.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Chamar API de alteração de dados android
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
+          echo "$URLANDROID"
+          echo "Chamando API de validação..."
+
+          JSON_DATA=$(cat <<EOF
+          {
+            "JSON": true,
+            "Parameters": {
+              "Versao": "${{ env.VERSAO }}",
+              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",
+              "URL": "$URLANDROID",
+              "NR_ID": ${{ env.UrlId }}
+            }
+          }
+          EOF
+          )
+
+          echo $JSON_DATA
+
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d "$JSON_DATA")
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Atualizar branch com merge (se necessário)
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        run: |
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
+
+          # Garante que estamos na branch correta
+          git branch --show-current
+
+          # Tenta fazer pull e merge automático
+          git pull origin HEAD --no-rebase || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build ${{env.DeployNameUpperCase}}"
+          cwd: ./version-repo
+          add: "version${{env.DeployNameUpperCase}}.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
   android-rede:
     runs-on: ubuntu-latest
     permissions:
@@ -714,7 +1620,15 @@ jobs:
 
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
-    needs: [Windows, android-rede, android-cielo]
+    needs:
+      [
+        Windows,
+        android-rede,
+        android-cielo,
+        android-pagseguro,
+        android-getnet,
+        android-tef,
+      ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
