@@ -186,11 +186,23 @@ jobs:
           name: InstaladorSpeedyWindows
           path: flutter/speed/dist/CloudfySpeedyPos.exe
 
+      - name: Criando o release
+        if: ${{ inputs.android-windows }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSAO }}
+          name: v${{ env.VERSAO }}_SpeedyWindows
+          files: |
+            flutter/speed/dist/CloudfySpeedyPos.exe
+          body: Release gerado automaticamente.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
       - name: Chamar API de alteração de dados windows
         if: ${{ inputs.windows }}
         id: api_call_windows
         run: |
-          URLWINDOWS="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.exe"
+          URLWINDOWS="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO_SpeedyWindows/CloudfySpeedyPos.exe"
           echo "Url de download: $URLWINDOWS"
           echo "Chamando API de validação..."
           response=$(curl -s -o response.txt -w "%{http_code}" \
@@ -220,6 +232,8 @@ jobs:
 
   android-cielo:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: ./flutter/speed
@@ -250,7 +264,7 @@ jobs:
           BUILD=$(jq '.speedy.build += 1 | .speedy.build' $VERSION_FILE)
           VERSION=$(jq '.speedy.version += 1 | .speedy.version' $VERSION_FILE)
           SIMPLE=$(jq -r '.speedy.simple' $VERSION_FILE)
-          PATCH=$(jq -r '.speedy.patch' $VERSION_FILE)
+          PATCH=$(jq -r '.speedy.patch' $VERSION_FILE)          
           echo "Versao Build: $BUILD"
           echo "Versao Version: $VERSION"
           echo "Versao Gerada: $SIMPLE.$VERSION.0"
@@ -258,6 +272,10 @@ jobs:
           newjson=$(echo "$json" | jq ".speedy.version=$VERSION | .speedy.build=$BUILD | .speedy.patch=0")
           echo "$newjson" > versionCielo.json
           cat versionCielo.json
+          VERSION_FULL_FILE="version.json"
+          VERSIONFULL=$(jq '.speedyGeneratedVersion += 1 | .speedyGeneratedVersion' $VERSION_FULL_FILE)
+          echo "Versao Full: $VERSIONFULL"
+          echo "VERSIONFULL=$VERSIONFULL" >> $GITHUB_ENV
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
@@ -341,19 +359,23 @@ jobs:
             echo "⚠️ APK não encontrado!"
           fi
 
-      - name: Upload da apk (cielo)
-        if: ${{inputs.android-cielo}}
-        uses: actions/upload-artifact@v4
+      - name: Criando o release
+        if: ${{ inputs.android-cielo }}
+        uses: softprops/action-gh-release@v1
         with:
-          name: ApkBundleSpeedyAndroidcielo
-          path: |
+          tag_name: v${{ env.VERSAO }}
+          name: v${{ env.VERSAO }}_SpeedyCielo
+          files: |
             flutter/speed/build/app/outputs/apk/cielo/release/CloudfySpeedyPosCielo.apk
+          body: Release gerado automaticamente.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Chamar API de alteração de dados android(cielo)
         if: ${{ inputs.android-cielo }}
         id: api_call_android-cielo
         run: |
-          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosCielo.apk"
+          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO_SpeedyCielo/CloudfySpeedyPosCielo.apk"
           echo "$URLANDROID"
           echo "Chamando API de validação..."
           response=$(curl -s -o response.txt -w "%{http_code}" \
@@ -383,6 +405,8 @@ jobs:
 
   android-rede:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: ./flutter/speed
@@ -512,17 +536,30 @@ jobs:
           path: |
             flutter/speed/build/app/outputs/apk/rede/release/CloudfySpeedyPosRede.apk
 
+      - name: Criando o release
+        if: ${{ inputs.android-rede }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSAO }}
+          name: v${{ env.VERSAO }}_SpeedyRede
+          files: |
+            flutter/speed/build/app/outputs/apk/rede/release/CloudfySpeedyPosRede.apk
+          body: Release gerado automaticamente.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
       - name: Chamar API de alteração de dados android(rede)
         if: ${{ inputs.android-rede }}
         id: api_call_android-rede
         run: |
-          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosRede.apk"
+          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO_SpeedyRede/CloudfySpeedyPosRede.apk"
+          echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
           echo "Url de download da rede: $URLANDROID"
           echo "Chamando API de validação..."
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "$URLANDROID", "NR_ID": 15}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROID}}", "NR_ID": 15}}')
 
           echo "Código HTTP: $response"
           cat response.txt
@@ -618,86 +655,6 @@ jobs:
           git merge origin/main --no-ff -m "gerando versao na falcatrua" --allow-unrelated-histories
           git push origin production
 
-      - name: Download artifact windows
-        if: ${{ inputs.windows }}
-        uses: actions/download-artifact@v4
-        with:
-          name: InstaladorSpeedyWindows
-          path: ./downloaded
-
-      - name: Download artifact Android
-        if: ${{ inputs.android }}
-        uses: actions/download-artifact@v4
-        with:
-          name: ApkBundleSpeedyAndroid
-          path: ./downloadedApk
-      - name: Download artifact Android(TEF)
-        if: ${{ inputs.android-tef }}
-        uses: actions/download-artifact@v4
-        with:
-          name: ApkBundleSpeedyAndroidTef
-          path: ./downloadedApk
-      - name: Download artifact Android (PagSeguro)
-        if: ${{ inputs.android-pagseguro }}
-        uses: actions/download-artifact@v4
-        with:
-          name: ApkBundleSpeedyAndroidPagSeguro
-          path: ./downloadedApk
-      - name: Download artifact Android (Getnet)
-        if: ${{ inputs.android-getnet }}
-        uses: actions/download-artifact@v4
-        with:
-          name: ApkBundleSpeedyAndroidGetNet
-          path: ./downloadedApk
-
-      - name: Download artifact Android (Cielo)
-        if: ${{ inputs.android-cielo }}
-        uses: actions/download-artifact@v4
-        with:
-          name: ApkBundleSpeedyAndroidCielo
-          path: ./downloadedApk
-
-      - name: Download artifact Android (Rede)
-        if: ${{ inputs.android-rede }}
-        uses: actions/download-artifact@v4
-        with:
-          name: ApkBundleSpeedyAndroidRede
-          path: ./downloadedApk
-      # Ler e atualizar a versão
-      - name: Ler versão atual )
-        if: ${{ steps.compute.outputs.combined == 'true' }}
-        working-directory: version-repo
-        shell: bash
-        run: |
-          VERSION_FILE="version.json"
-          VERSAO=$(jq '.speedyGeneratedVersion += 1 | .speedyGeneratedVersion' $VERSION_FILE)          
-          echo "Versao : $VERSAO"
-          echo "Versao Version: $VERSION"
-          echo "Versao Gerada: $SIMPLE.$VERSION.0"
-          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
-          newjson=$(echo "$json" | jq ".speedyGeneratedVersion=$VERSAO")
-          echo "$newjson" > version.json
-          cat version.json
-
-      - name: Criando o release
-        if: ${{ (steps.compute.outputs.combined == 'true') }}
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ env.VERSAO }}
-          name: v${{ env.VERSAO }} Speedy
-          files: |
-            downloaded/CloudfySpeedyPos.exe
-            downloadedApk/apk/prod/release/CloudfySpeedyPos.apk
-            downloadedApk/bundle/prodRelease/CloudfySpeedyPos.aab
-            downloadedApk/apk/tef/release/CloudfySpeedyPosTef.apk            
-            downloadedApk/apk/pagseguro/release/CloudfySpeedyPosPagSeguro.apk            
-            downloadedApk/apk/getnet/release/CloudfySpeedyPosGetnet.apk            
-            downloadedApk/apk/cielo/release/CloudfySpeedyPosCielo.apk            
-            downloadedApk/apk/rede/release/CloudfySpeedyPosRede.apk
-          body: Release gerado automaticamente.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3
         if: ${{ (steps.compute.outputs.combined == 'true') }}
@@ -710,7 +667,7 @@ jobs:
           html_body: |
             <p><b>Olá time!</b></p>
 
-            Foi gerada uma nova versão em produção do SpeedyPOS, na versão ${{ env.VERSAO }}!<br><br>
+            Foi gerada uma nova versão em produção do SpeedyPOS!<br><br>
 
             Commits incluídos:<br><br>
 
@@ -722,15 +679,3 @@ jobs:
           to: ${{ vars.EMAIL }}
           from: Cloudfy Versão <noreply@cloudfy.net.br>
           secure: true
-
-      - name: Commit das alterações
-        uses: EndBug/add-and-commit@v9
-        if: ${{ (steps.compute.outputs.combined == 'true') }}
-        with:
-          author_name: cloudfysystems
-          author_email: cloudfysystems@gmail.com
-          message: "alterada versão do build"
-          cwd: ./version-repo
-          add: "version.json"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
