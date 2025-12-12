@@ -260,22 +260,26 @@ jobs:
         working-directory: version-repo
         shell: bash
         run: |
-          VERSION_FILE="versionCielo.json"
-          BUILD=$(jq '.speedy.build += 1 | .speedy.build' $VERSION_FILE)
-          VERSION=$(jq '.speedy.version += 1 | .speedy.version' $VERSION_FILE)
-          SIMPLE=$(jq -r '.speedy.simple' $VERSION_FILE)
-          PATCH=$(jq -r '.speedy.patch' $VERSION_FILE)          
+          VERSION_FILE="versionCielo.json"          
+
+          # Atualiza o JSON corretamente
+          jq '.speedy.build += 1 | .speedy.version += 1 | .speedy.patch = 0' "$VERSION_FILE" > tmp.json
+
+          mv tmp.json "$VERSION_FILE"
+
+          # Pega os valores após a atualização
+          BUILD=$(jq -r '.speedy.build' "$VERSION_FILE")
+          VERSION=$(jq -r '.speedy.version' "$VERSION_FILE")
+          SIMPLE=$(jq -r '.speedy.simple' "$VERSION_FILE")
+
           echo "Versao Build: $BUILD"
           echo "Versao Version: $VERSION"
           echo "Versao Gerada: $SIMPLE.$VERSION.0"
+
           echo "VERSAO=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
-          newjson=$(echo "$json" | jq ".speedy.version=$VERSION | .speedy.build=$BUILD | .speedy.patch=0")
-          echo "$newjson" > versionCielo.json
-          cat versionCielo.json
-          VERSION_FULL_FILE="version.json"
-          VERSIONFULL=$(jq '.speedyGeneratedVersion += 1 | .speedyGeneratedVersion' $VERSION_FULL_FILE)
-          echo "Versao Full: $VERSIONFULL"
-          echo "VERSIONFULL=$VERSIONFULL" >> $GITHUB_ENV
+
+          echo "Novo JSON:"
+          cat "$VERSION_FILE"
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
@@ -426,25 +430,41 @@ jobs:
         if: ${{ inputs.android-rede }}
         with:
           path: version-repo
+      # Ler e atualizar a versão
+      - name: Gerar Variaveis de Ambiente
+        if: ${{ inputs.android-rede }}
+        run: |
+          echo 'DeployName=rede' >> $GITHUB_ENV
+          echo 'DeployNameUpperCase=Rede' >> $GITHUB_ENV
+          echo 'UrlId=15' >> $GITHUB_ENV
 
       # Ler e atualizar a versão
-      - name: Ler versão atual (rede)
+      - name: Ler versão atual ${{env.DeployNameUpperCase}}
         if: ${{ inputs.android-rede }}
         working-directory: version-repo
         shell: bash
         run: |
-          VERSION_FILE="versionRede.json"
-          BUILD=$(jq '.speedy.build += 1 | .speedy.build' $VERSION_FILE)
-          VERSION=$(jq '.speedy.version += 1 | .speedy.version' $VERSION_FILE)
-          SIMPLE=$(jq -r '.speedy.simple' $VERSION_FILE)
-          PATCH=$(jq -r '.speedy.patch' $VERSION_FILE)
+          VERSION_FILE="version${{env.DeployNameUpperCase}}.json"
+
+          # Atualiza o JSON corretamente
+          jq '.speedy.build += 1 | .speedy.version += 1 | .speedy.patch = 0' "$VERSION_FILE" > tmp.json
+
+          mv tmp.json "$VERSION_FILE"
+
+          # Pega os valores após a atualização
+          BUILD=$(jq -r '.speedy.build' "$VERSION_FILE")
+          VERSION=$(jq -r '.speedy.version' "$VERSION_FILE")
+          SIMPLE=$(jq -r '.speedy.simple' "$VERSION_FILE")
+
           echo "Versao Build: $BUILD"
           echo "Versao Version: $VERSION"
           echo "Versao Gerada: $SIMPLE.$VERSION.0"
-          echo "VERSAO=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
-          newjson=$(echo "$json" | jq ".speedy.version=$VERSION | .speedy.build=$BUILD | .speedy.patch=0")
-          echo "$newjson" > versionRede.json
-          cat versionRede.json
+
+          echo "VERSAO=$SIMPLE.$VERSION.0" >> $GITHUB_ENV
+          echo "VERSAO_BUILD=$BUILD" >> $GITHUB_ENV
+
+          echo "Novo JSON:"
+          cat "$VERSION_FILE"
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
@@ -488,7 +508,7 @@ jobs:
           java-version: "17"
 
       # Atualizar versão no arquivo Dart
-      - name: Atualiza versão no arquivo Dart(prod)
+      - name: Atualiza versão no arquivo Dart e pubspec.yaml
         if: ${{ inputs.android-rede }}
         shell: bash
         run: |
@@ -496,22 +516,16 @@ jobs:
           NOVA_VERSAO="${{ env.VERSAO }}"
           sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
           cat lib/Environment/Version.dart
-
-      # Atualizar versão no pubspec.yaml
-      - name: Atualizar versão no pubspec.yaml(prod)
-        if: ${{ inputs.android-rede }}
-        shell: bash
-        run: |
-          sed -i "s/^version:.*/version: $VERSAO/" pubspec.yaml
+          sed -i "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
           cat pubspec.yaml
 
       # Executar build do Shorebird
-      - name: 🚀 Shorebird Release (Prod)
+      - name: 🚀 Shorebird Release (${{env.DeployName}})
         if: ${{ inputs.android-rede }}
         id: shorebird-release
         uses: shorebirdtech/shorebird-release@v1
         with:
-          args: --flavor=rede --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=rede
+          args: --flavor=${{env.DeployName}} --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=${{env.DeployName}}
           platform: android
           flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
@@ -521,45 +535,51 @@ jobs:
         working-directory: .
         run: |
           echo "Renomeando APK"
-          if [ -f "flutter/speed/build/app/outputs/apk/rede/release/app-rede-release.apk" ]; then
-            mv flutter/speed/build/app/outputs/apk/rede/release/app-rede-release.apk flutter/speed/build/app/outputs/apk/rede/release/CloudfySpeedyPosRede.apk
-            echo "APK renomeado para CloudfySpeedyPosRede.apk"
+          if [ -f "flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk" ]; then
+            mv flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+            echo "APK renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
           else
             echo "⚠️ APK não encontrado!"
           fi
-
-      - name: Upload da apk (rede)
-        if: ${{inputs.android-rede}}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ApkBundleSpeedyAndroidRede
-          path: |
-            flutter/speed/build/app/outputs/apk/rede/release/CloudfySpeedyPosRede.apk
 
       - name: Criando o release
         if: ${{ inputs.android-rede }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.VERSAO }}
-          name: v${{ env.VERSAO }}_SpeedyRede
+          name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           files: |
-            flutter/speed/build/app/outputs/apk/rede/release/CloudfySpeedyPosRede.apk
+            flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Chamar API de alteração de dados android(rede)
+      - name: Chamar API de alteração de dados android(${{env.DeployNameUpperCase}})
         if: ${{ inputs.android-rede }}
-        id: api_call_android-rede
         run: |
-          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO_SpeedyRede/CloudfySpeedyPosRede.apk"
-          echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
-          echo "Url de download da rede: $URLANDROID"
+          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO_Speedy${{env.DeployNameUpperCase}}/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
+          echo "$URLANDROID"
           echo "Chamando API de validação..."
+
+          JSON_DATA=$(cat <<EOF
+          {
+            "JSON": true,
+            "Parameters": {
+              "Versao": "${{ env.VERSAO }}",
+              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",
+              "URL": "$URLANDROID",
+              "NR_ID": ${{ env.UrlId }}
+            }
+          }
+          EOF
+          )
+
+          echo $JSON_DATA
+
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROID}}", "NR_ID": 15}}')
+            -d "$JSON_DATA")
 
           echo "Código HTTP: $response"
           cat response.txt
@@ -575,9 +595,9 @@ jobs:
         with:
           author_name: cloudfysystems
           author_email: cloudfysystems@gmail.com
-          message: "alterada versão do build"
+          message: "alterada versão do build ${{env.DeployNameUpperCase}}"
           cwd: ./version-repo
-          add: "versionRede.json"
+          add: "version${{env.DeployNameUpperCase}}.json"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 

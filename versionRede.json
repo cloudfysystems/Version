@@ -1,1 +1,9 @@
 
+{    
+  "speedy": {
+    "build": 25,
+    "version": 40,
+    "patch": 0,
+    "simple": "1"
+  }  
+}
