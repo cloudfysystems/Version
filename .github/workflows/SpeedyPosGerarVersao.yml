@@ -1087,8 +1087,8 @@ jobs:
           fi
 
           echo "Renomeando AAB"
-          if [ -f "flutter/speed/build/app/outputs/bundle/${{env.DeployName}}/${{env.DeployName}}release/app-${{env.DeployName}}-release.aab" ]; then
-            mv flutter/speed/build/app/outputs/bundle/${{env.DeployName}}/${{env.DeployName}}release/app-${{env.DeployName}}-release.aab flutter/speed/build/app/outputs/bundle/${{env.DeployName}}/${{env.DeployName}}release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.aab
+          if [ -f "flutter/speed/build/app/outputs/bundle/${{env.DeployName}}/${{env.DeployName}}Release/app-${{env.DeployName}}-release.aab" ]; then
+            mv flutter/speed/build/app/outputs/bundle/${{env.DeployName}}/${{env.DeployName}}Release/app-${{env.DeployName}}-release.aab flutter/speed/build/app/outputs/bundle/${{env.DeployName}}/${{env.DeployName}}Release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.aab
             echo "AAB renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.aab"
           else
             echo "⚠️ AAB não encontrado!"
@@ -1102,7 +1102,7 @@ jobs:
           name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           files: |
             flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
-            flutter/speed/build/app/outputs/bundle/${{env.DeployName}}/${{env.DeployName}}release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.aab
+            flutter/speed/build/app/outputs/bundle/${{env.DeployName}}/${{env.DeployName}}Release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.aab
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
