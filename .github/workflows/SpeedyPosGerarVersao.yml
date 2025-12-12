@@ -417,6 +417,7 @@ jobs:
 
     steps:
       - name: Gerar Variáveis de Ambiente
+        working-directory: .
         run: |
           echo 'DeployName=rede' >> $GITHUB_ENV
           echo 'DeployNameUpperCase=Rede' >> $GITHUB_ENV
