@@ -416,9 +416,28 @@ jobs:
         working-directory: ./flutter/speed
 
     steps:
+      - name: Gerar Variáveis de Ambiente
+        run: |
+          echo 'DeployName=rede' >> $GITHUB_ENV
+          echo 'DeployNameUpperCase=Rede' >> $GITHUB_ENV
+          echo 'UrlId=15' >> $GITHUB_ENV
+          VARIABLE=${{ github.event.inputs.android-rede }}
+
+          # Converte string para 0/1
+          if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi          
+
+
+          # OR lógico
+          if [ $((VARIABLE_BOOL)) -eq 1 ]; then
+            EXECUTE=true
+          else
+            EXECUTE=false
+          fi
+
+          echo "execute=$EXECUTE" >> $GITHUB_OUTPUT
       # Clonar o repositório principal do Flutter
       - uses: actions/checkout@v4
-        if: ${{ inputs.android-rede }}
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         with:
           repository: cloudfysystems/FLUTTER
           ref: main
@@ -427,20 +446,13 @@ jobs:
 
       # Clonar o repositório de versão
       - uses: actions/checkout@v4
-        if: ${{ inputs.android-rede }}
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         with:
           path: version-repo
-      # Ler e atualizar a versão
-      - name: Gerar Variaveis de Ambiente
-        if: ${{ inputs.android-rede }}
-        run: |
-          echo 'DeployName=rede' >> $GITHUB_ENV
-          echo 'DeployNameUpperCase=Rede' >> $GITHUB_ENV
-          echo 'UrlId=15' >> $GITHUB_ENV
 
       # Ler e atualizar a versão
-      - name: Ler versão atual ${{env.DeployNameUpperCase}}
-        if: ${{ inputs.android-rede }}
+      - name: Ler versão atual
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         working-directory: version-repo
         shell: bash
         run: |
@@ -468,7 +480,7 @@ jobs:
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
-        if: ${{ inputs.android-rede }}
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           mkdir -p ./env
           echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
@@ -476,7 +488,7 @@ jobs:
 
       # Criar arquivo .jks a partir de base64
       - name: Criar arquivo .jks
-        if: ${{ inputs.android-rede }}
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         shell: bash
         run: |
           mkdir -p certificado
@@ -484,14 +496,14 @@ jobs:
 
       # Setup Shorebird
       - name: 🐦 Setup Shorebird
-        if: ${{ inputs.android-rede }}
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         uses: shorebirdtech/setup-shorebird@v1
         with:
           cache: true
 
       # Criar arquivo key.properties
       - name: Criar arquivo key.properties
-        if: ${{ inputs.android-rede }}
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         shell: bash
         run: |
           echo "storePassword=${{ secrets.SENHA_KEYSTORE }}" > android/key.properties
@@ -501,7 +513,7 @@ jobs:
 
       # Set Up Java (usando Oracle JDK 17)
       - name: Set Up Java
-        if: ${{ inputs.android-rede }}
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         uses: actions/setup-java@v3
         with:
           distribution: "oracle"
@@ -509,7 +521,7 @@ jobs:
 
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart e pubspec.yaml
-        if: ${{ inputs.android-rede }}
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         shell: bash
         run: |
           FILE="lib/Environment/Version.dart"
@@ -520,8 +532,8 @@ jobs:
           cat pubspec.yaml
 
       # Executar build do Shorebird
-      - name: 🚀 Shorebird Release (${{env.DeployName}})
-        if: ${{ inputs.android-rede }}
+      - name: 🚀 Shorebird Release
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         id: shorebird-release
         uses: shorebirdtech/shorebird-release@v1
         with:
@@ -531,7 +543,7 @@ jobs:
           working-directory: ./flutter/speed
 
       - name: Renomear arquivos Android (rede)
-        if: ${{ inputs.android-rede }}
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         working-directory: .
         run: |
           echo "Renomeando APK"
@@ -543,7 +555,7 @@ jobs:
           fi
 
       - name: Criando o release
-        if: ${{ inputs.android-rede }}
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.VERSAO }}
@@ -554,8 +566,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Chamar API de alteração de dados android(${{env.DeployNameUpperCase}})
-        if: ${{ inputs.android-rede }}
+      - name: Chamar API de alteração de dados android
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO_Speedy${{env.DeployNameUpperCase}}/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
           echo "$URLANDROID"
@@ -589,9 +601,24 @@ jobs:
             exit 1
           fi
 
+      - name: Atualizar branch com merge (se necessário)
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        run: |
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
+
+          # Garante que estamos na branch correta
+          git branch --show-current
+
+          # Tenta fazer pull e merge automático
+          git pull origin HEAD --no-rebase || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
       - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
-        if: ${{ inputs.android-rede }}
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         with:
           author_name: cloudfysystems
           author_email: cloudfysystems@gmail.com
