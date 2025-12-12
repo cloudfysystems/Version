@@ -1,29 +1,5 @@
 {
-  "speedyGeneratedVersion": 51,  
-  "speedyAndroid": {
-    "build": 23,
-    "version": 38,
-    "patch": 0,
-    "simple": "1"
-  },
-  "speedyAndroidTef": {
-    "build": 27,
-    "version": 42,
-    "patch": 0,
-    "simple": "1"
-  },
-  "speedyAndroidPagSeguro": {
-    "build": 22,
-    "version": 37,
-    "patch": 1,
-    "simple": "1"
-  },
-  "speedyAndroidGetnet": {
-    "build": 22,
-    "version": 37,
-    "patch": 0,
-    "simple": "1"
-  },  
+  "speedyGeneratedVersion": 51,        
   "blue": {
     "patch": 40,
     "simple": "1.3"

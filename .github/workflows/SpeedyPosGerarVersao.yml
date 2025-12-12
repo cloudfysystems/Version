@@ -21,19 +21,19 @@ on:
         type: boolean
       android-pagseguro:
         description: "Gerar versão Android(PagSeguro)?"
-        default: true
+        default: false
         type: boolean
       android-getnet:
         description: "Gerar versão Android(Getnet)?"
-        default: true
+        default: false
         type: boolean
       android-cielo:
         description: "Gerar versão Android(Cielo)?"
-        default: true
+        default: false
         type: boolean
       android-rede:
         description: "Gerar versão Android(Rede)?"
-        default: true
+        default: false
         type: boolean
 
 env:
@@ -179,15 +179,8 @@ jobs:
       #- name: Assinar o instalador
       #  run: signinstall.bat
 
-      - name: Upload do executável
-        if: ${{ inputs.windows }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: InstaladorSpeedyWindows
-          path: flutter/speed/dist/CloudfySpeedyPos.exe
-
       - name: Criando o release
-        if: ${{ inputs.android-windows }}
+        if: ${{ inputs.windows }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.VERSAO }}_SpeedyWindows
@@ -285,7 +278,7 @@ jobs:
           echo 'DeployName=cielo' >> $GITHUB_ENV
           echo 'DeployNameUpperCase=Cielo' >> $GITHUB_ENV
           echo 'UrlId=14' >> $GITHUB_ENV
-          VARIABLE=${{ github.event.inputs.android-rede }}
+          VARIABLE=${{ github.event.inputs.android-cielo }}
 
           # Converte string para 0/1
           if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi          
