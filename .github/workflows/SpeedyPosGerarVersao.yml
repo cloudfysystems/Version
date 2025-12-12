@@ -435,6 +435,8 @@ jobs:
             EXECUTE=false
           fi
 
+          echo "Valor do execute: $EXECUTE"
+
           echo "execute=$EXECUTE" >> $GITHUB_OUTPUT
       # Clonar o repositório principal do Flutter
       - uses: actions/checkout@v4
