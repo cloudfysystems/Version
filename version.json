@@ -36,6 +36,12 @@
     "patch": 0,
     "simple": "1"
   },
+  "speedyAndroidRede": {
+    "build": 24,
+    "version": 39,
+    "patch": 0,
+    "simple": "1"
+  },
   "blue": {
     "patch": 40,
     "simple": "1.3"
