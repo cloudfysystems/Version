@@ -1628,6 +1628,7 @@ jobs:
         android-pagseguro,
         android-getnet,
         android-tef,
+        android-prod,
       ]
     runs-on: ubuntu-latest
     permissions:
