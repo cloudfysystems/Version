@@ -703,27 +703,28 @@ jobs:
           git merge origin/main --no-ff -m "gerando versao na falcatrua" --allow-unrelated-histories
           git push origin production
 
-      - name: Envia e-mail com resumo
-        uses: dawidd6/action-send-mail@v3
-        if: ${{ (steps.compute.outputs.combined == 'true') }}
-        with:
-          server_address: mail.cloudfy.net.br
-          server_port: 465
-          username: ${{ secrets.EMAIL_USER }}
-          password: ${{ secrets.EMAIL_PASS }}
-          subject: "Speedy POS - Gerado versão em produção"
-          html_body: |
-            <p><b>Olá time!</b></p>
+      #- name: Envia e-mail com resumo
+      #  uses: dawidd6/action-send-mail@v3
+      #  if: ${{ (steps.compute.outputs.combined == 'true') }}
+      #  with:
+      #    server_address: mail.cloudfy.net.br
+      #    server_port: 465
+      #    username: ${{ secrets.EMAIL_USER }}
+      #    password: ${{ secrets.EMAIL_PASS }}
+      #    subject: "Speedy POS - Gerado versão em produção"
+      #    html_body: |
+      #      <p><b>Olá time!</b></p>
 
-            Foi gerada uma nova versão em produção do SpeedyPOS!<br><br>
-
-            Commits incluídos:<br><br>
-
-            <b>${{ steps.log.outputs.commit_messages }}</b><br><br>   
-
-            <p>Os novos arquivos estão disponiveis na area de download</p>
-
-            <p><b>Menos foco, mais ansiedade!</b></p>
-          to: ${{ vars.EMAIL }}
-          from: Cloudfy Versão <noreply@cloudfy.net.br>
-          secure: true
+#
+#      Foi gerada uma nova versão em produção do SpeedyPOS!<br><br>
+#
+#      Commits incluídos:<br><br>
+#
+#      <b>${{ steps.log.outputs.commit_messages }}</b><br><br>
+#
+#      <p>Os novos arquivos estão disponiveis na area de download</p>
+#
+#      <p><b>Menos foco, mais ansiedade!</b></p>
+#    to: ${{ vars.EMAIL }}
+#    from: Cloudfy Versão <noreply@cloudfy.net.br>
+#    secure: true
