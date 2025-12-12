@@ -525,6 +525,169 @@ jobs:
           path: |
             flutter/speed/build/app/outputs/apk/cielo/release/app-cielo-release.apk
             flutter/speed/build/app/outputs/bundle/cieloRelease/app-cielo-release.aab
+  android-cielo:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./flutter/speed
+
+    steps:
+      # Clonar o repositório principal do Flutter
+      - uses: actions/checkout@v4
+        if: ${{ inputs.android-cielo }}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+
+      # Clonar o repositório de versão
+      - uses: actions/checkout@v4
+        if: ${{ inputs.android-cielo }}
+        with:
+          path: version-repo
+
+      # Ler e atualizar a versão
+      - name: Ler versão atual (prod)
+        if: ${{ inputs.android-cielo }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="versionCielo.json"
+          BUILD=$(jq '.speedy.build += 1 | .speedy.build' $VERSION_FILE)
+          VERSION=$(jq '.speedy.version += 1 | .speedy.version' $VERSION_FILE)
+          SIMPLE=$(jq -r '.speedy.simple' $VERSION_FILE)
+          PATCH=$(jq -r '.speedy.patch' $VERSION_FILE)
+          echo "Versao Build: $BUILD"
+          echo "Versao Version: $VERSION"
+          echo "Versao Gerada: $SIMPLE.$VERSION.0"
+          echo "VERSAO=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
+          newjson=$(echo "$json" | jq ".speedy.version=$VERSION | .speedy.build=$BUILD | .speedy.patch=0")
+          echo "$newjson" > versionCielo.json
+          cat versionCielo.json
+
+      # Criar o arquivo env/prod.json
+      - name: Gerar env/prod.json
+        if: ${{ inputs.android-cielo }}
+        run: |
+          mkdir -p ./env
+          echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
+          cat ./env/prod.json
+
+      # Criar arquivo .jks a partir de base64
+      - name: Criar arquivo .jks
+        if: ${{ inputs.android-cielo }}
+        shell: bash
+        run: |
+          mkdir -p certificado
+          echo "${{ secrets.KEYSTORE }}" | base64 -d > certificado/certificado-keystore.jks
+
+      # Setup Shorebird
+      - name: 🐦 Setup Shorebird
+        if: ${{ inputs.android-cielo }}
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      # Criar arquivo key.properties
+      - name: Criar arquivo key.properties
+        if: ${{ inputs.android-cielo }}
+        shell: bash
+        run: |
+          echo "storePassword=${{ secrets.SENHA_KEYSTORE }}" > android/key.properties
+          echo "keyPassword=${{ secrets.SENHA_KEYSTORE }}" >> android/key.properties
+          echo "keyAlias=cloudfycardapio" >> android/key.properties
+          echo "storeFile=../../certificado/certificado-keystore.jks" >> android/key.properties
+
+      # Set Up Java (usando Oracle JDK 17)
+      - name: Set Up Java
+        if: ${{ inputs.android-cielo }}
+        uses: actions/setup-java@v3
+        with:
+          distribution: "oracle"
+          java-version: "17"
+
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart(prod)
+        if: ${{ inputs.android-cielo }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+
+      # Atualizar versão no pubspec.yaml
+      - name: Atualizar versão no pubspec.yaml(prod)
+        if: ${{ inputs.android-cielo }}
+        shell: bash
+        run: |
+          sed -i "s/^version:.*/version: $VERSAO/" pubspec.yaml
+          cat pubspec.yaml
+
+      # Executar build do Shorebird
+      - name: 🚀 Shorebird Release (Prod)
+        if: ${{ inputs.android-cielo }}
+        id: shorebird-release
+        uses: shorebirdtech/shorebird-release@v1
+        with:
+          args: --flavor=cielo --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=cielo
+          platform: android
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
+          working-directory: ./flutter/speed
+
+      - name: Upload da apk e do bundle (cielo)
+        if: ${{inputs.android-cielo}}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ApkBundleSpeedyAndroidcielo
+          path: |
+            flutter/speed/build/app/outputs/apk/cielo/release/app-cielo-release.apk
+            flutter/speed/build/app/outputs/bundle/cieloRelease/app-cielo-release.aab
+      - name: Gerando URLs da versão
+        if: ${{ inputs.android-cielo }}
+        run: |
+          if [ "${{ inputs.android-cielo }}" = "true" ]; then
+            URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosCielo.apk"
+            echo "$URLANDROID"
+            URLANDROID="<p><a href=\"$URLANDROID\">CloudfySpeedyPosCielo.apk</a></p>"
+            echo "$TAGANDROID"
+            echo "TAGANDROID=$TAGANDROID" >> $GITHUB_ENV
+            echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
+          else
+            echo "Input android-cielo é false, pulando configuração do Android Cielo"
+          fi
+
+      - name: Chamar API de alteração de dados android(cielo)
+        if: ${{ inputs.android-cielo }}
+        id: api_call_android-cielo
+        run: |
+          echo "Chamando API de validação..."
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROID}}", "NR_ID": 14}}')
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ inputs.android-cielo }}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build"
+          cwd: ./version-repo
+          add: "versionCielo.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
   android-rede:
     runs-on: ubuntu-latest
     defaults:
