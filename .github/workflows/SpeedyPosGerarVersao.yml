@@ -91,11 +91,15 @@ jobs:
         working-directory: version-repo
         shell: powershell
         run: |
-          $json = Get-Content "version.json" | ConvertFrom-Json          
-          $json.speedyWindows.version++
-          $json.speedyWindows.patch = 0             
-          echo "Versao gerada: $($json.speedyWindows.simple).$($json.speedyWindows.version).$($json.speedyWindows.patch)"
-          echo "VERSAO=$($json.speedyWindows.simple).$($json.speedyWindows.version).$($json.speedyWindows.patch)" >> $env:GITHUB_ENV
+          $json = Get-Content "versionWindows.json" | ConvertFrom-Json          
+          $json.speedy.version++
+          $json.speedy.patch = 0
+
+          # Salva de volta no JSON
+          $json | ConvertTo-Json -Depth 10 | Out-File -FilePath "versionWindows.json" -Encoding UTF8
+
+          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)"
+          echo "VERSAO=$($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)" >> $env:GITHUB_ENV
 
       - name: Gerando o env/prod.json
         if: ${{ inputs.windows }}
@@ -181,350 +185,39 @@ jobs:
         with:
           name: InstaladorSpeedyWindows
           path: flutter/speed/dist/CloudfySpeedyPos.exe
-  Android:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./flutter/speed
 
-    steps:
-      - name: Calculando a combinação dos booleans Android
-        id: compute
-        working-directory: .
+      - name: Chamar API de alteração de dados windows
+        if: ${{ inputs.windows }}
+        id: api_call_windows
         run: |
-          ANDROID=${{ github.event.inputs.android }}
-          TEF=${{ github.event.inputs.android-tef }}
-          PAGSEGURO=${{ github.event.inputs.android-pagseguro }}
-          GETNET=${{ github.event.inputs.android-getnet }}
-          CIELO=${{ github.event.inputs.android-cielo }}
+          URLWINDOWS="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.exe"
+          echo "Url de download: $URLWINDOWS"
+          echo "Chamando API de validação..."
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "$URLWINDOWS", "NR_ID": 4}}')
 
-          # Converte string para 0/1
-          if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
-          if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
-          if [ "$PAGSEGURO" = "true" ]; then PAGSEGURO_BOOL=1; else PAGSEGURO_BOOL=0; fi
-          if [ "$GETNET" = "true" ]; then GETNET_BOOL=1; else GETNET_BOOL=0; fi
-          if [ "$CIELO" = "true" ]; then CIELO_BOOL=1; else CIELO_BOOL=0; fi
+          echo "Código HTTP: $response"
+          cat response.txt
 
-
-          # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL)) -eq 1 ]; then
-            COMBINED=true
-          else
-            COMBINED=false
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
           fi
 
-          echo "combined=$COMBINED" >> $GITHUB_OUTPUT
-      # Clonar o repositório principal do Flutter
-      - uses: actions/checkout@v4
-        if: ${{ steps.compute.outputs.combined == 'true' }}
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ inputs.windows }}
         with:
-          repository: cloudfysystems/FLUTTER
-          ref: main
-          token: ${{ secrets.GH_TOKEN }}
-          path: flutter
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build windows"
+          cwd: ./version-repo
+          add: "versionWindows.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # Clonar o repositório de versão
-      - uses: actions/checkout@v4
-        if: ${{ steps.compute.outputs.combined == 'true'}}
-        with:
-          path: version-repo
-
-      # Ler e atualizar a versão
-      - name: Ler versão atual (prod)
-        if: ${{ inputs.android }}
-        working-directory: version-repo
-        shell: bash
-        run: |
-          VERSION_FILE="version.json"
-          BUILD=$(jq '.speedyAndroid.build += 1 | .speedyAndroid.build' $VERSION_FILE)
-          VERSION=$(jq '.speedyAndroid.version += 1 | .speedyAndroid.version' $VERSION_FILE)
-          SIMPLE=$(jq -r '.speedyAndroid.simple' $VERSION_FILE)
-          PATCH=$(jq -r '.speedyAndroid.patch' $VERSION_FILE)
-          echo "Versao Build: $BUILD"
-          echo "Versao Version: $VERSION"
-          echo "Versao Gerada: $SIMPLE.$VERSION.0"
-          echo "VERSAO=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
-
-      - name: Ler versão atual (tef)
-        if: ${{ inputs.android-tef }}
-        working-directory: version-repo
-        shell: bash
-        run: |
-          VERSION_FILE="version.json"
-          BUILD=$(jq '.speedyAndroidTef.build += 1 | .speedyAndroidTef.build' $VERSION_FILE)
-          VERSION=$(jq '.speedyAndroidTef.version += 1 | .speedyAndroidTef.version' $VERSION_FILE)
-          SIMPLE=$(jq -r '.speedyAndroidTef.simple' $VERSION_FILE)
-          PATCH=$(jq -r '.speedyAndroidTef.patch' $VERSION_FILE)
-          echo "Versao tef Build: $BUILD"
-          echo "Versao tef Version: $VERSION"
-          echo "Versao tef Gerada: $SIMPLE.$VERSION.0"
-          echo "VERSAOTEF=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
-      - name: Ler versão atual (PagSeguro)
-        if: ${{ inputs.android-pagseguro }}
-        working-directory: version-repo
-        shell: bash
-        run: |
-          VERSION_FILE="version.json"
-          BUILD=$(jq '.speedyAndroidPagSeguro.build += 1 | .speedyAndroidPagSeguro.build' $VERSION_FILE)
-          VERSION=$(jq '.speedyAndroidPagSeguro.version += 1 | .speedyAndroidPagSeguro.version' $VERSION_FILE)
-          SIMPLE=$(jq -r '.speedyAndroidPagSeguro.simple' $VERSION_FILE)
-          PATCH=$(jq -r '.speedyAndroidPagSeguro.patch' $VERSION_FILE)
-          echo "Versao pagSeguro Build: $BUILD"
-          echo "Versao pagSeguro Version: $VERSION"
-          echo "Versao pagSeguro Gerada: $SIMPLE.$VERSION.0"
-          echo "VERSAOPAGSEGURO=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
-
-      - name: Ler versão atual (Getnet)
-        if: ${{ inputs.android-getnet }}
-        working-directory: version-repo
-        shell: bash
-        run: |
-          VERSION_FILE="version.json"
-          BUILD=$(jq '.speedyAndroidGetnet.build += 1 | .speedyAndroidGetnet.build' $VERSION_FILE)
-          VERSION=$(jq '.speedyAndroidGetnet.version += 1 | .speedyAndroidGetnet.version' $VERSION_FILE)
-          SIMPLE=$(jq -r '.speedyAndroidGetnet.simple' $VERSION_FILE)
-          PATCH=$(jq -r '.speedyAndroidGetnet.patch' $VERSION_FILE)
-          echo "Versao getnet Build: $BUILD"
-          echo "Versao getnet Version: $VERSION"
-          echo "Versao getnet Gerada: $SIMPLE.$VERSION.0"
-          echo "VERSAOGETNET=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
-
-      - name: Ler versão atual (Cielo)
-        if: ${{ inputs.android-cielo }}
-        working-directory: version-repo
-        shell: bash
-        run: |
-          VERSION_FILE="version.json"
-          BUILD=$(jq '.speedyAndroidCielo.build += 1 | .speedyAndroidCielo.build' $VERSION_FILE)
-          VERSION=$(jq '.speedyAndroidCielo.version += 1 | .speedyAndroidCielo.version' $VERSION_FILE)
-          SIMPLE=$(jq -r '.speedyAndroidCielo.simple' $VERSION_FILE)
-          PATCH=$(jq -r '.speedyAndroidCielo.patch' $VERSION_FILE)
-          echo "Versao cielo Build: $BUILD"
-          echo "Versao cielo Version: $VERSION"
-          echo "Versao cielo Gerada: $SIMPLE.$VERSION.0"
-          echo "VERSAOCIELO=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
-
-      # Criar o arquivo env/prod.json
-      - name: Gerar env/prod.json
-        if: ${{ steps.compute.outputs.combined == 'true' }}
-        run: |
-          mkdir -p ./env
-          echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
-          cat ./env/prod.json
-
-      # Criar arquivo .jks a partir de base64
-      - name: Criar arquivo .jks
-        if: ${{ steps.compute.outputs.combined == 'true' }}
-        shell: bash
-        run: |
-          mkdir -p certificado
-          echo "${{ secrets.KEYSTORE }}" | base64 -d > certificado/certificado-keystore.jks
-
-      # Setup Shorebird
-      - name: 🐦 Setup Shorebird
-        if: ${{ steps.compute.outputs.combined == 'true' }}
-        uses: shorebirdtech/setup-shorebird@v1
-        with:
-          cache: true
-
-      # Criar arquivo key.properties
-      - name: Criar arquivo key.properties
-        if: ${{ steps.compute.outputs.combined == 'true' }}
-        shell: bash
-        run: |
-          echo "storePassword=${{ secrets.SENHA_KEYSTORE }}" > android/key.properties
-          echo "keyPassword=${{ secrets.SENHA_KEYSTORE }}" >> android/key.properties
-          echo "keyAlias=cloudfycardapio" >> android/key.properties
-          echo "storeFile=../../certificado/certificado-keystore.jks" >> android/key.properties
-
-      # Set Up Java (usando Oracle JDK 17)
-      - name: Set Up Java
-        if: ${{ steps.compute.outputs.combined == 'true' }}
-        uses: actions/setup-java@v3
-        with:
-          distribution: "oracle"
-          java-version: "17"
-
-      # Atualizar versão no arquivo Dart
-      - name: Atualiza versão no arquivo Dart(prod)
-        if: ${{ inputs.android }}
-        shell: bash
-        run: |
-          FILE="lib/Environment/Version.dart"
-          NOVA_VERSAO="${{ env.VERSAO }}"
-          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
-          cat lib/Environment/Version.dart
-
-      # Atualizar versão no pubspec.yaml
-      - name: Atualizar versão no pubspec.yaml(prod)
-        if: ${{ inputs.android }}
-        shell: bash
-        run: |
-          sed -i "s/^version:.*/version: $VERSAO/" pubspec.yaml
-          cat pubspec.yaml
-
-      # Executar build do Shorebird
-      - name: 🚀 Shorebird Release (Prod)
-        if: ${{ inputs.android }}
-        id: shorebird-release
-        uses: shorebirdtech/shorebird-release@v1
-        with:
-          args: --flavor=prod --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=prod
-          platform: android
-          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
-          working-directory: ./flutter/speed
-
-      # Atualizar versão no arquivo Dart
-      - name: Atualiza versão no arquivo Dart(tef)
-        if: ${{ inputs.android-tef }}
-        shell: bash
-        run: |
-          FILE="lib/Environment/Version.dart"
-          NOVA_VERSAO="${{ env.VERSAOTEF }}"
-          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
-          cat lib/Environment/Version.dart
-
-      # Atualizar versão no pubspec.yaml
-      - name: Atualizar versão no pubspec.yaml(tef)
-        if: ${{ inputs.android-tef }}
-        shell: bash
-        run: |
-          sed -i "s/^version:.*/version: ${{ env.VERSAOTEF }}/" pubspec.yaml
-          cat pubspec.yaml
-
-      - name: 🚀 Shorebird Release (Tef)
-        if: ${{ inputs.android-tef }}
-        id: shorebird-release-tef
-        uses: shorebirdtech/shorebird-release@v1
-        with:
-          args: --flavor=tef --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=tef
-          platform: android
-          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
-          working-directory: ./flutter/speed
-        # Atualizar versão no arquivo Dart
-      - name: Atualiza versão no arquivo Dart(pagseguro)
-        if: ${{ inputs.android-pagseguro }}
-        shell: bash
-        run: |
-          FILE="lib/Environment/Version.dart"
-          NOVA_VERSAO="${{ env.VERSAOPAGSEGURO }}"
-          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
-          cat lib/Environment/Version.dart
-
-      # Atualizar versão no pubspec.yaml
-      - name: Atualizar versão no pubspec.yaml(pagseguro)
-        if: ${{ inputs.android-pagseguro }}
-        shell: bash
-        run: |
-          sed -i "s/^version:.*/version: ${{ env.VERSAOPAGSEGURO }}/" pubspec.yaml
-          cat pubspec.yaml
-
-      - name: 🚀 Shorebird Release (PagSeguro)
-        if: ${{ inputs.android-pagseguro }}
-        id: shorebird-release-pagseguro
-        uses: shorebirdtech/shorebird-release@v1
-        with:
-          args: --flavor=pagseguro --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=pagseguro
-          platform: android
-          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
-          working-directory: ./flutter/speed
-
-      # Atualizar versão no arquivo Dart
-      - name: Atualiza versão no arquivo Dart(getnet)
-        if: ${{ inputs.android-getnet }}
-        shell: bash
-        run: |
-          FILE="lib/Environment/Version.dart"
-          NOVA_VERSAO="${{ env.VERSAOGETNET }}"
-          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
-          cat lib/Environment/Version.dart
-
-      # Atualizar versão no pubspec.yaml
-      - name: Atualizar versão no pubspec.yaml(getnet)
-        if: ${{ inputs.android-getnet }}
-        shell: bash
-        run: |
-          sed -i "s/^version:.*/version: ${{ env.VERSAOGETNET }}/" pubspec.yaml
-          cat pubspec.yaml
-
-      - name: 🚀 Shorebird Release (getnet)
-        if: ${{ inputs.android-getnet }}
-        id: shorebird-release-getnet
-        uses: shorebirdtech/shorebird-release@v1
-        with:
-          args: --flavor=getnet --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=getnet
-          platform: android
-          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
-          working-directory: ./flutter/speed
-      # Atualizar versão no arquivo Dart
-      - name: Atualiza versão no arquivo Dart(cielo)
-        if: ${{ inputs.android-cielo }}
-        shell: bash
-        run: |
-          FILE="lib/Environment/Version.dart"
-          NOVA_VERSAO="${{ env.VERSAOCIELO }}"
-          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
-          cat lib/Environment/Version.dart
-
-      # Atualizar versão no pubspec.yaml
-      - name: Atualizar versão no pubspec.yaml(cielo)
-        if: ${{ inputs.android-cielo }}
-        shell: bash
-        run: |
-          sed -i "s/^version:.*/version: ${{ env.VERSAOCIELO }}/" pubspec.yaml
-          cat pubspec.yaml
-
-      - name: 🚀 Shorebird Release (cielo)
-        if: ${{ inputs.android-cielo }}
-        id: shorebird-release-cielo
-        uses: shorebirdtech/shorebird-release@v1
-        with:
-          args: --flavor=cielo --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=cielo
-          platform: android
-          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
-          working-directory: ./flutter/speed
-
-      # Upload dos artefatos
-      - name: Upload da apk e do bundle (Prod)
-        if: ${{ inputs.android}}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ApkBundleSpeedyAndroid
-          path: |
-            flutter/speed/build/app/outputs/apk/prod/release/app-prod-release.apk
-            flutter/speed/build/app/outputs/bundle/prodRelease/app-prod-release.aab
-      - name: Upload da apk e do bundle (tef)
-        if: ${{inputs.android-tef}}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ApkBundleSpeedyAndroidTef
-          path: |
-            flutter/speed/build/app/outputs/apk/tef/release/app-tef-release.apk
-            flutter/speed/build/app/outputs/bundle/tefRelease/app-tef-release.aab
-      - name: Upload da apk e do bundle (pagseguro)
-        if: ${{inputs.android-pagseguro}}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ApkBundleSpeedyAndroidPagSeguro
-          path: |
-            flutter/speed/build/app/outputs/apk/pagseguro/release/app-pagseguro-release.apk
-            flutter/speed/build/app/outputs/bundle/pagseguroRelease/app-pagseguro-release.aab
-      - name: Upload da apk e do bundle (getnet)
-        if: ${{inputs.android-getnet}}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ApkBundleSpeedyAndroidGetNet
-          path: |
-            flutter/speed/build/app/outputs/apk/getnet/release/app-getnet-release.apk
-            flutter/speed/build/app/outputs/bundle/getnetRelease/app-getnet-release.aab
-      - name: Upload da apk e do bundle (cielo)
-        if: ${{inputs.android-cielo}}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ApkBundleSpeedyAndroidCielo
-          path: |
-            flutter/speed/build/app/outputs/apk/cielo/release/app-cielo-release.apk
-            flutter/speed/build/app/outputs/bundle/cieloRelease/app-cielo-release.aab
   android-cielo:
     runs-on: ubuntu-latest
     defaults:
@@ -636,37 +329,37 @@ jobs:
           flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
 
-      - name: Upload da apk e do bundle (cielo)
+      - name: Renomear arquivos Android (Cielo)
+        if: ${{ inputs.android-cielo }}
+        working-directory: .
+        run: |
+          echo "Renomeando APK"
+          if [ -f "flutter/speed/build/app/outputs/apk/cielo/release/app-cielo-release.apk" ]; then
+            mv flutter/speed/build/app/outputs/apk/cielo/release/app-cielo-release.apk flutter/speed/build/app/outputs/apk/cielo/release/CloudfySpeedyPosCielo.apk
+            echo "APK renomeado para CloudfySpeedyPosCielo.apk"
+          else
+            echo "⚠️ APK não encontrado!"
+          fi
+
+      - name: Upload da apk (cielo)
         if: ${{inputs.android-cielo}}
         uses: actions/upload-artifact@v4
         with:
           name: ApkBundleSpeedyAndroidcielo
           path: |
-            flutter/speed/build/app/outputs/apk/cielo/release/app-cielo-release.apk
-            flutter/speed/build/app/outputs/bundle/cieloRelease/app-cielo-release.aab
-      - name: Gerando URLs da versão
-        if: ${{ inputs.android-cielo }}
-        run: |
-          if [ "${{ inputs.android-cielo }}" = "true" ]; then
-            URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosCielo.apk"
-            echo "$URLANDROID"
-            URLANDROID="<p><a href=\"$URLANDROID\">CloudfySpeedyPosCielo.apk</a></p>"
-            echo "$TAGANDROID"
-            echo "TAGANDROID=$TAGANDROID" >> $GITHUB_ENV
-            echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
-          else
-            echo "Input android-cielo é false, pulando configuração do Android Cielo"
-          fi
+            flutter/speed/build/app/outputs/apk/cielo/release/CloudfySpeedyPosCielo.apk
 
       - name: Chamar API de alteração de dados android(cielo)
         if: ${{ inputs.android-cielo }}
         id: api_call_android-cielo
         run: |
+          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosCielo.apk"
+          echo "$URLANDROID"
           echo "Chamando API de validação..."
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/H02SF0107A \
             -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROID}}", "NR_ID": 14}}')
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "$URLANDROID", "NR_ID": 14}}')
 
           echo "Código HTTP: $response"
           cat response.txt
@@ -711,20 +404,23 @@ jobs:
           path: version-repo
 
       # Ler e atualizar a versão
-      - name: Ler versão atual (prod)
+      - name: Ler versão atual (rede)
         if: ${{ inputs.android-rede }}
         working-directory: version-repo
         shell: bash
         run: |
-          VERSION_FILE="version.json"
-          BUILD=$(jq '.speedyAndroidRede.build += 1 | .speedyAndroidRede.build' $VERSION_FILE)
-          VERSION=$(jq '.speedyAndroidRede.version += 1 | .speedyAndroidRede.version' $VERSION_FILE)
-          SIMPLE=$(jq -r '.speedyAndroidRede.simple' $VERSION_FILE)
-          PATCH=$(jq -r '.speedyAndroidRede.patch' $VERSION_FILE)
+          VERSION_FILE="versionRede.json"
+          BUILD=$(jq '.speedy.build += 1 | .speedy.build' $VERSION_FILE)
+          VERSION=$(jq '.speedy.version += 1 | .speedy.version' $VERSION_FILE)
+          SIMPLE=$(jq -r '.speedy.simple' $VERSION_FILE)
+          PATCH=$(jq -r '.speedy.patch' $VERSION_FILE)
           echo "Versao Build: $BUILD"
           echo "Versao Version: $VERSION"
           echo "Versao Gerada: $SIMPLE.$VERSION.0"
           echo "VERSAO=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
+          newjson=$(echo "$json" | jq ".speedy.version=$VERSION | .speedy.build=$BUILD | .speedy.patch=0")
+          echo "$newjson" > versionRede.json
+          cat versionRede.json
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
@@ -796,20 +492,62 @@ jobs:
           flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
 
-      - name: Upload da apk e do bundle (rede)
+      - name: Renomear arquivos Android (rede)
+        if: ${{ inputs.android-rede }}
+        working-directory: .
+        run: |
+          echo "Renomeando APK"
+          if [ -f "flutter/speed/build/app/outputs/apk/rede/release/app-rede-release.apk" ]; then
+            mv flutter/speed/build/app/outputs/apk/rede/release/app-rede-release.apk flutter/speed/build/app/outputs/apk/rede/release/CloudfySpeedyPosRede.apk
+            echo "APK renomeado para CloudfySpeedyPosRede.apk"
+          else
+            echo "⚠️ APK não encontrado!"
+          fi
+
+      - name: Upload da apk (rede)
         if: ${{inputs.android-rede}}
         uses: actions/upload-artifact@v4
         with:
           name: ApkBundleSpeedyAndroidRede
           path: |
-            flutter/speed/build/app/outputs/apk/rede/release/app-rede-release.apk
-            flutter/speed/build/app/outputs/bundle/redeRelease/app-rede-release.aab
+            flutter/speed/build/app/outputs/apk/rede/release/CloudfySpeedyPosRede.apk
+
+      - name: Chamar API de alteração de dados android(rede)
+        if: ${{ inputs.android-rede }}
+        id: api_call_android-rede
+        run: |
+          URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosRede.apk"
+          echo "Url de download da rede: $URLANDROID"
+          echo "Chamando API de validação..."
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "$URLANDROID", "NR_ID": 15}}')
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ inputs.android-rede }}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build"
+          cwd: ./version-repo
+          add: "versionRede.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
-    needs: [Android, Windows, android-rede]
+    needs: [Windows, android-rede, android-cielo]
     runs-on: ubuntu-latest
-    if: success() && ${{ (inputs.android || inputs.windows || inputs.android-rede) }}
     permissions:
       contents: write
     defaults:
@@ -821,31 +559,34 @@ jobs:
         id: compute
         working-directory: .
         run: |
+          WINDOWS=${{ github.event.inputs.windows }}
           ANDROID=${{ github.event.inputs.android }}
-           TEF=${{ github.event.inputs.android-tef }}
-           PAGSEGURO=${{ github.event.inputs.android-pagseguro }}
-           GETNET=${{ github.event.inputs.android-getnet }}
-           CIELO=${{ github.event.inputs.android-cielo }}
+          TEF=${{ github.event.inputs.android-tef }}
+          PAGSEGURO=${{ github.event.inputs.android-pagseguro }}
+          GETNET=${{ github.event.inputs.android-getnet }}
+          CIELO=${{ github.event.inputs.android-cielo }}
+          REDE=${{ github.event.inputs.android-rede }}
 
-           # Converte string para 0/1
-           if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
-           if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
-           if [ "$PAGSEGURO" = "true" ]; then PAGSEGURO_BOOL=1; else PAGSEGURO_BOOL=0; fi
-           if [ "$GETNET" = "true" ]; then GETNET_BOOL=1; else GETNET_BOOL=0; fi
-           if [ "$CIELO" = "true" ]; then CIELO_BOOL=1; else CIELO_BOOL=0; fi
-           if [ "$REDE" = "true" ]; then REDE_BOOL=1; else REDE_BOOL=0; fi
+          # Converte string para 0/1
+          if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
+          if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
+          if [ "$PAGSEGURO" = "true" ]; then PAGSEGURO_BOOL=1; else PAGSEGURO_BOOL=0; fi
+          if [ "$GETNET" = "true" ]; then GETNET_BOOL=1; else GETNET_BOOL=0; fi
+          if [ "$CIELO" = "true" ]; then CIELO_BOOL=1; else CIELO_BOOL=0; fi
+          if [ "$REDE" = "true" ]; then REDE_BOOL=1; else REDE_BOOL=0; fi
+          if [ "$WINDOWS" = "true" ]; then WINDOWS_BOOL=1; else WINDOWS_BOOL=0; fi
 
 
-           # OR lógico
-           if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL)) -eq 1 ]; then
-             COMBINED=true
-           else
-             COMBINED=false
-           fi
+          # OR lógico
+          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | WINDOWS_BOOL)) -eq 1 ]; then
+            COMBINED=true
+          else
+            COMBINED=false
+          fi
 
-           echo "combined=$COMBINED" >> $GITHUB_OUTPUT
+          echo "combined=$COMBINED" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v4
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
+        if: ${{ (steps.compute.outputs.combined == 'true') }}
         with:
           repository: cloudfysystems/FLUTTER
           fetch-depth: 0
@@ -854,13 +595,13 @@ jobs:
           path: flutterrepo
 
       - uses: actions/checkout@v4
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
+        if: ${{ (steps.compute.outputs.combined == 'true') }}
         with:
           path: version-repo
 
       - name: Recuperando os commits entre produção e main
         id: log
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
+        if: ${{ (steps.compute.outputs.combined == 'true') }}
         continue-on-error: true
         run: |
           git config --global user.name "cloudfysystems"
@@ -876,215 +617,6 @@ jobs:
           git checkout production
           git merge origin/main --no-ff -m "gerando versao na falcatrua" --allow-unrelated-histories
           git push origin production
-
-      - name: Ler versão atual e atualizar número da versão windows
-        working-directory: version-repo
-        if: ${{ inputs.windows }}
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyWindows.version + 1' | tr -d '"')
-          build=$(echo "$json" | jq '.speedyWindows.build' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedyWindows.simple')          
-
-          newjson=$(echo "$json" | jq ".speedyWindows.version=$version | .speedyWindows.build=$build | .speedyWindows.patch=0")
-          echo "$newjson" > version.json
-
-          VERSAOWINDOWS="${simple}.${version}.0"
-          echo "Versão gerada: $VERSAOWINDOWS"
-
-          echo "VERSAOWINDOWS=$VERSAOWINDOWS" >> $GITHUB_ENV
-
-      - name: Ler versão atual e atualizar número da versão android (prod)
-        if: ${{ inputs.android }}
-        working-directory: version-repo
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyAndroid.version + 1' | tr -d '"')
-          build=$(echo "$json" | jq '.speedyAndroid.build + 1' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedyAndroid.simple')
-
-          newjson=$(echo "$json" | jq ".speedyAndroid.version=$version | .speedyAndroid.build=$build | .speedyAndroid.patch=0")
-          echo "$newjson" > version.json
-
-          VERSAOANDROID="${simple}.${version}.0"
-          echo "Versão gerada: $VERSAOANDROID"
-
-          echo "VERSAOANDROID=$VERSAOANDROID" >> $GITHUB_ENV
-
-      - name: Ler versão atual e atualizar número da versão android (tef)
-        if: ${{ inputs.android-tef }}
-        working-directory: version-repo
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyAndroidTef.version + 1' | tr -d '"')
-          build=$(echo "$json" | jq '.speedyAndroidTef.build + 1' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedyAndroidTef.simple')
-
-          newjson=$(echo "$json" | jq ".speedyAndroidTef.version=$version | .speedyAndroidTef.build=$build | .speedyAndroidTef.patch=0")
-          echo "$newjson" > version.json
-
-          VERSAOANDROIDTEF="${simple}.${version}.0"
-          echo "Versão gerada: $VERSAOANDROIDTEF"
-
-          echo "VERSAOANDROIDTEF=$VERSAOANDROIDTEF" >> $GITHUB_ENV
-      - name: Ler versão atual e atualizar número da versão android (pagseguro)
-        if: ${{ inputs.android-pagseguro }}
-        working-directory: version-repo
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyAndroidPagSeguro.version + 1' | tr -d '"')
-          build=$(echo "$json" | jq '.speedyAndroidPagSeguro.build + 1' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedyAndroidPagSeguro.simple')
-
-          newjson=$(echo "$json" | jq ".speedyAndroidPagSeguro.version=$version | .speedyAndroidPagSeguro.build=$build | .speedyAndroidPagSeguro.patch=0")
-          echo "$newjson" > version.json
-
-          VERSAOANDROIDPAGSEGURO="${simple}.${version}.0"
-          echo "Versão gerada: $VERSAOANDROIDPAGSEGURO"
-
-          echo "VERSAOANDROIDPAGSEGURO=$VERSAOANDROIDPAGSEGURO" >> $GITHUB_ENV
-
-      - name: Ler versão atual e atualizar número da versão android (getnet)
-        if: ${{ inputs.android-getnet }}
-        working-directory: version-repo
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyAndroidGetnet.version + 1' | tr -d '"')
-          build=$(echo "$json" | jq '.speedyAndroidGetnet.build + 1' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedyAndroidGetnet.simple')
-
-          newjson=$(echo "$json" | jq ".speedyAndroidGetnet.version=$version | .speedyAndroidGetnet.build=$build | .speedyAndroidGetnet.patch=0")
-          echo "$newjson" > version.json
-
-          VERSAOANDROIDGETNET="${simple}.${version}.0"
-          echo "Versão gerada: $VERSAOANDROIDGETNET"
-
-          echo "VERSAOANDROIDGETNET=$VERSAOANDROIDGETNET" >> $GITHUB_ENV
-      - name: Ler versão atual e atualizar número da versão android (cielo)
-        if: ${{ inputs.android-cielo }}
-        working-directory: version-repo
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyAndroidCielo.version + 1' | tr -d '"')
-          build=$(echo "$json" | jq '.speedyAndroidCielo.build + 1' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedyAndroidCielo.simple')
-
-          newjson=$(echo "$json" | jq ".speedyAndroidCielo.version=$version | .speedyAndroidCielo.build=$build | .speedyAndroidCielo.patch=0")
-          echo "$newjson" > version.json
-
-          VERSAOANDROIDCIELO="${simple}.${version}.0"
-          echo "Versão gerada: $VERSAOANDROIDCIELO"
-
-          echo "VERSAOANDROIDCIELO=$VERSAOANDROIDCIELO" >> $GITHUB_ENV
-      - name: Ler versão atual e atualizar número da versão android (rede)
-        if: ${{ inputs.android-rede }}
-        working-directory: version-repo
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyAndroidRede.version + 1' | tr -d '"')
-          build=$(echo "$json" | jq '.speedyAndroidRede.build + 1' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedyAndroidRede.simple')
-
-          newjson=$(echo "$json" | jq ".speedyAndroidRede.version=$version | .speedyAndroidRede.build=$build | .speedyAndroidRede.patch=0")
-          echo "$newjson" > version.json
-
-          VERSAOANDROIDREDE="${simple}.${version}.0"
-          echo "Versão gerada: $VERSAOANDROIDREDE"
-
-          echo "VERSAOANDROIDREDE=$VERSAOANDROIDREDE" >> $GITHUB_ENV
-
-      - name: Gerando URLs da versão
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
-        working-directory: version-repo
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyGeneratedVersion + 1' | tr -d '"')
-
-          newjson=$(echo "$json" | jq ".speedyGeneratedVersion=$version")
-          echo "$newjson" > version.json
-
-          VERSAO="$version"
-          echo "Versão gerada: $VERSAO"
-
-          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
-
-
-          if [ "${{ inputs.windows }}" = "true" ]; then
-            URLWINDOWS="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.exe"
-            echo "$URLWINDOWS"
-            TAGWINDOWS="<p><a href=\"$URLWINDOWS\">CloudfySpeedyPos.exe</a></p>"
-            echo "$TAGWINDOWS"
-            echo "TAGWINDOWS=$TAGWINDOWS" >> $GITHUB_ENV          
-            echo "URLWINDOWS=$URLWINDOWS" >> $GITHUB_ENV
-          else
-            echo "Input windows é false, pulando configuração do Windows"
-          fi
-
-          if [ "${{ inputs.android }}" = "true" ]; then
-            URLANDROID="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPos.apk"
-            echo "$URLANDROID"
-            TAGANDROID="<p><a href=\"$URLANDROID\">CloudfySpeedyPos.apk</a></p>"
-            echo "$TAGANDROID"
-            echo "TAGANDROID=$TAGANDROID" >> $GITHUB_ENV          
-            echo "URLANDROID=$URLANDROID" >> $GITHUB_ENV
-          else
-            echo "Input android é false, pulando configuração do Windows"
-          fi
-
-          if [ "${{ inputs.android-tef }}" = "true" ]; then
-            URLANDROIDTEF="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosTef.apk"
-            echo "$URLANDROIDTEF"
-            TAGANDROIDTEF="<p><a href=\"$URLANDROIDTEF\">CloudfySpeedyPosTef.apk</a></p>"
-            echo "$TAGANDROIDTEF"
-            echo "TAGANDROIDTEF=$TAGANDROIDTEF" >> $GITHUB_ENV          
-            echo "URLANDROIDTEF=$URLANDROIDTEF" >> $GITHUB_ENV
-          else
-            echo "Input android-tef é false, pulando configuração do Windows"
-          fi
-
-          if [ "${{ inputs.android-pagseguro }}" = "true" ]; then
-            URLANDROIDPAGSEGURO="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosPagSeguro.apk"
-            echo "$URLANDROIDPAGSEGURO"
-            TAGANDROIDPAGSEGURO="<p><a href=\"$URLANDROIDPAGSEGURO\">CloudfySpeedyPosPagSeguro.apk</a></p>"
-            echo "$TAGANDROIDPAGSEGURO"
-            echo "TAGANDROIDPAGSEGURO=$TAGANDROIDPAGSEGURO" >> $GITHUB_ENV          
-            echo "URLANDROIDPAGSEGURO=$URLANDROIDPAGSEGURO" >> $GITHUB_ENV
-          else
-            echo "Input android-pagseguro é false, pulando configuração do Android PagSeguro"
-          fi
-
-          if [ "${{ inputs.android-getnet }}" = "true" ]; then
-            URLANDROIDGETNET="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosGetnet.apk"
-            echo "$URLANDROIDGETNET"
-            TAGANDROIDGETNET="<p><a href=\"$URLANDROIDGETNET\">CloudfySpeedyPosGetnet.apk</a></p>"
-            echo "$TAGANDROIDGETNET"
-            echo "TAGANDROIDGETNET=$TAGANDROIDGETNET" >> $GITHUB_ENV          
-            echo "URLANDROIDGETNET=$URLANDROIDGETNET" >> $GITHUB_ENV
-          else
-            echo "Input android-getnet é false, pulando configuração do Android Getnet"
-          fi
-
-           if [ "${{ inputs.android-cielo }}" = "true" ]; then
-            URLANDROIDCIELO="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosCielo.apk"
-            echo "$URLANDROIDCIELO"
-            TAGANDROIDCIELO="<p><a href=\"$URLANDROIDCIELO\">CloudfySpeedyPosCielo.apk</a></p>"
-            echo "$TAGANDROIDCIELO"
-            echo "TAGANDROIDCIELO=$TAGANDROIDCIELO" >> $GITHUB_ENV          
-            echo "URLANDROIDCIELO=$URLANDROIDCIELO" >> $GITHUB_ENV
-          else
-            echo "Input android-android-cielo é false, pulando configuração do Android Cielo"
-          fi
-
-          if [ "${{ inputs.android-rede }}" = "true" ]; then
-            URLANDROIDREDE="https://github.com/cloudfysystems/Version/releases/download/v$VERSAO/CloudfySpeedyPosRede.apk"
-            echo "$URLANDROIDREDE"
-            TAGANDROIDREDE="<p><a href=\"$URLANDROIDREDE\">CloudfySpeedyPosRede.apk</a></p>"
-            echo "$TAGANDROIDREDE"
-            echo "TAGANDROIDREDE=$TAGANDROIDREDE" >> $GITHUB_ENV          
-            echo "URLANDROIDREDE=$URLANDROIDREDE" >> $GITHUB_ENV
-          else
-            echo "Input android-android-rede é false, pulando configuração do Android Rede"
-          fi
 
       - name: Download artifact windows
         if: ${{ inputs.windows }}
@@ -1131,109 +663,24 @@ jobs:
         with:
           name: ApkBundleSpeedyAndroidRede
           path: ./downloadedApk
-
-      - name: Listar o working directory
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
-        working-directory: .
+      # Ler e atualizar a versão
+      - name: Ler versão atual )
+        if: ${{ steps.compute.outputs.combined == 'true' }}
+        working-directory: version-repo
+        shell: bash
         run: |
-          ls -la
-
-      - name: Renomear arquivos Android
-        if: ${{ steps.compute.outputs.combined == 'true' || inputs.android-rede }}
-        working-directory: .
-        run: |
-          echo "Renomeando APK e AAB..."
-          if [ -f "downloadedApk/apk/prod/release/app-prod-release.apk" ]; then
-            mv downloadedApk/apk/prod/release/app-prod-release.apk downloadedApk/apk/prod/release/CloudfySpeedyPos.apk
-            echo "APK renomeado para CloudfySpeedyPos.apk"
-          else
-            echo "⚠️ APK não encontrado!"
-          fi
-
-          if [ -f "downloadedApk/bundle/prodRelease/app-prod-release.aab" ]; then
-            mv downloadedApk/bundle/prodRelease/app-prod-release.aab downloadedApk/bundle/prodRelease/CloudfySpeedyPos.aab
-            echo "AAB renomeado para CloudfySpeedyPos.aab"
-          else
-            echo "⚠️ AAB não encontrado!"
-          fi
-
-          echo "Renomeando APK e AAB (TEF)..."
-          if [ -f "downloadedApk/apk/tef/release/app-tef-release.apk" ]; then
-            mv downloadedApk/apk/tef/release/app-tef-release.apk downloadedApk/apk/tef/release/CloudfySpeedyPosTef.apk
-            echo "APK renomeado para CloudfySpeedyPosTef.apk"
-          else
-            echo "⚠️ APK não encontrado!"
-          fi
-
-          if [ -f "downloadedApk/bundle/tefRelease/app-tef-release.aab" ]; then
-            mv downloadedApk/bundle/tefRelease/app-tef-release.aab downloadedApk/bundle/tefRelease/CloudfySpeedyPosTef.aab
-            echo "AAB renomeado para CloudfySpeedyPosTef.aab"
-          else
-            echo "⚠️ AAB não encontrado!"
-          fi
-
-          echo "Renomeando APK e AAB (PagSeguro)..."
-          if [ -f "downloadedApk/apk/pagseguro/release/app-pagseguro-release.apk" ]; then
-            mv downloadedApk/apk/pagseguro/release/app-pagseguro-release.apk downloadedApk/apk/pagseguro/release/CloudfySpeedyPosPagSeguro.apk
-            echo "APK renomeado para CloudfySpeedyPosPagSeguro.apk"
-          else
-            echo "⚠️ APK não encontrado!"
-          fi
-
-          if [ -f "downloadedApk/bundle/pagseguroRelease/app-pagseguro-release.aab" ]; then
-            mv downloadedApk/bundle/pagseguroRelease/app-pagseguro-release.aab downloadedApk/bundle/pagseguroRelease/CloudfySpeedyPosPagSeguro.aab
-            echo "AAB renomeado para CloudfySpeedyPosPagSeguro.aab"
-          else
-            echo "⚠️ AAB não encontrado!"
-          fi
-
-          echo "Renomeando APK e AAB (Getnet)..."
-          if [ -f "downloadedApk/apk/getnet/release/app-getnet-release.apk" ]; then
-            mv downloadedApk/apk/getnet/release/app-getnet-release.apk downloadedApk/apk/getnet/release/CloudfySpeedyPosGetnet.apk
-            echo "APK renomeado para CloudfySpeedyPosGetnet.apk"
-          else
-            echo "⚠️ APK não encontrado!"
-          fi
-
-          if [ -f "downloadedApk/bundle/getnetRelease/app-getnet-release.aab" ]; then
-            mv downloadedApk/bundle/getnetRelease/app-getnet-release.aab downloadedApk/bundle/getnetRelease/CloudfySpeedyPosGetnet.aab
-            echo "AAB renomeado para CloudfySpeedyPosGetnet.aab"
-          else
-            echo "⚠️ AAB não encontrado!"
-          fi
-
-          echo "Renomeando APK e AAB (Cielo)..."
-          if [ -f "downloadedApk/apk/cielo/release/app-cielo-release.apk" ]; then
-            mv downloadedApk/apk/cielo/release/app-cielo-release.apk downloadedApk/apk/cielo/release/CloudfySpeedyPosCielo.apk
-            echo "APK renomeado para CloudfySpeedyPosCielo.apk"
-          else
-            echo "⚠️ APK não encontrado!"
-          fi
-
-          if [ -f "downloadedApk/bundle/cieloRelease/app-cielo-release.aab" ]; then
-            mv downloadedApk/bundle/cieloRelease/app-cielo-release.aab downloadedApk/bundle/cieloRelease/CloudfySpeedyPosCielo.aab
-            echo "AAB renomeado para CloudfySpeedyPosCielo.aab"
-          else
-            echo "⚠️ AAB não encontrado!"
-          fi
-
-          echo "Renomeando APK e AAB (rede)..."
-          if [ -f "downloadedApk/apk/rede/release/app-rede-release.apk" ]; then
-            mv downloadedApk/apk/rede/release/app-rede-release.apk downloadedApk/apk/rede/release/CloudfySpeedyPosRede.apk
-            echo "APK renomeado para CloudfySpeedyPosRede.apk"
-          else
-            echo "⚠️ APK não encontrado!"
-          fi
-
-          if [ -f "downloadedApk/bundle/redeRelease/app-rede-release.aab" ]; then
-            mv downloadedApk/bundle/redeRelease/app-rede-release.aab downloadedApk/bundle/redeRelease/CloudfySpeedyPosRede.aab
-            echo "AAB renomeado para CloudfySpeedyPosRede.aab"
-          else
-            echo "⚠️ AAB não encontrado!"
-          fi
+          VERSION_FILE="version.json"
+          VERSAO=$(jq '.speedyGeneratedVersion += 1 | .speedyGeneratedVersion' $VERSION_FILE)          
+          echo "Versao : $VERSAO"
+          echo "Versao Version: $VERSION"
+          echo "Versao Gerada: $SIMPLE.$VERSION.0"
+          echo "VERSAO=$VERSAO" >> $GITHUB_ENV
+          newjson=$(echo "$json" | jq ".speedyGeneratedVersion=$VERSAO")
+          echo "$newjson" > version.json
+          cat version.json
 
       - name: Criando o release
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
+        if: ${{ (steps.compute.outputs.combined == 'true') }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.VERSAO }}
@@ -1242,144 +689,18 @@ jobs:
             downloaded/CloudfySpeedyPos.exe
             downloadedApk/apk/prod/release/CloudfySpeedyPos.apk
             downloadedApk/bundle/prodRelease/CloudfySpeedyPos.aab
-            downloadedApk/apk/tef/release/CloudfySpeedyPosTef.apk
-            downloadedApk/bundle/tefRelease/CloudfySpeedyPosTef.aab
-            downloadedApk/apk/pagseguro/release/CloudfySpeedyPosPagSeguro.apk
-            downloadedApk/bundle/pagseguroRelease/CloudfySpeedyPosPagSeguro.aab
-            downloadedApk/apk/getnet/release/CloudfySpeedyPosGetnet.apk
-            downloadedApk/bundle/getnetRelease/CloudfySpeedyPosGetnet.aab
-            downloadedApk/apk/cielo/release/CloudfySpeedyPosCielo.apk
-            downloadedApk/bundle/cieloRelease/CloudfySpeedyPosCielo.aab
+            downloadedApk/apk/tef/release/CloudfySpeedyPosTef.apk            
+            downloadedApk/apk/pagseguro/release/CloudfySpeedyPosPagSeguro.apk            
+            downloadedApk/apk/getnet/release/CloudfySpeedyPosGetnet.apk            
+            downloadedApk/apk/cielo/release/CloudfySpeedyPosCielo.apk            
             downloadedApk/apk/rede/release/CloudfySpeedyPosRede.apk
-            downloadedApk/bundle/redeRelease/CloudfySpeedyPosRede.aab
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Chamar API de alteração de dados windows
-        if: ${{ inputs.windows }}
-        id: api_call_windows
-        run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOWINDOWS }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLWINDOWS}}", "NR_ID": 4}}')
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
-
-      - name: Chamar API de alteração de dados android
-        if: ${{ inputs.android }}
-        id: api_call_android
-        run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROID }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROID}}", "NR_ID": 5}}')
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
-      - name: Chamar API de alteração de dados android(tef)
-        if: ${{ inputs.android-tef }}
-        id: api_call_android-tef
-        run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDTEF }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROIDTEF}}", "NR_ID": 11}}')
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
-      - name: Chamar API de alteração de dados android(PagSeguro)
-        if: ${{ inputs.android-pagseguro }}
-        id: api_call_android-pagseguro
-        run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDPAGSEGURO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROIDPAGSEGURO}}", "NR_ID": 12}}')
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
-      - name: Chamar API de alteração de dados android(getnet)
-        if: ${{ inputs.android-getnet }}
-        id: api_call_android-getnet
-        run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDGETNET }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROIDGETNET}}", "NR_ID": 13}}')
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
-      - name: Chamar API de alteração de dados android(cielo)
-        if: ${{ inputs.android-cielo }}
-        id: api_call_android-cielo
-        run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDCIELO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROIDCIELO}}", "NR_ID": 14}}')
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
-      - name: Chamar API de alteração de dados android(rede)
-        if: ${{ inputs.android-rede }}
-        id: api_call_android-rede
-        run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDREDE }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "URL": "${{env.URLANDROIDREDE}}", "NR_ID": 15}}')
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
-
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
+        if: ${{ (steps.compute.outputs.combined == 'true') }}
         with:
           server_address: mail.cloudfy.net.br
           server_port: 465
@@ -1393,16 +714,9 @@ jobs:
 
             Commits incluídos:<br><br>
 
-            <b>${{ steps.log.outputs.commit_messages }}</b><br><br>
+            <b>${{ steps.log.outputs.commit_messages }}</b><br><br>   
 
-            Segue o link para download:<br>
-            ${{env.TAGWINDOWS}}
-            ${{env.TAGANDROID}}
-            ${{env.TAGANDROIDPAGSEGURO}}
-            ${{env.TAGANDROIDTEF}}
-            ${{env.TAGANDROIDGETNET}}
-            ${{env.TAGANDROIDCIELO}}
-            ${{env.VERSAOANDROIDREDE}}
+            <p>Os novos arquivos estão disponiveis na area de download</p>
 
             <p><b>Menos foco, mais ansiedade!</b></p>
           to: ${{ vars.EMAIL }}
@@ -1411,7 +725,7 @@ jobs:
 
       - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
+        if: ${{ (steps.compute.outputs.combined == 'true') }}
         with:
           author_name: cloudfysystems
           author_email: cloudfysystems@gmail.com
