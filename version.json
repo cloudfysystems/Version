@@ -1,5 +1,5 @@
 {
-  "speedyGeneratedVersion": 50,
+  "speedyGeneratedVersion": 51,
   "speedyWindows": {
     "build": 11,
     "version": 37,
@@ -37,8 +37,8 @@
     "simple": "1"
   },
   "speedyAndroidRede": {
-    "build": 24,
-    "version": 39,
+    "build": 25,
+    "version": 40,
     "patch": 0,
     "simple": "1"
   },
