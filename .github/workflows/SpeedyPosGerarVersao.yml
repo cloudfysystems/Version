@@ -682,7 +682,7 @@ jobs:
 
            echo "combined=$COMBINED" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v4
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
+        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
         with:
           repository: cloudfysystems/FLUTTER
           fetch-depth: 0
@@ -691,13 +691,13 @@ jobs:
           path: flutterrepo
 
       - uses: actions/checkout@v4
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
+        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
         with:
           path: version-repo
 
       - name: Recuperando os commits entre produção e main
         id: log
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
+        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
         continue-on-error: true
         run: |
           git config --global user.name "cloudfysystems"
@@ -831,7 +831,7 @@ jobs:
           echo "VERSAOANDROIDREDE=$VERSAOANDROIDREDE" >> $GITHUB_ENV
 
       - name: Gerando URLs da versão
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
+        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
         working-directory: version-repo
         run: |
           json=$(cat version.json)
@@ -970,13 +970,13 @@ jobs:
           path: ./downloadedApk
 
       - name: Listar o working directory
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
+        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
         working-directory: .
         run: |
           ls -la
 
       - name: Renomear arquivos Android
-        if: ${{ steps.compute.outputs.combined == 'true' }}
+        if: ${{ steps.compute.outputs.combined == 'true' || inputs.android-rede }}
         working-directory: .
         run: |
           echo "Renomeando APK e AAB..."
@@ -1070,7 +1070,7 @@ jobs:
           fi
 
       - name: Criando o release
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
+        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.VERSAO }}
@@ -1216,7 +1216,7 @@ jobs:
 
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
+        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
         with:
           server_address: mail.cloudfy.net.br
           server_port: 465
@@ -1248,7 +1248,7 @@ jobs:
 
       - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows) }}
+        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows || inputs.android-rede) }}
         with:
           author_name: cloudfysystems
           author_email: cloudfysystems@gmail.com
