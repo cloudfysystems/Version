@@ -1749,7 +1749,7 @@ jobs:
         id: shorebird-release
         uses: shorebirdtech/shorebird-release@v1
         with:
-          args: --export-options-plist ios/GHAExportOptions.plist --verbose -- --dart-define-from-file=env/prod.json
+          args: --export-options-plist ios/GHAExportOptions.plist -- --dart-define-from-file=env/prod.json
           platform: ios
           flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
