@@ -35,6 +35,10 @@ on:
         description: "Gerar versão Android(Rede)?"
         default: false
         type: boolean
+      ios:
+        description: "Gerar versão iOS?"
+        default: false
+        type: boolean
 
 env:
   VERSION: ${{vars.VERSAO}}
@@ -1617,7 +1621,196 @@ jobs:
           add: "version${{env.DeployNameUpperCase}}.json"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+  ios:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ./flutter/speed
 
+    steps:
+      # Clonar o repositório principal do Flutter
+      - uses: actions/checkout@v4
+        if: ${{ inputs.ios}}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+
+      # Clonar o repositório de versão
+      - uses: actions/checkout@v4
+        if: ${{ inputs.ios}}
+        with:
+          path: version-repo
+
+      # Ler e atualizar a versão
+      - name: Ler versão atual
+        if: ${{ inputs.ios}}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="versionIOS.json"
+
+          # Atualiza o JSON corretamente
+          jq '.speedy.build += 1 | .speedy.version += 1 | .speedy.patch = 0' "$VERSION_FILE" > tmp.json
+
+          mv tmp.json "$VERSION_FILE"
+
+          # Pega os valores após a atualização
+          BUILD=$(jq -r '.speedy.build' "$VERSION_FILE")
+          VERSION=$(jq -r '.speedy.version' "$VERSION_FILE")
+          SIMPLE=$(jq -r '.speedy.simple' "$VERSION_FILE")
+
+          echo "Versao Build: $BUILD"
+          echo "Versao Version: $VERSION"
+          echo "Versao Gerada: $SIMPLE.$VERSION.0"
+
+          echo "VERSAO=$SIMPLE.$VERSION.0" >> $GITHUB_ENV
+          echo "VERSAO_BUILD=$BUILD" >> $GITHUB_ENV
+
+          echo "Novo JSON:"
+          cat "$VERSION_FILE"
+
+      # Criar o arquivo env/prod.json
+      - name: Gerar env/prod.json
+        if: ${{ inputs.ios}}
+        run: |
+          mkdir -p ./env
+          echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
+          cat ./env/prod.json
+
+      # Criar arquivo .jks a partir de base64
+      - name: Setup certificado iOS
+        if: ${{ inputs.ios}}
+        shell: bash
+        run: |
+          echo "${{ secrets.APPLE_CERT_BASE64 }}" | base64 --decode > cert.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import cert.p12 -k build.keychain -P "${{ secrets.APPLE_CERT_PSW }}" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > profile.mobileprovision
+          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+      # Setup Shorebird
+      - name: 🐦 Setup Shorebird
+        if: ${{ inputs.ios}}
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart e pubspec.yaml
+        if: ${{ inputs.ios}}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+          sed -i "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
+          cat pubspec.yaml
+
+      # Executar build do Shorebird
+      - name: 🚀 Shorebird Release
+        if: ${{ inputs.ios}}
+        id: shorebird-release
+        uses: shorebirdtech/shorebird-release@v1
+        with:
+          args: -- --dart-define-from-file=env/prod.json
+          platform: ios
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
+          working-directory: ./flutter/speed
+
+      - name: Renomear arquivos iOS
+        if: ${{ inputs.ios}}
+        working-directory: .
+        run: |
+          echo "Renomeando IPA"
+          if [ -f "flutter/speed/build/ios/speed.ipa" ]; then
+            mv flutter/speed/build/ios/speed.ipa flutter/speed/build/ios/CloudfySpeedyPos.ipa
+            echo "IPA renomeado para CloudfySpeedyPos.ipa"
+          else
+            echo "⚠️ IPA não encontrado!"
+          fi
+
+      - name: Criando o release
+        if: ${{ inputs.ios}}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSAO }}_SpeedyIOS
+          name: v${{ env.VERSAO }}_SpeedyIOS
+          files: |
+            flutter/speed/build/ios/speed.ipa flutter/speed/build/ios/CloudfySpeedyPos.ipa
+          body: Release gerado automaticamente.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Chamar API de alteração de dados android
+        if: ${{ inputs.ios}}
+        run: |
+          URLIOS="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_SpeedyIOS/CloudfySpeedyPos.ipa"
+          echo "$URLIOS"
+          echo "Chamando API de validação..."
+
+          JSON_DATA=$(cat <<EOF
+          {
+            "JSON": true,
+            "Parameters": {
+              "Versao": "${{ env.VERSAO }}",
+              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",
+              "URL": "$URLIOS",
+              "NR_ID": 16
+            }
+          }
+          EOF
+          )
+
+          echo $JSON_DATA
+
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d "$JSON_DATA")
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Atualizar branch com merge (se necessário)
+        if: ${{ inputs.ios}}
+        working-directory: version-repo
+        run: |
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
+
+          # Garante que estamos na branch correta
+          git branch --show-current
+
+          # Tenta fazer pull e merge automático
+          git pull origin HEAD --no-rebase || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ inputs.ios}}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build IOS"
+          cwd: ./version-repo
+          add: "versionIOS.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
     needs:
@@ -1629,6 +1822,7 @@ jobs:
         android-getnet,
         android-tef,
         android-prod,
+        ios,
       ]
     runs-on: ubuntu-latest
     permissions:
