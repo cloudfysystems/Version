@@ -1696,24 +1696,27 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > profile.mobileprovision
           cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart e pubspec.yaml
+        if: ${{ inputs.ios }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAO }}"
+              
+          # Atualiza Version.dart
+          sed -i '' "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" "$FILE"
+          cat "$FILE"
+              
+          # Atualiza pubspec.yaml
+          sed -i '' "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
+          cat pubspec.yaml
       # Setup Shorebird
       - name: 🐦 Setup Shorebird
         if: ${{ inputs.ios}}
         uses: shorebirdtech/setup-shorebird@v1
         with:
           cache: true
-
-      # Atualizar versão no arquivo Dart
-      - name: Atualiza versão no arquivo Dart e pubspec.yaml
-        if: ${{ inputs.ios}}
-        shell: bash
-        run: |
-          FILE="lib/Environment/Version.dart"
-          NOVA_VERSAO="${{ env.VERSAO }}"
-          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
-          cat lib/Environment/Version.dart
-          sed -i "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
-          cat pubspec.yaml
 
       # Executar build do Shorebird
       - name: 🚀 Shorebird Release
