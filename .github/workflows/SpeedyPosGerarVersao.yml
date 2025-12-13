@@ -1681,21 +1681,46 @@ jobs:
           echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
           cat ./env/prod.json
 
+      - name: 🛠️ Setup Xcode
+        if: ${{ inputs.ios}}
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
       # Criar arquivo .jks a partir de base64
       - name: Setup certificado iOS
         if: ${{ inputs.ios}}
-        shell: bash
+        env:
+          CERTIFICATE: ${{ secrets.APPLE_CERT_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERT_PSW }}
+          PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: 150353
         run: |
-          echo "${{ secrets.APPLE_CERT_BASE64 }}" | base64 --decode > cert.p12
-          security create-keychain -p "" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-          security import cert.p12 -k build.keychain -P "${{ secrets.APPLE_CERT_PSW }}" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+          # create variables
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          PP_PATH=$RUNNER_TEMP/temp.mobileprovision
 
+          # import certificate and provisioning profile from secrets
+          echo -n "$CERTIFICATE" | base64 --decode -o $CERTIFICATE_PATH
+          echo -n "$PROVISIONING_PROFILE" | base64 --decode -o $PP_PATH
+
+          # create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # import certificate to keychain
+          security import $CERTIFICATE_PATH -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+          security find-identity -v
+
+          # use uuid for the name of provisioning profile
+          UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i $PP_PATH))
+
+          # apply provisioning profile
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > profile.mobileprovision
-          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart e pubspec.yaml
         if: ${{ inputs.ios }}
@@ -1724,7 +1749,7 @@ jobs:
         id: shorebird-release
         uses: shorebirdtech/shorebird-release@v1
         with:
-          args: -- --dart-define-from-file=env/prod.json
+          args: --export-options-plist ios/GHAExportOptions.plist --verbose -- --dart-define-from-file=env/prod.json
           platform: ios
           flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
