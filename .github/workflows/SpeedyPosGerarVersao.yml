@@ -406,8 +406,8 @@ jobs:
         working-directory: .
         run: |
           echo "Renomeando APK"
-          if [ -f "flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk" ]; then
-            mv flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+          if [ -f "flutter/speed/build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk" ]; then
+            mv flutter/speed/build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/flutter-apk/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
             echo "APK renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
           else
             echo "⚠️ APK não encontrado!"
@@ -420,7 +420,7 @@ jobs:
           tag_name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           files: |
-            flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+            flutter/speed/build/app/outputs/flutter-apk/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -631,8 +631,8 @@ jobs:
         working-directory: .
         run: |
           echo "Renomeando APK"
-          if [ -f "flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk" ]; then
-            mv flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+          if [ -f "flutter/speed/build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk" ]; then
+            mv flutter/speed/build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/flutter-apk/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
             echo "APK renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
           else
             echo "⚠️ APK não encontrado!"
@@ -645,7 +645,7 @@ jobs:
           tag_name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           files: |
-            flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+            flutter/speed/build/app/outputs/flutter-apk/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -1312,8 +1312,8 @@ jobs:
         working-directory: .
         run: |
           echo "Renomeando APK"
-          if [ -f "flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk" ]; then
-            mv flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+          if [ -f "flutter/speed/build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk" ]; then
+            mv flutter/speed/build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/flutter-apk/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
             echo "APK renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
           else
             echo "⚠️ APK não encontrado!"
@@ -1326,7 +1326,7 @@ jobs:
           tag_name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           files: |
-            flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+            flutter/speed/build/app/outputs/flutter-apk/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -1537,8 +1537,8 @@ jobs:
         working-directory: .
         run: |
           echo "Renomeando APK"
-          if [ -f "flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk" ]; then
-            mv flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+          if [ -f "flutter/speed/build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk" ]; then
+            mv flutter/speed/build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/flutter-apk/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
             echo "APK renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
           else
             echo "⚠️ APK não encontrado!"
@@ -1551,7 +1551,7 @@ jobs:
           tag_name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           files: |
-            flutter/speed/build/app/outputs/apk/${{env.DeployName}}/release/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+            flutter/speed/build/app/outputs/flutter-apk/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
