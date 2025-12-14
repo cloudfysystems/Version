@@ -1737,8 +1737,8 @@ jobs:
         working-directory: .
         run: |
           echo "Renomeando IPA"
-          if [ -f "flutter/speed/build/ios/speed.ipa" ]; then
-            mv flutter/speed/build/ios/speed.ipa flutter/speed/build/ios/CloudfySpeedyPos.ipa
+          if [ -f "flutter/speed/build/ios/ipa/speed.ipa" ]; then
+            mv flutter/speed/build/ios/ipa/speed.ipa flutter/speed/build/ios/ipa/CloudfySpeedyPos.ipa
             echo "IPA renomeado para CloudfySpeedyPos.ipa"
           else
             echo "⚠️ IPA não encontrado!"
@@ -1751,7 +1751,7 @@ jobs:
           tag_name: v${{ env.VERSAO }}_SpeedyIOS
           name: v${{ env.VERSAO }}_SpeedyIOS
           files: |
-            flutter/speed/build/ios/speed.ipa flutter/speed/build/ios/CloudfySpeedyPos.ipa
+            flutter/speed/build/ios/ipa/CloudfySpeedyPos.ipa
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -1851,6 +1851,9 @@ jobs:
           GETNET=${{ github.event.inputs.android-getnet }}
           CIELO=${{ github.event.inputs.android-cielo }}
           REDE=${{ github.event.inputs.android-rede }}
+          IOS=${{ github.event.inputs.ios }}
+
+
 
           # Converte string para 0/1
           if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
@@ -1860,10 +1863,11 @@ jobs:
           if [ "$CIELO" = "true" ]; then CIELO_BOOL=1; else CIELO_BOOL=0; fi
           if [ "$REDE" = "true" ]; then REDE_BOOL=1; else REDE_BOOL=0; fi
           if [ "$WINDOWS" = "true" ]; then WINDOWS_BOOL=1; else WINDOWS_BOOL=0; fi
+          if [ "$IOS" = "true" ]; then IOS_BOOL=1; else IOS_BOOL=0; fi
 
 
           # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | WINDOWS_BOOL)) -eq 1 ]; then
+          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | WINDOWS_BOOL | IOS_BOOL)) -eq 1 ]; then
             COMBINED=true
           else
             COMBINED=false
