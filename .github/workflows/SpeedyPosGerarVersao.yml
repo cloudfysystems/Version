@@ -1818,7 +1818,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Upload IPA to App Store Connect
-        run: xcrun altool --upload-app --type ios -f ./build/ios/ipa/speed.ipa --apiKey ${{ secrets.APPLE_API_KEY }} --apiIssuer ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: xcrun altool --upload-app --type ios -f ./build/ios/ipa/CloudfySpeedyPos.ipa --apiKey ${{ secrets.APPLE_API_KEY }} --apiIssuer ${{ secrets.APPLE_API_ISSUER_ID }}
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
     needs:
