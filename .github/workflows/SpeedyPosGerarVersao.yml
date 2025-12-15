@@ -908,7 +908,7 @@ jobs:
         if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           echo "Renomeando APK"          
-          mv app-aligned.apk CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+          mv app-signed.apk CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
           echo "APK renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
 
       - name: Criando o release
