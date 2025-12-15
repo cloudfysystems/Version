@@ -81,7 +81,7 @@ jobs:
         shell: powershell
         run: |
           $json = Get-Content "versionWindows.json" | ConvertFrom-Json          
-          $json.speedyWindows.patch++
+          $json.speedy.patch++
 
           # Salva de volta no JSON
           $json | ConvertTo-Json -Depth 10 | Out-File -FilePath "versionWindows.json" -Encoding UTF8
