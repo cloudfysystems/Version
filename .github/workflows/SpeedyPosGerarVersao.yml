@@ -859,7 +859,8 @@ jobs:
 
       - name: 📦 Extrair APK com apktool
         run: |
-          apktool d build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk -o app-decoded -f
+          apktool d CloudfySpeedyPosGetnet.apk -o app-decoded -f
+        #  apktool d build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk -o app-decoded -f
       - name: ✏️ Alterar minSdkVersion no apktool.yml
         run: |
           sed -i 's/minSdkVersion:.*/minSdkVersion: 22/' app-decoded/apktool.yml
