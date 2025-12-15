@@ -830,6 +830,11 @@ jobs:
         with:
           distribution: "oracle"
           java-version: "17"
+      # Instalar dependencias para hackear a apk
+      - name: 🛠️ Instalar dependências
+        run: |
+          sudo apt update
+          sudo apt install -y apktool zipalign apksigner unzip
 
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart e pubspec.yaml
@@ -853,18 +858,50 @@ jobs:
           platform: android
           flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
+      - name: 📦 Extrair APK com apktool
+        run: |
+          apktool d build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk -o app-decoded -f
+
+      - name: ✏️ Alterar extractNativeLibs no AndroidManifest.xml
+        run: |
+          MANIFEST="app-decoded/AndroidManifest.xml"
+
+          if grep -q "extractNativeLibs" "$MANIFEST"; then
+            sed -i 's/android:extractNativeLibs="false"/android:extractNativeLibs="true"/' "$MANIFEST"
+          else
+            sed -i 's/<application /<application android:extractNativeLibs="true" /' "$MANIFEST"
+          fi
+      - name: 🔨 Rebuild APK
+        run: |
+          apktool b app-decoded -o app-unsigned.apk
+
+      - name: 📏 Zipalign APK
+        run: |
+          zipalign -f 4 app-unsigned.apk app-aligned.apk
+
+      - name: ✍️ Assinar APK (v1 + v2)
+        run: |
+          apksigner sign \
+            --ks certificado/certificado-keystore.jks \
+            --ks-key-alias "cloudfycardapio" \
+            --ks-pass pass:"${{ secrets.SENHA_KEYSTORE }}" \
+            --key-pass pass:"${{ secrets.SENHA_KEYSTORE }}" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --out app-signed.apk \
+            app-aligned.apk
+
+      - name: ✏️ Alterar minSdkVersion no apktool.yml
+        run: |
+          sed -i 's/minSdkVersion:.*/minSdkVersion: 22/' app-decoded/apktool.yml
+          cat app-decoded/apktool.yml
 
       - name: Renomear arquivos Android
         if: ${{ (steps.compute.outputs.execute == 'true') }}
-        working-directory: .
         run: |
-          echo "Renomeando APK"
-          if [ -f "flutter/speed/build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk" ]; then
-            mv flutter/speed/build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk flutter/speed/build/app/outputs/flutter-apk/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
-            echo "APK renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
-          else
-            echo "⚠️ APK não encontrado!"
-          fi
+          echo "Renomeando APK"          
+          mv app-aligned.apk CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+          echo "APK renomeado para CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk"
 
       - name: Criando o release
         if: ${{ (steps.compute.outputs.execute == 'true') }}
@@ -873,7 +910,7 @@ jobs:
           tag_name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           name: v${{ env.VERSAO }}_Speedy${{env.DeployNameUpperCase}}
           files: |
-            flutter/speed/build/app/outputs/flutter-apk/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
+            flutter/speed/CloudfySpeedyPos${{env.DeployNameUpperCase}}.apk
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -1682,11 +1719,14 @@ jobs:
           cat ./env/prod.json
 
       - name: Import code sign
+        if: ${{ inputs.ios}}
         uses: Apple-Actions/import-codesign-certs@v1
         with:
           p12-file-base64: ${{ secrets.APPLE_CERT_BASE64 }}
           p12-password: ${{ secrets.APPLE_CERT_PSW }}
+
       - name: Download provisioning
+        if: ${{ inputs.ios}}
         uses: Apple-Actions/download-provisioning-profiles@v1
         with:
           bundle-id: com.cloudfy.speed
@@ -1694,6 +1734,7 @@ jobs:
           api-key-id: ${{ secrets.APPLE_API_KEY }}
           api-private-key: ${{ secrets.APPLE_API_PRIVATE_KEY }}
       - name: Configure Auth Key
+        if: ${{ inputs.ios}}
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
           echo "${{ secrets.APPLE_API_PRIVATE_KEY }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
@@ -1817,7 +1858,9 @@ jobs:
           add: "versionIOS.json"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
       - name: Upload IPA to App Store Connect
+        if: ${{ inputs.ios}}
         run: xcrun altool --upload-app --type ios -f ./build/ios/ipa/CloudfySpeedyPos.ipa --apiKey ${{ secrets.APPLE_API_KEY }} --apiIssuer ${{ secrets.APPLE_API_ISSUER_ID }}
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
