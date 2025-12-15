@@ -20,23 +20,23 @@ on:
         default: true
         type: boolean
       android-pagseguro:
-        description: "Atualizar versão Android(PagSeguro)?"
-        default: true
+        description: "Atualizar versão Android(PagSeguro)? (Patch)"
+        default: false
         type: boolean
       android-getnet:
-        description: "Gerar versão Android(Getnet)?"
+        description: "Atualizar versão Android(Getnet)? (Patch)"
         default: false
         type: boolean
       android-cielo:
-        description: "Gerar versão Android(Cielo)?"
+        description: "Atualizar versão Android(Cielo)? (Patch)"
         default: false
         type: boolean
       android-rede:
-        description: "Gerar versão Android(Rede)?"
+        description: "Atualizar versão Android(Rede)? (Patch)"
         default: false
         type: boolean
       ios:
-        description: "Gerar versão iOS?"
+        description: "Atualizar versão iOS? (Patch)"
         default: false
         type: boolean
 env:
@@ -143,19 +143,38 @@ jobs:
         if: ${{ inputs.windows }}
         id: api_call_windows
         run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 4}}')
+          Write-Host "Chamando API de validação..."
 
-          echo "Código HTTP: $response"
-          cat response.txt
+          # Monta o JSON usando Here-String
+          $JSON_DATA = @"
+          {
+            "JSON": true,
+            "Parameters": {
+              "Versao": "${{ env.VERSAO }}",
+              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",              
+              "NR_ID": 4
+            }
+          }
+          "@
 
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
+          Write-Host "JSON enviado:"
+          Write-Host $JSON_DATA
+
+          # Executa o CURL
+          $response = curl -s -o response.txt -w "%{http_code}" `
+            -X POST https://api.cloudfy.net.br/H02SF0107A `
+            -H "Content-Type: application/json" `
+            -d $JSON_DATA
+
+          Write-Host "Código HTTP: $response"
+
+          # Mostra o retorno
+          Get-Content response.txt
+
+          if ($response -ne "200") {
+            Write-Host "❌ Falha na chamada da API. Abortando workflow."
             exit 1
-          fi
+          }
       - name: Atualizar branch com merge (se necessário)
         if: ${{ inputs.windows }}
         working-directory: version-repo

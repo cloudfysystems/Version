@@ -831,6 +831,7 @@ jobs:
           distribution: "oracle"
           java-version: "17"
       - name: 🛠️ Instalar apktool correto + aapt2
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           sudo apt remove -y apktool
           wget https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool
@@ -868,14 +869,17 @@ jobs:
           working-directory: ./flutter/speed
 
       - name: 📦 Extrair APK com apktool
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           apktool d build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk -o app-decoded -f
       - name: ✏️ Alterar minSdkVersion no apktool.yml
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           sed -i 's/minSdkVersion:.*/minSdkVersion: 22/' app-decoded/apktool.yml
           cat app-decoded/apktool.yml
 
       - name: ✏️ Alterar extractNativeLibs no AndroidManifest.xml
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           MANIFEST="app-decoded/AndroidManifest.xml"
 
@@ -885,14 +889,17 @@ jobs:
             sed -i 's/<application /<application android:extractNativeLibs="true" /' "$MANIFEST"
           fi
       - name: 🔨 Rebuild APK
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           apktool b app-decoded -o app-unsigned.apk
 
       - name: 📏 Zipalign APK
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           zipalign -f 4 app-unsigned.apk app-aligned.apk
 
       - name: ✍️ Assinar APK (v1 + v2)
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           apksigner sign \
             --ks certificado/certificado-keystore.jks \
