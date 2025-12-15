@@ -843,7 +843,6 @@ jobs:
           sudo apt install -y zipalign apksigner
           apktool --version
           apktool --use-aapt2
-          wget https://github.com/cloudfysystems/Version/releases/download/v1.39.0_SpeedyGetnet/CloudfySpeedyPosGetnet.apk
 
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart e pubspec.yaml
@@ -857,10 +856,20 @@ jobs:
           sed -i "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
           cat pubspec.yaml
 
+      # Executar build do Shorebird
+      - name: 🚀 Shorebird Release
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        id: shorebird-release
+        uses: shorebirdtech/shorebird-release@v1
+        with:
+          args: --flavor=${{env.DeployName}} --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=${{env.DeployName}}
+          platform: android
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
+          working-directory: ./flutter/speed
+
       - name: 📦 Extrair APK com apktool
         run: |
-          apktool d CloudfySpeedyPosGetnet.apk -o app-decoded -f
-        #  apktool d build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk -o app-decoded -f
+          apktool d build/app/outputs/flutter-apk/app-${{env.DeployName}}-release.apk -o app-decoded -f
       - name: ✏️ Alterar minSdkVersion no apktool.yml
         run: |
           sed -i 's/minSdkVersion:.*/minSdkVersion: 22/' app-decoded/apktool.yml
@@ -894,16 +903,6 @@ jobs:
             --v2-signing-enabled true \
             --out app-signed.apk \
             app-aligned.apk
-        # Executar build do Shorebird
-      - name: 🚀 Shorebird Release
-        if: ${{ (steps.compute.outputs.execute == 'true') }}
-        id: shorebird-release
-        uses: shorebirdtech/shorebird-release@v1
-        with:
-          args: --flavor=${{env.DeployName}} --artifact apk -- --dart-define-from-file=env/prod.json --dart-define=FLAVOR=${{env.DeployName}}
-          platform: android
-          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
-          working-directory: ./flutter/speed
 
       - name: Renomear arquivos Android
         if: ${{ (steps.compute.outputs.execute == 'true') }}
