@@ -7,21 +7,37 @@ on:
       #  description: 'Versão do build'
       #  required: true
       #  default: '1.0.0'
-      windows-update:
+      windows:
         description: "Atualizar versão Windows (Patch)?"
         default: true
         type: boolean
-      android-update:
+      android-prod:
         description: "Atualizar versão Android (Patch)?"
         default: true
         type: boolean
-      android-tef-update:
+      android-tef:
         description: "Atualizar versão Android(TEF)? (Patch)"
         default: true
         type: boolean
       android-pagseguro:
         description: "Atualizar versão Android(PagSeguro)?"
         default: true
+        type: boolean
+      android-getnet:
+        description: "Gerar versão Android(Getnet)?"
+        default: false
+        type: boolean
+      android-cielo:
+        description: "Gerar versão Android(Cielo)?"
+        default: false
+        type: boolean
+      android-rede:
+        description: "Gerar versão Android(Rede)?"
+        default: false
+        type: boolean
+      ios:
+        description: "Gerar versão iOS?"
+        default: false
         type: boolean
 env:
   VERSION: ${{vars.VERSAO}}
@@ -46,7 +62,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        if: ${{ inputs.windows-update }}
+        if: ${{ inputs.windows }}
         with:
           repository: cloudfysystems/FLUTTER
           ref: main # ou a branch/tag desejada
@@ -55,29 +71,32 @@ jobs:
 
       # checkout do repositorio de versão
       - uses: actions/checkout@v4
-        if: ${{ inputs.windows-update }}
+        if: ${{ inputs.windows }}
         with:
           path: version-repo
         # Lendo a versão atual do repositório
       - name: Ler versão atual
-        if: ${{ inputs.windows-update }}
+        if: ${{ inputs.windows }}
         working-directory: version-repo
         shell: powershell
         run: |
-          $json = Get-Content "version.json" | ConvertFrom-Json          
-          $json.speedyWindows.patch++             
-          echo "Versao gerada: $($json.speedyWindows.simple).$($json.speedyWindows.version).$($json.speedyWindows.patch)"
-          echo "VERSAOOLD=$($json.speedyWindows.simple).$($json.speedyWindows.version).0" >> $env:GITHUB_ENV
-          echo "VERSAO=$($json.speedyWindows.simple).$($json.speedyWindows.version).$($json.speedyWindows.patch)" >> $env:GITHUB_ENV
+          $json = Get-Content "versionWindows.json" | ConvertFrom-Json          
+          $json.speedyWindows.patch++
+
+          # Salva de volta no JSON
+          $json | ConvertTo-Json -Depth 10 | Out-File -FilePath "versionWindows.json" -Encoding UTF8
+          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)"
+          echo "VERSAOOLD=$($json.speedy.simple).$($json.speedy.version).0" >> $env:GITHUB_ENV
+          echo "VERSAO=$($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)" >> $env:GITHUB_ENV
 
       - name: Gerando o env/prod.json
-        if: ${{ inputs.windows-update }}
+        if: ${{ inputs.windows }}
         run: |
           New-Item -ItemType Directory -Path "./env" -Force | Out-Null
           Set-Content -Path "./env/prod.json" -Value '${{ secrets.ENV_PROD }}'
         shell: pwsh
       - name: Atualiza versão no arquivo Dart
-        if: ${{ inputs.windows-update }}
+        if: ${{ inputs.windows }}
         shell: pwsh
         run: |
           $filePath = "lib/Environment/Version.dart"
@@ -92,11 +111,11 @@ jobs:
           distribution: "oracle"
           java-version: "17"
       - name: Ajeitar o longpath do git
-        if: ${{ inputs.windows-update }}
+        if: ${{ inputs.windows }}
         run: |
           git config --system core.longpaths true
       - name: 🐦 Setup Shorebird
-        if: ${{ inputs.windows-update }}
+        if: ${{ inputs.windows }}
         uses: shorebirdtech/setup-shorebird@v1
         with:
           cache: true
@@ -113,12 +132,56 @@ jobs:
       - name: Gerar Patch windows
         uses: shorebirdtech/shorebird-patch@v1
         id: shorebird-patch
-        if: ${{ inputs.windows-update }}
+        if: ${{ inputs.windows }}
         with:
           platform: windows
           args: --allow-asset-diffs -- --dart-define-from-file=env/prod.json
           release-version: ${{env.VERSAOOLD}}
           working-directory: ./flutter/speed
+
+      - name: Chamar API de alteração de dados windows
+        if: ${{ inputs.windows }}
+        id: api_call_windows
+        run: |
+          echo "Chamando API de validação..."
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 4}}')
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+      - name: Atualizar branch com merge (se necessário)
+        if: ${{ inputs.windows }}
+        working-directory: version-repo
+        run: |
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
+
+          # Garante que estamos na branch correta
+          git branch --show-current
+
+          # Tenta fazer pull e merge automático
+          git pull origin HEAD --no-rebase || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ inputs.windows }}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build windows"
+          cwd: ./version-repo
+          add: "versionWindows.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
   Android-update:
     runs-on: ubuntu-latest
     defaults:
@@ -314,7 +377,6 @@ jobs:
   FinishJob-update:
     needs: [Android-update, Windows-update]
     runs-on: ubuntu-latest
-    if: success() && ${{ (inputs.android-update || inputs.windows-update) }}
     permissions:
       contents: write
     defaults:
@@ -326,25 +388,39 @@ jobs:
         id: compute
         working-directory: .
         run: |
-          ANDROID=${{ github.event.inputs.android-update }}
-          TEF=${{ github.event.inputs.android-tef-update }}
+          WINDOWS=${{ github.event.inputs.windows }}
+          ANDROID=${{ github.event.inputs.android-prod }}
+          TEF=${{ github.event.inputs.android-tef }}
           PAGSEGURO=${{ github.event.inputs.android-pagseguro }}
+          GETNET=${{ github.event.inputs.android-getnet }}
+          CIELO=${{ github.event.inputs.android-cielo }}
+          REDE=${{ github.event.inputs.android-rede }}
+          IOS=${{ github.event.inputs.ios }}
+
+
 
           # Converte string para 0/1
           if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
           if [ "$TEF" = "true" ]; then TEF_BOOL=1; else TEF_BOOL=0; fi
           if [ "$PAGSEGURO" = "true" ]; then PAGSEGURO_BOOL=1; else PAGSEGURO_BOOL=0; fi
+          if [ "$GETNET" = "true" ]; then GETNET_BOOL=1; else GETNET_BOOL=0; fi
+          if [ "$CIELO" = "true" ]; then CIELO_BOOL=1; else CIELO_BOOL=0; fi
+          if [ "$REDE" = "true" ]; then REDE_BOOL=1; else REDE_BOOL=0; fi
+          if [ "$WINDOWS" = "true" ]; then WINDOWS_BOOL=1; else WINDOWS_BOOL=0; fi
+          if [ "$IOS" = "true" ]; then IOS_BOOL=1; else IOS_BOOL=0; fi
+
 
           # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL)) -eq 1 ]; then
+          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | WINDOWS_BOOL | IOS_BOOL)) -eq 1 ]; then
             COMBINED=true
           else
             COMBINED=false
           fi
 
           echo "combined=$COMBINED" >> $GITHUB_OUTPUT
+
       - uses: actions/checkout@v4
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows-update) }}
+        if: ${{ (steps.compute.outputs.combined == 'true') }}
         with:
           repository: cloudfysystems/FLUTTER
           fetch-depth: 0
@@ -353,13 +429,13 @@ jobs:
           path: flutterrepo
 
       - uses: actions/checkout@v4
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows-update) }}
+        if: ${{ (steps.compute.outputs.combined == 'true') }}
         with:
           path: version-repo
 
       - name: Recuperando os commits entre produção e main
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows-update) }}
         id: log
+        if: ${{ (steps.compute.outputs.combined == 'true') }}
         continue-on-error: true
         run: |
           git config --global user.name "cloudfysystems"
@@ -376,152 +452,9 @@ jobs:
           git merge origin/main --no-ff -m "gerando versao na falcatrua" --allow-unrelated-histories
           git push origin production
 
-      - name: Ler versão atual e atualizar número da versão windows
-        working-directory: version-repo
-        if: ${{ inputs.windows-update }}
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyWindows.version' | tr -d '"')
-          build=$(echo "$json" | jq '.speedyWindows.build' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedyWindows.simple')
-          patch=$(echo "$json" | jq -r '.speedyWindows.patch + 1')          
-
-
-          newjson=$(echo "$json" | jq ".speedyWindows.version=$version | .speedyWindows.build=$build | .speedyWindows.patch=$patch")
-          echo "$newjson" > version.json          
-
-          VERSAOWINDOWS="${simple}.${version}.${patch}"
-          echo "Versão gerada: $VERSAOWINDOWS"
-
-          echo "VERSAOWINDOWS=$VERSAOWINDOWS" >> $GITHUB_ENV
-
-      - name: Ler versão atual e atualizar número da versão android (Prod)
-        if: ${{ inputs.android-update }}
-        working-directory: version-repo
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyAndroid.version' | tr -d '"')
-          build=$(echo "$json" | jq '.speedyAndroid.build' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedyAndroid.simple')
-          patch=$(echo "$json" | jq -r '.speedyAndroid.patch + 1')
-
-          newjson=$(echo "$json" | jq ".speedyAndroid.version=$version | .speedyAndroid.build=$build | .speedyAndroid.patch=$patch")
-          echo "$newjson" > version.json
-
-          VERSAOANDROID="${simple}.${version}.${patch}"
-          echo "Versão gerada: $VERSAOANDROID"
-
-          echo "VERSAOANDROID=$VERSAOANDROID" >> $GITHUB_ENV
-
-      - name: Ler versão atual e atualizar número da versão android (tef)
-        if: ${{ inputs.android-tef-update }}
-        working-directory: version-repo
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyAndroidTef.version' | tr -d '"')
-          build=$(echo "$json" | jq '.speedyAndroidTef.build' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedyAndroidTef.simple')
-          patch=$(echo "$json" | jq -r '.speedyAndroidTef.patch + 1')
-
-          newjson=$(echo "$json" | jq ".speedyAndroidTef.version=$version | .speedyAndroidTef.build=$build | .speedyAndroidTef.patch=$patch")
-          echo "$newjson" > version.json
-
-          VERSAOANDROIDTEF="${simple}.${version}.${patch}"
-          echo "Versão gerada: $VERSAOANDROIDTEF"
-
-          echo "VERSAOANDROIDTEF=$VERSAOANDROIDTEF" >> $GITHUB_ENV
-      - name: Ler versão atual e atualizar número da versão android (pagseguro)
-        if: ${{ inputs.android-pagseguro }}
-        working-directory: version-repo
-        run: |
-          json=$(cat version.json)
-          version=$(echo "$json" | jq '.speedyAndroidPagSeguro.version' | tr -d '"')
-          build=$(echo "$json" | jq '.speedyAndroidPagSeguro.build' | tr -d '"')
-          simple=$(echo "$json" | jq -r '.speedyAndroidPagSeguro.simple')
-          patch=$(echo "$json" | jq -r '.speedyAndroidPagSeguro.patch + 1')
-
-          newjson=$(echo "$json" | jq ".speedyAndroidPagSeguro.version=$version | .speedyAndroidPagSeguro.build=$build | .speedyAndroidPagSeguro.patch=$patch")
-          echo "$newjson" > version.json
-
-          VERSAOANDROIDPAGSEGURO="${simple}.${version}.${patch}"
-          echo "Versão gerada: $VERSAOANDROIDPAGSEGURO"
-
-          echo "VERSAOANDROIDPAGSEGURO=$VERSAOANDROIDPAGSEGURO" >> $GITHUB_ENV
-
-      - name: Chamar API de alteração de dados android (prod)
-        if: ${{ inputs.android-update }}
-        id: api_call_android
-        run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROID }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 5}}')
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
-
-      - name: Chamar API de alteração de dados android (tef)
-        if: ${{ inputs.android-tef-update }}
-        id: api_call_android-tef
-        run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDTEF }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 11}}')
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
-
-      - name: Chamar API de alteração de dados android (pagseguro)
-        if: ${{ inputs.android-pagseguro }}
-        id: api_call_android-pagseguro
-        run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOANDROIDPAGSEGURO }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 12}}')
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
-      - name: Chamar API de alteração de dados windows
-        if: ${{ inputs.windows-update }}
-        id: api_call_windows
-        run: |
-          echo "Chamando API de validação..."
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d '{"JSON": true,"Parameters": {"Versao":"${{ env.VERSAOWINDOWS }}","PSW":"${{secrets.SENHA_API_ALTERAR_URL}}", "NR_ID": 4}}')
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
-
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows-update) }}
+        if: ${{ (steps.compute.outputs.combined == 'true') }}
         with:
           server_address: mail.cloudfy.net.br
           server_port: 465
@@ -544,15 +477,3 @@ jobs:
           to: ${{ vars.EMAIL }}
           from: Cloudfy Versão <noreply@cloudfy.net.br>
           secure: true
-
-      - name: Commit das alterações
-        uses: EndBug/add-and-commit@v9
-        if: ${{ (steps.compute.outputs.combined == 'true' || inputs.windows-update) }}
-        with:
-          author_name: cloudfysystems
-          author_email: cloudfysystems@gmail.com
-          message: "alterada versão do build"
-          cwd: ./version-repo
-          add: "version.json"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
