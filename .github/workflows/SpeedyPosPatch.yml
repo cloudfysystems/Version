@@ -217,7 +217,7 @@ jobs:
           echo 'DeployName=prod' >> $GITHUB_ENV
           echo 'DeployNameUpperCase=Prod' >> $GITHUB_ENV
           echo 'UrlId=5' >> $GITHUB_ENV
-          VARIABLE=${{ github.event.inputs.android }}
+          VARIABLE=${{ github.event.inputs.android-prod }}
 
           # Converte string para 0/1
           if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi          
