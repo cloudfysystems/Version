@@ -410,7 +410,7 @@ jobs:
           echo 'DeployName=tef' >> $GITHUB_ENV
           echo 'DeployNameUpperCase=TEF' >> $GITHUB_ENV
           echo 'UrlId=11' >> $GITHUB_ENV
-          VARIABLE=${{ github.event.inputs.android-prod }}
+          VARIABLE=${{ github.event.inputs.android-tef }}
 
           # Converte string para 0/1
           if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi          
