@@ -408,7 +408,7 @@ jobs:
         id: compute
         run: |
           echo 'DeployName=tef' >> $GITHUB_ENV
-          echo 'DeployNameUpperCase=TEF' >> $GITHUB_ENV
+          echo 'DeployNameUpperCase=Tef' >> $GITHUB_ENV
           echo 'UrlId=11' >> $GITHUB_ENV
           VARIABLE=${{ github.event.inputs.android-tef }}
 
