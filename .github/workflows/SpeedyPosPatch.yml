@@ -464,8 +464,9 @@ jobs:
           echo "Versao Version: $VERSION"
           echo "Versao Gerada: $SIMPLE.$VERSION.$PATCH"
 
-          echo "VERSAOOLD=$SIMPLE.$VERSION.0-tef+$BUILD" >> $GITHUB_ENV          
+          echo "VERSAOOLD=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV          
           echo "VERSAO=$SIMPLE.$VERSION.$PATCH" >> $GITHUB_ENV
+          echo "VersionOld: $VERSAOOLD"
 
           echo "Novo JSON:"
           cat "$VERSION_FILE"
