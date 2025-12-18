@@ -464,7 +464,7 @@ jobs:
           echo "Versao Version: $VERSION"
           echo "Versao Gerada: $SIMPLE.$VERSION.$PATCH"
 
-          echo "VERSAOOLD=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV          
+          echo "VERSAOOLD=$SIMPLE.$VERSION.0-${{env.DeployName}}+$BUILD" >> $GITHUB_ENV          
           echo "VERSAO=$SIMPLE.$VERSION.$PATCH" >> $GITHUB_ENV
           echo "VersionOld: $VERSAOOLD"
 
@@ -658,7 +658,7 @@ jobs:
           echo "Versao Version: $VERSION"
           echo "Versao Gerada: $SIMPLE.$VERSION.$PATCH"
 
-          echo "VERSAOOLD=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV          
+          echo "VERSAOOLD=$SIMPLE.$VERSION.0-${{env.DeployName}}+$BUILD" >> $GITHUB_ENV          
           echo "VERSAO=$SIMPLE.$VERSION.$PATCH" >> $GITHUB_ENV
           echo "VersionOld: $VERSAOOLD"
 
