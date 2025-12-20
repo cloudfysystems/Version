@@ -797,13 +797,6 @@ jobs:
           sed -i '/url_launcher:/d' ../corp/pubspec.yaml
           sed -i "/url_launcher/d" ../corp/lib/Services/CfyFileSystem.dart
           sed -i '/static Future OpenFileDefaultSO/,/}/c\static Future OpenFileDefaultSO(String ValuePath) async {}' ../corp/lib/Services/CfyFileSystem.dart
-      - name: cat
-        if: ${{ (steps.compute.outputs.execute == 'true') }}
-        shell: bash
-        run: |
-          cat ../corp/pubspec.yaml          
-          cat ../corp/lib/Services/CfyFileSystem.dart
-          exit 1
 
       # Criar o arquivo env/prod.json
       - name: Gerar env/prod.json
