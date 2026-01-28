@@ -259,7 +259,7 @@ jobs:
       contents: write
     defaults:
       run:
-        working-directory: ./flutter/speed
+        working-directory: ./flutter/adm
 
     steps:
       # Clonar o repositório principal do Flutter
@@ -283,7 +283,7 @@ jobs:
         working-directory: version-repo
         shell: bash
         run: |
-          VERSION_FILE="versionIOS.json"
+          VERSION_FILE="versionAdmIos.json"
 
           # Atualiza o JSON corretamente
           jq '.speedy.build += 1 | .speedy.version += 1 | .speedy.patch = 0' "$VERSION_FILE" > tmp.json
@@ -304,14 +304,6 @@ jobs:
 
           echo "Novo JSON:"
           cat "$VERSION_FILE"
-
-      # Criar o arquivo env/prod.json
-      - name: Gerar env/prod.json
-        if: ${{ inputs.ios}}
-        run: |
-          mkdir -p ./env
-          echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
-          cat ./env/prod.json
 
       - name: Import code sign
         if: ${{ inputs.ios}}
@@ -340,13 +332,6 @@ jobs:
         if: ${{ inputs.ios }}
         shell: bash
         run: |
-          FILE="lib/Environment/Version.dart"
-          NOVA_VERSAO="${{ env.VERSAO }}"
-              
-          # Atualiza Version.dart
-          sed -i '' "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" "$FILE"
-          cat "$FILE"
-              
           # Atualiza pubspec.yaml
           sed -i '' "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
           cat pubspec.yaml
@@ -363,19 +348,19 @@ jobs:
         id: shorebird-release
         uses: shorebirdtech/shorebird-release@v1
         with:
-          args: --export-options-plist ios/GHAExportOptions.plist -- --dart-define-from-file=env/prod.json
+          args: --target=lib/main_prod.dart --export-options-plist ios/GHAExportOptions.plist
           platform: ios
           flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
-          working-directory: ./flutter/speed
+          working-directory: ./flutter/adm
 
       - name: Renomear arquivos iOS
         if: ${{ inputs.ios}}
         working-directory: .
         run: |
           echo "Renomeando IPA"
-          if [ -f "flutter/speed/build/ios/ipa/speed.ipa" ]; then
-            mv flutter/speed/build/ios/ipa/speed.ipa flutter/speed/build/ios/ipa/CloudfySpeedyPos.ipa
-            echo "IPA renomeado para CloudfySpeedyPos.ipa"
+          if [ -f "flutter/adm/build/ios/ipa/adm.ipa" ]; then
+            mv flutter/adm/build/ios/ipa/adm.ipa flutter/adm/build/ios/ipa/CloudfyAdm.ipa
+            echo "IPA renomeado para CloudfyAdm.ipa"
           else
             echo "⚠️ IPA não encontrado!"
           fi
@@ -384,48 +369,13 @@ jobs:
         if: ${{ inputs.ios}}
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ env.VERSAO }}_SpeedyIOS
-          name: v${{ env.VERSAO }}_SpeedyIOS
+          tag_name: v${{ env.VERSAO }}_AdmIOS
+          name: v${{ env.VERSAO }}_AdmIOS
           files: |
-            flutter/speed/build/ios/ipa/CloudfySpeedyPos.ipa
+            flutter/adm/build/ios/ipa/CloudfyAdm.ipa
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
-      - name: Chamar API de alteração de dados android
-        if: ${{ inputs.ios}}
-        run: |
-          URLIOS="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_SpeedyIOS/CloudfySpeedyPos.ipa"
-          echo "$URLIOS"
-          echo "Chamando API de validação..."
-
-          JSON_DATA=$(cat <<EOF
-          {
-            "JSON": true,
-            "Parameters": {
-              "Versao": "${{ env.VERSAO }}",
-              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",
-              "URL": "$URLIOS",
-              "NR_ID": 16
-            }
-          }
-          EOF
-          )
-
-          echo $JSON_DATA
-
-          response=$(curl -s -o response.txt -w "%{http_code}" \
-            -X POST https://api.cloudfy.net.br/H02SF0107A \
-            -H "Content-Type: application/json" \
-            -d "$JSON_DATA")
-
-          echo "Código HTTP: $response"
-          cat response.txt
-
-          if [ "$response" != "200" ]; then
-            echo "❌ Falha na chamada da API. Abortando workflow."
-            exit 1
-          fi
 
       - name: Atualizar branch com merge (se necessário)
         if: ${{ inputs.ios}}
@@ -450,13 +400,13 @@ jobs:
           author_email: cloudfysystems@gmail.com
           message: "alterada versão do build IOS"
           cwd: ./version-repo
-          add: "versionIOS.json"
+          add: "versionAdmIos.json"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Upload IPA to App Store Connect
         if: ${{ inputs.ios}}
-        run: xcrun altool --upload-app --type ios -f ./build/ios/ipa/CloudfySpeedyPos.ipa --apiKey ${{ secrets.APPLE_API_KEY }} --apiIssuer ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: xcrun altool --upload-app --type ios -f ./build/ios/ipa/CloudfyAdm.ipa --apiKey ${{ secrets.APPLE_API_KEY }} --apiIssuer ${{ secrets.APPLE_API_ISSUER_ID }}
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
     needs: [android, ios]
