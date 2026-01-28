@@ -113,7 +113,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p certificado
-          echo "${{ secrets.KEYSTORE }}" | base64 -d > certificado/certificado-keystore.jks
+          echo "${{ secrets.KEYSTORE_ADM }}" | base64 -d > certificado/certificado-keystore.keystore
 
       # Setup Shorebird
       - name: 🐦 Setup Shorebird
@@ -129,8 +129,8 @@ jobs:
         run: |
           echo "storePassword=${{ secrets.SENHA_KEYSTORE }}" > android/key.properties
           echo "keyPassword=${{ secrets.SENHA_KEYSTORE }}" >> android/key.properties
-          echo "keyAlias=cloudfycardapio" >> android/key.properties
-          echo "storeFile=../../certificado/certificado-keystore.jks" >> android/key.properties
+          echo "keyAlias=cloudcommerce" >> android/key.properties
+          echo "storeFile=../../certificado/certificado-keystore.keystore" >> android/key.properties
 
       # Set Up Java (usando Oracle JDK 17)
       - name: Set Up Java
@@ -141,7 +141,7 @@ jobs:
           java-version: "17"
 
       # Atualizar versão no arquivo Dart
-      - name: Atualiza versão no arquivo Dart e pubspec.yaml
+      - name: Atualiza versão no pubspec.yaml
         if: ${{ (steps.compute.outputs.execute == 'true') }}
         shell: bash
         run: |
