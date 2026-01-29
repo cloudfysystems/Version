@@ -367,30 +367,6 @@ jobs:
           flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/adm
 
-      - name: Renomear arquivos iOS
-        if: ${{ inputs.ios}}
-        working-directory: .
-        run: |
-          echo "Renomeando IPA"
-          if [ -f "flutter/adm/build/ios/ipa/adm.ipa" ]; then
-            mv flutter/adm/build/ios/ipa/adm.ipa flutter/adm/build/ios/ipa/CloudfyAdm.ipa
-            echo "IPA renomeado para CloudfyAdm.ipa"
-          else
-            echo "⚠️ IPA não encontrado!"
-          fi
-
-      - name: Criando o release
-        if: ${{ inputs.ios}}
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ env.VERSAO }}_AdmIOS
-          name: v${{ env.VERSAO }}_AdmIOS
-          files: |
-            flutter/adm/build/ios/ipa/CloudfyAdm.ipa
-          body: Release gerado automaticamente.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
       - name: Atualizar branch com merge (se necessário)
         if: ${{ inputs.ios}}
         working-directory: version-repo
@@ -420,7 +396,7 @@ jobs:
 
       - name: Upload IPA to App Store Connect
         if: ${{ inputs.ios}}
-        run: xcrun altool --upload-app --type ios -f ./build/ios/ipa/CloudfyAdm.ipa --apiKey ${{ secrets.APPLE_API_KEY }} --apiIssuer ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: xcrun altool --upload-app --type ios -f ./build/ios/ipa/*.ipa --apiKey ${{ secrets.APPLE_API_KEY }} --apiIssuer ${{ secrets.APPLE_API_ISSUER_ID }}
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
     needs: [android, ios]
