@@ -327,6 +327,19 @@ jobs:
           echo "${{ secrets.APPLE_API_PRIVATE_KEY }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
           chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
 
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
+          channel: "stable"
+          cache: true
+      - name: Install CocoaPods dependencies
+        if: ${{ inputs.ios}}
+        run: |
+          flutter pub get
+          cd ios
+          pod install --repo-update
+
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão do pubspec.yaml
         if: ${{ inputs.ios }}
@@ -335,18 +348,13 @@ jobs:
           # Atualiza pubspec.yaml
           sed -i '' "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
           cat pubspec.yaml
+
       # Setup Shorebird
       - name: 🐦 Setup Shorebird
         if: ${{ inputs.ios}}
         uses: shorebirdtech/setup-shorebird@v1
         with:
           cache: true
-
-      - name: Install CocoaPods dependencies
-        run: |
-          flutter pub get
-          cd ios
-          pod install --repo-update
 
       # Executar build do Shorebird
       - name: 🚀 Shorebird Release
