@@ -342,6 +342,11 @@ jobs:
         with:
           cache: true
 
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios
+          pod install --repo-update
+
       # Executar build do Shorebird
       - name: 🚀 Shorebird Release
         if: ${{ inputs.ios}}
