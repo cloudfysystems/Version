@@ -13,11 +13,11 @@ on:
         type: boolean
       ios:
         description: "Gerar versão iOS?"
-        default: false
+        default: true
         type: boolean
       email:
         description: "Deseja enviar email ao finalizar?"
-        default: true
+        default: false
         type: boolean
 
 env:
@@ -316,7 +316,7 @@ jobs:
         if: ${{ inputs.ios}}
         uses: Apple-Actions/download-provisioning-profiles@v1
         with:
-          bundle-id: com.cloudfy.speed
+          bundle-id: com.cloudfy.mobile.cc.admin
           issuer-id: ${{ secrets.APPLE_API_ISSUER_ID }}
           api-key-id: ${{ secrets.APPLE_API_KEY }}
           api-private-key: ${{ secrets.APPLE_API_PRIVATE_KEY }}
@@ -328,7 +328,7 @@ jobs:
           chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
 
       # Atualizar versão no arquivo Dart
-      - name: Atualiza versão no arquivo Dart e pubspec.yaml
+      - name: Atualiza versão do pubspec.yaml
         if: ${{ inputs.ios }}
         shell: bash
         run: |
