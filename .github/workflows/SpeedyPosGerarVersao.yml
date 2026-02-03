@@ -2172,11 +2172,16 @@ jobs:
 
 
 
-          # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | WINDOWS_BOOL | IOS_BOOL | STONE_BOOL | EMAIL_BOOL)) -eq 1 ]; then
-            COMBINED=true
-          else
+          # Regra: EMAIL precisa ser true obrigatoriamente
+          if [ "$EMAIL_BOOL" -eq 0 ]; then
             COMBINED=false
+          else
+            # OR lógico
+            if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | WINDOWS_BOOL | IOS_BOOL | STONE_BOOL)) -eq 1 ]; then
+              COMBINED=true
+            else
+              COMBINED=false
+            fi
           fi
 
           echo "combined=$COMBINED" >> $GITHUB_OUTPUT
