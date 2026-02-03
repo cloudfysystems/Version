@@ -1080,7 +1080,7 @@ jobs:
 
           chmod +x apktool
           sudo mv apktool /usr/local/bin/
-          sudo mv apktool_2.9.3.jar /usr/local/bin/apktool.jar
+          sudo cp apktool_2.9.3.jar /usr/local/bin/apktool.jar
 
           sudo apt update
           sudo apt install -y zipalign apksigner
