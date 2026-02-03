@@ -1074,8 +1074,9 @@ jobs:
         if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           sudo apt remove -y apktool
-          wget https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool
+          wget https://raw.githubusercontent.com/iBotPeaches/Apktool/main/scripts/linux/apktool
           wget https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.9.3.jar
+
           chmod +x apktool
           sudo mv apktool /usr/local/bin/
           sudo mv apktool_2.9.3.jar /usr/local/bin/apktool.jar
