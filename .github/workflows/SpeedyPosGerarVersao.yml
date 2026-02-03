@@ -1070,12 +1070,13 @@ jobs:
         with:
           distribution: "oracle"
           java-version: "17"
+
       - name: 🛠️ Instalar apktool correto + aapt2
+        working-directory: version-repo
         if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           sudo apt remove -y apktool
-          wget https://raw.githubusercontent.com/iBotPeaches/Apktool/main/scripts/linux/apktool
-          wget https://github.com/cloudfysystems/Version/blob/main/apktool_2.9.3.jar
+          wget https://raw.githubusercontent.com/iBotPeaches/Apktool/main/scripts/linux/apktool          
 
           chmod +x apktool
           sudo mv apktool /usr/local/bin/
