@@ -2153,6 +2153,7 @@ jobs:
           REDE=${{ github.event.inputs.android-rede }}
           STONE=${{ github.event.inputs.android-stone }}
           IOS=${{ github.event.inputs.ios }}
+          EMAIL=${{ github.event.inputs.email }}
 
 
 
@@ -2166,10 +2167,12 @@ jobs:
           if [ "$WINDOWS" = "true" ]; then WINDOWS_BOOL=1; else WINDOWS_BOOL=0; fi
           if [ "$IOS" = "true" ]; then IOS_BOOL=1; else IOS_BOOL=0; fi
           if [ "$STONE" = "true" ]; then STONE_BOOL=1; else STONE_BOOL=0; fi
+          if [ "$EMAIL" = "true" ]; then EMAIL_BOOL=1; else EMAIL_BOOL=0; fi
+
 
 
           # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | WINDOWS_BOOL | IOS_BOOL | STONE_BOOL)) -eq 1 ]; then
+          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | WINDOWS_BOOL | IOS_BOOL | STONE_BOOL | EMAIL_BOOL)) -eq 1 ]; then
             COMBINED=true
           else
             COMBINED=false
@@ -2211,7 +2214,7 @@ jobs:
 
       - name: Envia e-mail com resumo
         uses: dawidd6/action-send-mail@v3
-        if: ${{ steps.compute.outputs.combined == 'true' && github.event.inputs.email}}
+        if: ${{ (steps.compute.outputs.combined == 'true') }}
         with:
           server_address: mail.cloudfy.net.br
           server_port: 465
