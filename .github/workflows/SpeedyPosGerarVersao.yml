@@ -2134,6 +2134,7 @@ jobs:
         ios,
       ]
     runs-on: ubuntu-latest
+    if: ${{ inputs.email}}
     permissions:
       contents: write
     defaults:
@@ -2153,8 +2154,7 @@ jobs:
           CIELO=${{ github.event.inputs.android-cielo }}
           REDE=${{ github.event.inputs.android-rede }}
           STONE=${{ github.event.inputs.android-stone }}
-          IOS=${{ github.event.inputs.ios }}
-          EMAIL=${{ github.event.inputs.email }}
+          IOS=${{ github.event.inputs.ios }}          
 
 
 
@@ -2167,22 +2167,18 @@ jobs:
           if [ "$REDE" = "true" ]; then REDE_BOOL=1; else REDE_BOOL=0; fi
           if [ "$WINDOWS" = "true" ]; then WINDOWS_BOOL=1; else WINDOWS_BOOL=0; fi
           if [ "$IOS" = "true" ]; then IOS_BOOL=1; else IOS_BOOL=0; fi
-          if [ "$STONE" = "true" ]; then STONE_BOOL=1; else STONE_BOOL=0; fi
-          if [ "$EMAIL" = "true" ]; then EMAIL_BOOL=1; else EMAIL_BOOL=0; fi
+          if [ "$STONE" = "true" ]; then STONE_BOOL=1; else STONE_BOOL=0; fi          
 
 
 
-          # Regra: EMAIL precisa ser true obrigatoriamente
-          if [ "$EMAIL_BOOL" -eq 0 ]; then
-            COMBINED=false
+
+          # OR lógico
+          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | WINDOWS_BOOL | IOS_BOOL | STONE_BOOL)) -eq 1 ]; then
+            COMBINED=true
           else
-            # OR lógico
-            if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | WINDOWS_BOOL | IOS_BOOL | STONE_BOOL)) -eq 1 ]; then
-              COMBINED=true
-            else
-              COMBINED=false
-            fi
+            COMBINED=false
           fi
+
 
           echo "combined=$COMBINED" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v4
