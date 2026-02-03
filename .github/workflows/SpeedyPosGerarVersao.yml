@@ -1073,6 +1073,7 @@ jobs:
       - name: 🛠️ Instalar apktool correto + aapt2
         if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
+          curl -I https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.9.3.jar
           sudo apt remove -y apktool
           wget https://raw.githubusercontent.com/iBotPeaches/Apktool/main/scripts/linux/apktool
           wget https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.9.3.jar
