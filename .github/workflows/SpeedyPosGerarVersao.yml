@@ -43,6 +43,10 @@ on:
         description: "Gerar versão iOS?"
         default: false
         type: boolean
+      windows-profile:
+        description: "Gerar versão Windows (Profile/Debug?"
+        default: false
+        type: boolean
       email:
         description: "Deseja enviar email ao finalizar?"
         default: true
@@ -271,6 +275,211 @@ jobs:
           message: "alterada versão do build windows"
           cwd: ./version-repo
           add: "versionWindows.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+  windows-profile:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        working-directory: ./flutter/speed
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        if: ${{ inputs.windows-profile }}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main # ou a branch/tag desejada
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+      - name: Instalar NSIS
+        if: ${{ inputs.windows-profile }}
+        run: |
+          choco install nsis -y
+          echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Verificar instalação
+        if: ${{ inputs.windows-profile }}
+        run: makensis /VERSION
+      - name: Instalar AzureSignTool
+        if: ${{ inputs.windows-profile }}
+        run: dotnet tool install --global AzureSignTool
+
+      # - name: assinar dll
+      #   run: azuresigntool sign -kvu "${{env.SIGNATURE_VAULT_ID}}" -kvc "${{env.SIGNATURE_CERTIFICATE_NAME}}" -kvi "${{env.SIGNATURE_APP_ID}}" -kvs "${{env.SIGNATURE_PASSWORD}}" --azure-key-vault-tenant-id "${{env.#SIGNATURE_TENANT_ID}}" -tr http://timestamp.digicert.com -td sha256 ./dlls/CliSiTef64I.dll
+      # checkout do repositorio de versão
+      - uses: actions/checkout@v4
+        if: ${{ inputs.windows-profile }}
+        with:
+          path: version-repo
+        # Lendo a versão atual do repositório
+      - name: Ler versão atual
+        if: ${{ inputs.windows-profile }}
+        working-directory: version-repo
+        shell: powershell
+        run: |
+          $json = Get-Content "versionWindowsProfile.json" | ConvertFrom-Json          
+          $json.speedy.version++
+          $json.speedy.patch = 0
+
+          # Salva de volta no JSON
+          $json | ConvertTo-Json -Depth 10 | Out-File -FilePath "versionWindowsProfile.json" -Encoding UTF8
+
+          echo "Versao gerada: $($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)"
+          echo "VERSAO=$($json.speedy.simple).$($json.speedy.version).$($json.speedy.patch)" >> $env:GITHUB_ENV
+
+      - name: Gerando o env/prod.json
+        if: ${{ inputs.windows-profile }}
+        run: |
+          New-Item -ItemType Directory -Path "./env" -Force | Out-Null
+          Set-Content -Path "./env/prod.json" -Value '${{ secrets.ENV_PROD }}'
+        shell: pwsh
+      - name: Atualiza versão no arquivo Dart
+        if: ${{ inputs.windows-profile }}
+        shell: pwsh
+        run: |
+          $filePath = "lib/Environment/Version.dart"
+          $novaVersao = "${{ env.VERSAO }}"  # ou outro valor dinâmico
+          (Get-Content $filePath) -replace 'const String Version = ".*?"', "const String Version = `"$novaVersao`"" | Set-Content $filePath
+
+      - name: Criar pasta dist
+        if: ${{ inputs.windows-profile }}
+        run: |
+          mkdir dist
+        shell: pwsh
+
+      - name: Atualizar versão
+        if: ${{ inputs.windows-profile }}
+        shell: pwsh
+        run: |
+          (Get-Content pubspec.yaml) -replace '^version:.*', "version: $env:VERSAO" | Set-Content pubspec.yaml
+      - name: Ajeitar o longpath do git
+        if: ${{ inputs.windows-profile }}
+        run: |
+          git config --system core.longpaths true
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        if: ${{ inputs.windows-profile }}
+        with:
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_WINDOWS}}
+          channel: stable
+          cache: true
+      # Set Up Java (O Sentry precisa do java para compilar)
+      - name: Set Up Java
+        if: ${{ inputs.windows-profile }}
+        uses: actions/setup-java@v3
+        with:
+          distribution: "oracle"
+          java-version: "17"
+
+      #- name: Mostrar caminho e conteúdo do prod.json
+      #  run: |
+      #      $filePath = Resolve-Path "./env/prod.json"
+      #      Write-Host "📁 Caminho do arquivo: $filePath"
+      #      Write-Host "📄 Conteúdo do arquivo:"
+      #      Get-Content $filePath | ForEach-Object { Write-Host $_ }
+      #  shell: pwsh
+      #
+
+      - name: Build Windows EXE
+        shell: pwsh
+        if: ${{ inputs.windows-profile }}
+        run: flutter build windows --profile --dart-define-from-file=env/prod.json
+
+      #- name: Assinar o executável
+      #  run: sign.bat
+      - name: Gerar o instalador
+        if: ${{ inputs.windows-profile }}
+        run: |
+          .\signprofile.bat  
+          makensis windowsinstallmakerprofile.nsi
+          .\signinstall.bat
+      #- name: Assinar o instalador
+      #  run: signinstall.bat
+
+      - name: Criando o release
+        if: ${{ inputs.windows-profile }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSAO }}_SpeedyWindowsProfile
+          name: v${{ env.VERSAO }}_SpeedyWindowsProfile
+          files: |
+            flutter/speed/dist/CloudfySpeedyPos.exe
+          body: Release gerado automaticamente.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Chamar API de alteração de dados windows
+        if: ${{ inputs.windows-profile }}
+        shell: pwsh
+        id: api_call_windows
+        run: |
+          # Monta a URL do APK
+          $URL = "https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_SpeedyWindowsProfile/CloudfySpeedyPos.exe"
+
+          Write-Host "URL gerada:"
+          Write-Host $URL
+
+          Write-Host "Chamando API de validação..."
+
+          # Monta o JSON usando Here-String
+          $JSON_DATA = @"
+          {
+            "JSON": true,
+            "Parameters": {
+              "Versao": "${{ env.VERSAO }}",
+              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",
+              "URL": "$URL",
+              "NR_ID": 19
+            }
+          }
+          "@
+
+          Write-Host "JSON enviado:"
+          Write-Host $JSON_DATA
+
+          # Executa o CURL
+          $response = curl -s -o response.txt -w "%{http_code}" `
+            -X POST https://api.cloudfy.net.br/H02SF0107A `
+            -H "Content-Type: application/json" `
+            -d $JSON_DATA
+
+          Write-Host "Código HTTP: $response"
+
+          # Mostra o retorno
+          Get-Content response.txt
+
+          if ($response -ne "200") {
+            Write-Host "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          }
+      - name: Atualizar branch com merge (se necessário)
+        if: ${{ inputs.windows-profile }}
+        working-directory: version-repo
+        run: |
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
+
+          # Garante que estamos na branch correta
+          git branch --show-current
+
+          # Tenta fazer pull e merge automático
+          git pull origin HEAD --no-rebase || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ inputs.windows-profile }}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build windows"
+          cwd: ./version-repo
+          add: "versionWindowsProfile.json"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
