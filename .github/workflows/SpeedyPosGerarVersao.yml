@@ -334,7 +334,7 @@ jobs:
         if: ${{ inputs.windows-profile }}
         run: |
           New-Item -ItemType Directory -Path "./env" -Force | Out-Null
-          Set-Content -Path "./env/prod.json" -Value '${{ secrets.ENV_PROD }}'
+          Set-Content -Path "./env/prod.json" -Value '${{ secrets.ENV_PROFILE }}'
         shell: pwsh
       - name: Atualiza versão no arquivo Dart
         if: ${{ inputs.windows-profile }}
