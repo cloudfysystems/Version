@@ -1179,6 +1179,7 @@ jobs:
         android-tef,
         android-pagseguro,
         android-rede,
+        ios,
       ]
     runs-on: ubuntu-latest
     permissions:
