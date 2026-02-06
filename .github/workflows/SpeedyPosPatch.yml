@@ -607,7 +607,7 @@ jobs:
         run: |
           echo 'DeployName=pagseguro' >> $GITHUB_ENV
           echo 'DeployNameUpperCase=Pagseguro' >> $GITHUB_ENV
-          echo 'UrlId=11' >> $GITHUB_ENV
+          echo 'UrlId=12' >> $GITHUB_ENV
           VARIABLE=${{ github.event.inputs.android-pagseguro }}
 
           # Converte string para 0/1
