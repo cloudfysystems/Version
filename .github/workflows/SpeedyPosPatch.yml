@@ -1270,7 +1270,7 @@ jobs:
           html_body: |
             <p><b>Olá time!</b></p>
 
-            Foi gerada um novo Patch para o speedy POS, na versão ${{ env.VERSAO }}!<br><br>
+            Foi gerada um novo Patch para o speedy POS!<br><br>
 
             Essa atualização será enviada automaticamente para clientes que estejam na mesma
             versão da aplicação.
