@@ -731,7 +731,7 @@ jobs:
           echo 'DeployName=getnet' >> $GITHUB_ENV
           echo 'DeployNameUpperCase=Getnet' >> $GITHUB_ENV
           echo 'UrlId=13' >> $GITHUB_ENV
-          VARIABLE=${{ github.event.inputs.android-getnet }}
+          VARIABLE=${{ github.event.inputs.android-getnet-fake }}
 
           # Converte string para 0/1
           if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi          
