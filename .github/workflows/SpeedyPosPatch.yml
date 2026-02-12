@@ -999,7 +999,7 @@ jobs:
         run: |
           echo 'DeployName=ifood' >> $GITHUB_ENV
           echo 'DeployNameUpperCase=Ifood' >> $GITHUB_ENV
-          echo 'UrlId=15' >> $GITHUB_ENV
+          echo 'UrlId=20' >> $GITHUB_ENV
           VARIABLE=${{ github.event.inputs.android-ifood }}
 
           # Converte string para 0/1
