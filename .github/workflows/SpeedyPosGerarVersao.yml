@@ -3023,6 +3023,7 @@ jobs:
       [
         Windows,
         android-rede,
+        android-rede-n960k,
         android-cielo,
         android-pagseguro,
         android-getnet,
