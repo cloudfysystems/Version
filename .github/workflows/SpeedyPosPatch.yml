@@ -1572,6 +1572,7 @@ jobs:
         android-pagseguro,
         android-rede,
         android-cielo,
+        android-ifood,
         ios,
       ]
     runs-on: ubuntu-latest
@@ -1595,6 +1596,8 @@ jobs:
           CIELO=${{ github.event.inputs.android-cielo }}
           REDE=${{ github.event.inputs.android-rede }}
           IOS=${{ github.event.inputs.ios }}
+          IFOOD=${{ github.event.inputs.android-ifood }}
+
 
 
 
@@ -1607,10 +1610,11 @@ jobs:
           if [ "$REDE" = "true" ]; then REDE_BOOL=1; else REDE_BOOL=0; fi
           if [ "$WINDOWS" = "true" ]; then WINDOWS_BOOL=1; else WINDOWS_BOOL=0; fi
           if [ "$IOS" = "true" ]; then IOS_BOOL=1; else IOS_BOOL=0; fi
+          if [ "$IFOOD" = "true" ]; then IFOOD_BOOL=1; else IFOOD_BOOL=0; fi
 
 
           # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | WINDOWS_BOOL | IOS_BOOL)) -eq 1 ]; then
+          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | WINDOWS_BOOL | IOS_BOOL | IFOOD_BOOL)) -eq 1 ]; then
             COMBINED=true
           else
             COMBINED=false
