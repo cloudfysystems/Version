@@ -3169,7 +3169,28 @@ jobs:
         if: ${{ inputs.macos }}
         run: |
           xcrun stapler staple "build/macos/Build/Products/Release/Cloudfy Speedy POS.app"
-          mv "build/macos/Build/Products/Release/Cloudfy Speedy POS.app" "build/macos/Build/Products/Release/CloudfySpeedyPOS.app"
+
+      - name: Criar DMG
+        if: ${{ inputs.macos }}
+        shell: bash
+        run: |
+          brew install create-dmg
+          cd build/macos/Build/Products/Release
+          create-dmg \
+            --volname "Cloudfy Speedy POS" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --app-drop-link 400 190 \
+            "CloudfySpeedyPOS.dmg" \
+            "Cloudfy Speedy POS.app"
+
+      - name: Assinar DMG
+        if: ${{ inputs.macos }}
+        shell: bash
+        run: |
+          codesign --sign "Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34)" \
+            "build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg"
 
       - name: Criando o release
         if: ${{ inputs.macos}}
@@ -3178,7 +3199,7 @@ jobs:
           tag_name: v${{ env.VERSAO }}_SpeedyMacOS
           name: v${{ env.VERSAO }}_SpeedyMacOS
           files: |
-            flutter/speed/build/macos/Build/Products/Release/CloudfySpeedyPOS.app
+            flutter/speed/build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -3186,7 +3207,7 @@ jobs:
       - name: Chamar API de alteração de dados android
         if: ${{ inputs.macos }}
         run: |
-          URLIOS="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_SpeedyMacOS/CloudfySpeedyPOS.app"
+          URLIOS="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_SpeedyMacOS/CloudfySpeedyPOS.dmg"
           echo "$URLIOS"
           echo "Chamando API de validação..."
 
