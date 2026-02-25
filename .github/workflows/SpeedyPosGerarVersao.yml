@@ -3100,20 +3100,20 @@ jobs:
         run: |
           echo "${{ secrets.MACOS_AUTH_P8 }}" | base64 --decode > /tmp/AuthKey.p8
 
-      - name: Notarize
-        if: ${{ inputs.macos }}
-        run: |
-          xcrun notarytool log 7aa46e7a-4c08-439c-8750-5caba7068c5f \
-          --key /tmp/AuthKey.p8 \
-          --key-id "${{ secrets.MACOS_P8_KEY_ID }}" \
-          --issuer "${{ secrets.APPLE_API_ISSUER_ID }}"
-          ls -la /Users/runner/work/Version/Version/flutter/speed/
-
-      - name: foder o role
-        if: ${{ inputs.macos }}
-        run: |
-          exit 1
-
+      #- name: Notarize
+      #  if: ${{ inputs.macos }}
+      #  run: |
+      #    xcrun notarytool log 7aa46e7a-4c08-439c-8750-5caba7068c5f \
+      #    --key /tmp/AuthKey.p8 \
+      #    --key-id "${{ secrets.MACOS_P8_KEY_ID }}" \
+      #    --issuer "${{ secrets.APPLE_API_ISSUER_ID }}"
+      #    ls -la /Users/runner/work/Version/Version/flutter/speed/
+      #
+      #- name: foder o role
+      #  if: ${{ inputs.macos }}
+      #  run: |
+      #    exit 1
+      #
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart e pubspec.yaml
         if: ${{ inputs.macos }}
@@ -3152,7 +3152,7 @@ jobs:
         shell: bash
         run: |
           cd build/macos/Build/Products/Release
-          codesign --deep --force --verbose --sign "Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34" "Cloudfy Speedy POS.app"
+          codesign --deep --force --verbose --options runtime --sign "Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34" "Cloudfy Speedy POS.app"
           ditto -c -k --keepParent "Cloudfy Speedy POS.app" CloudfySpeedyPOS.zip
 
       - name: Notarize
