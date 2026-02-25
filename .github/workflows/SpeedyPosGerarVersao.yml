@@ -3095,6 +3095,11 @@ jobs:
           echo "${{ secrets.APPLE_API_PRIVATE_KEY }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
           chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
 
+      - name: Decode API Key for Notarization
+        if: ${{ inputs.macos}}
+        run: |
+          echo "${{ secrets.MACOS_AUTH_P8 }}" | base64 --decode > /tmp/AuthKey.p8
+
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart e pubspec.yaml
         if: ${{ inputs.macos }}
@@ -3140,8 +3145,11 @@ jobs:
         if: ${{ inputs.macos }}
         run: |
           xcrun notarytool submit "build/macos/Build/Products/Release/CloudfySpeedyPOS.zip" \
-            --apiKey ${{ secrets.APPLE_API_KEY }} --apiIssuer ${{ secrets.APPLE_API_ISSUER_ID }}
-            --wait
+          --key /tmp/AuthKey.p8 \
+          --key-id "${{ secrets.MACOS_P8_KEY_ID }}" \
+          --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \
+          --wait \
+          --output-format json
 
       - name: Staple
         if: ${{ inputs.macos }}
