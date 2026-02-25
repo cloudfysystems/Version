@@ -3045,16 +3045,6 @@ jobs:
         with:
           path: version-repo
 
-      - name: Notarize
-        if: ${{ inputs.macos }}
-        run: |
-          xcrun notarytool log 7aa46e7a-4c08-439c-8750-5caba7068c5f \
-          --key /tmp/AuthKey.p8 \
-          --key-id "${{ secrets.MACOS_P8_KEY_ID }}" \
-          --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \
-          --wait \
-          --output-format json
-
       # Ler e atualizar a versão
       - name: Ler versão atual
         if: ${{ inputs.macos}}
@@ -3109,6 +3099,16 @@ jobs:
         if: ${{ inputs.macos}}
         run: |
           echo "${{ secrets.MACOS_AUTH_P8 }}" | base64 --decode > /tmp/AuthKey.p8
+
+      - name: Notarize
+        if: ${{ inputs.macos }}
+        run: |
+          xcrun notarytool log 7aa46e7a-4c08-439c-8750-5caba7068c5f \
+          --key /tmp/AuthKey.p8 \
+          --key-id "${{ secrets.MACOS_P8_KEY_ID }}" \
+          --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \
+          --wait \
+          --output-format json
 
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart e pubspec.yaml
