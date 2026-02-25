@@ -3236,6 +3236,7 @@ jobs:
         android-stone,
         android-ifood,
         ios,
+        macos,
       ]
     runs-on: ubuntu-latest
     if: ${{ inputs.email}}
