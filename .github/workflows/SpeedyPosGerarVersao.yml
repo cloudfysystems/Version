@@ -3106,9 +3106,13 @@ jobs:
           xcrun notarytool log 7aa46e7a-4c08-439c-8750-5caba7068c5f \
           --key /tmp/AuthKey.p8 \
           --key-id "${{ secrets.MACOS_P8_KEY_ID }}" \
-          --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \
-          --wait \
+          --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \          
           --output-format json
+
+      - name: foder o role
+        if: ${{ inputs.macos }}
+        run: |
+          exit 1
 
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart e pubspec.yaml
