@@ -3106,8 +3106,8 @@ jobs:
           xcrun notarytool log 7aa46e7a-4c08-439c-8750-5caba7068c5f \
           --key /tmp/AuthKey.p8 \
           --key-id "${{ secrets.MACOS_P8_KEY_ID }}" \
-          --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \          
-          --output-format json
+          --issuer "${{ secrets.APPLE_API_ISSUER_ID }}"
+          ls -la /Users/runner/work/Version/Version/flutter/speed/
 
       - name: foder o role
         if: ${{ inputs.macos }}
