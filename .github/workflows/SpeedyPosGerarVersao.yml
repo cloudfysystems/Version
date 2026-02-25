@@ -3137,12 +3137,14 @@ jobs:
           ditto -c -k --keepParent "Cloudfy Speedy POS.app" CloudfySpeedyPOS.zip
 
       - name: Notarize
+        if: ${{ inputs.macos }}
         run: |
           xcrun notarytool submit "build/macos/Build/Products/Release/CloudfySpeedyPOS.zip" \
             --apiKey ${{ secrets.APPLE_API_KEY }} --apiIssuer ${{ secrets.APPLE_API_ISSUER_ID }}
             --wait
 
       - name: Staple
+        if: ${{ inputs.macos }}
         run: |
           xcrun stapler staple "build/macos/Build/Products/Release/Cloudfy Speedy POS.app"
           mv "build/macos/Build/Products/Release/Cloudfy Speedy POS.app" "build/macos/Build/Products/Release/CloudfySpeedyPOS.app"
@@ -3160,7 +3162,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Chamar API de alteração de dados android
-        if: ${{ inputs.ios}}
+        if: ${{ inputs.macos }}
         run: |
           URLIOS="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_SpeedyMacOS/CloudfySpeedyPOS.app"
           echo "$URLIOS"
@@ -3195,7 +3197,7 @@ jobs:
           fi
 
       - name: Atualizar branch com merge (se necessário)
-        if: ${{ inputs.ios}}
+        if: ${{ inputs.macos }}
         working-directory: version-repo
         run: |
           git config user.name "cloudfysystems"
@@ -3211,7 +3213,7 @@ jobs:
 
       - name: Commit das alterações
         uses: EndBug/add-and-commit@v9
-        if: ${{ inputs.ios}}
+        if: ${{ inputs.macos }}
         with:
           author_name: cloudfysystems
           author_email: cloudfysystems@gmail.com
