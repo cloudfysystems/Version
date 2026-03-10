@@ -1,4 +1,4 @@
-name: CCAdmin Gerar versão
+name: Cardapio digital - Gerar versão
 
 on:
   workflow_dispatch: # Roda apenas manualmente pelo painel do GitHub
