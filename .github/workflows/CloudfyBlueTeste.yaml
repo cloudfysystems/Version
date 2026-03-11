@@ -1,4 +1,4 @@
-name: CloudfyBlue Gerar versão
+name: CloudfyBlue teste
 
 on:
   workflow_dispatch: # Roda apenas manualmente pelo painel do GitHub
