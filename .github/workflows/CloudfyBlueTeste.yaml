@@ -1,0 +1,60 @@
+name: CloudfyBlue Gerar versão
+
+on:
+  workflow_dispatch: # Roda apenas manualmente pelo painel do GitHub
+env:
+  VERSION: ${{vars.VERSAO}}
+  BUILD: ${{vars.build}}
+  NODE_OPTIONS: "--max-old-space-size=4096"
+  GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4096m
+  SIGNATURE_APP_ID: ${{ secrets.SIGNATURE_APP_ID }}
+  SIGNATURE_CERTIFICATE_NAME: ${{ secrets.SIGNATURE_CERTIFICATE_NAME }}
+  SIGNATURE_VAULT_ID: ${{ secrets.SIGNATURE_VAULT_ID }}
+  SIGNATURE_PASSWORD: ${{ secrets.SIGNATURE_PASSWORD }}
+  SIGNATURE_TENANT_ID: ${{ secrets.SIGNATURE_TENANT_ID }}
+
+jobs:
+  FinishJob:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ./ionic5
+
+    steps:
+      # Checkout do repositório IONIC 5
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudfysystems/IONIC
+          ref: Ionic5 # Branch padrão
+          token: ${{ secrets.GH_TOKEN }}
+          path: ionic5
+          fetch-depth: 0
+
+      # checkout do repositório de versão
+      - uses: actions/checkout@v4
+        with:
+          path: version-repo
+
+      - name: Recuperando os commits entre produção e main
+        id: log
+        continue-on-error: true
+        run: |
+          git config --global user.name "cloudfysystems"
+          git config --global user.email "cloudfysystem@gmail.com"
+          git config --global pull.rebase false
+          git fetch origin production
+          commits=$(git log origin/production..origin/Ionic5 --pretty=format:"- %s (%an)<br>" --no-merges)
+          {
+            echo "commit_messages<<EOF"
+            echo "$commits"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+          git checkout production
+          git merge origin/Ionic5 --no-ff -m "gerando versao na falcatrua" --allow-unrelated-histories
+          git push origin production
+      - name: Ler url e tag html para email (Windows)
+        working-directory: version-repo
+        run: |
+          echo  ${{ steps.log.outputs.commit_messages }}
