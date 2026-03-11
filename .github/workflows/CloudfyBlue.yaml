@@ -329,6 +329,7 @@ jobs:
           ref: Ionic5 # Branch padrão
           token: ${{ secrets.GH_TOKEN }}
           path: ionic5
+          fetch-depth: 0
 
       # checkout do repositório de versão
       - uses: actions/checkout@v4
@@ -342,7 +343,7 @@ jobs:
           git config --global user.name "cloudfysystems"
           git config --global user.email "cloudfysystem@gmail.com"
           git config --global pull.rebase false
-          git pull origin production
+          git fetch origin production
           commits=$(git log origin/production..origin/Ionic5 --pretty=format:"- %s (%an)<br>" --no-merges)
           {
             echo "commit_messages<<EOF"
