@@ -315,7 +315,6 @@ jobs:
   FinishJob:
     needs: [Android, Windows]
     runs-on: ubuntu-latest
-    if: success() && ${{ (inputs.android || inputs.windows) }}
     permissions:
       contents: write
     defaults:
@@ -344,7 +343,7 @@ jobs:
           git config --global user.email "cloudfysystem@gmail.com"
           git config --global pull.rebase false
           git pull origin production
-          commits=$(git log origin/production..origin/main --pretty=format:"- %s (%an)<br>" --no-merges)
+          commits=$(git log origin/production..origin/Ionic5 --pretty=format:"- %s (%an)<br>" --no-merges)
           {
             echo "commit_messages<<EOF"
             echo "$commits"
