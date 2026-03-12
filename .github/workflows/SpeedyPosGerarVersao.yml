@@ -3093,7 +3093,7 @@ jobs:
         uses: Apple-Actions/import-codesign-certs@v1
         with:
           p12-file-base64: ${{ secrets.APPLE_KEY_INSTALLER }}
-          p12-password: ${{ secrets.MACOS_CERT_PSW }}
+          p12-password: ${{ secrets.MACOS_INSTALLER_CERT_PSW }}
           create-keychain: false
 
       - name: Configure Auth Key
