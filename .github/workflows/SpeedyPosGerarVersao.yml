@@ -3181,20 +3181,35 @@ jobs:
         if: ${{ inputs.macos }}
         shell: bash
         run: |
+          set -eo pipefail
           IDENTITY="Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34)"
           ENTITLEMENTS="$(pwd)/macos/Runner/Release.entitlements"
           cd build/macos/Build/Products/Release
           APP="Cloudfy Speedy POS.app"
 
+          # Verificar que os arquivos existem
+          if [ ! -f "$ENTITLEMENTS" ]; then
+            echo "ERRO: Entitlements não encontrado em $ENTITLEMENTS"
+            exit 1
+          fi
+          if [ ! -d "$APP" ]; then
+            echo "ERRO: App não encontrado em $APP"
+            exit 1
+          fi
+
           echo "=== Entitlements que serão usados ==="
           cat "$ENTITLEMENTS"
 
+          echo "=== Identidades de assinatura disponíveis ==="
+          security find-identity -v -p codesigning
+
           echo "=== Assinando dylibs ==="
-          find "$APP/Contents/Frameworks" -name "*.dylib" -exec \
+          find "$APP/Contents/Frameworks" -maxdepth 1 -name "*.dylib" -exec \
             codesign --force --verbose --options runtime --sign "$IDENTITY" {} \;
 
           echo "=== Assinando frameworks ==="
-          find "$APP/Contents/Frameworks" -name "*.framework" -maxdepth 1 | while read fw; do
+          find "$APP/Contents/Frameworks" -maxdepth 1 -name "*.framework" | while read fw; do
+            echo "Assinando: $fw/Versions/A"
             codesign --force --verbose --options runtime --sign "$IDENTITY" "$fw/Versions/A"
           done
 
@@ -3207,47 +3222,36 @@ jobs:
           echo "=== Entitlements embutidos no app final ==="
           codesign -d --entitlements :- "$APP"
 
-          echo "=== Verificando Gatekeeper ==="
-          spctl --assess --type execute --verbose=2 "$APP" || echo "AVISO: spctl falhou (pode ser normal em CI)"
-
           echo "Assinatura concluída com sucesso"
 
-      - name: Criar PKG
+      - name: Criar DMG
         if: ${{ inputs.macos }}
         shell: bash
         run: |
+          set -eo pipefail
           cd build/macos/Build/Products/Release
+          hdiutil create \
+            -volname "Cloudfy Speedy POS" \
+            -srcfolder "Cloudfy Speedy POS.app" \
+            -ov \
+            -format UDZO \
+            "CloudfySpeedyPOS.dmg"
+          ls -la "CloudfySpeedyPOS.dmg"
 
-          # Component package (intermediário)
-          pkgbuild \
-            --component "Cloudfy Speedy POS.app" \
-            --identifier "com.cloudfy.speed" \
-            --version "${{ env.VERSAO }}" \
-            --install-location /Applications \
-            "CloudfySpeedyPOS-component.pkg"
-
-          # Distribution package (installer final)
-          productbuild \
-            --sign "Developer ID Installer: Jose carlos Oliveira Junior (5U63429Q34)" \
-            --package "CloudfySpeedyPOS-component.pkg" \
-            "CloudfySpeedyPOS.pkg"
-
-          rm -f "CloudfySpeedyPOS-component.pkg"
-
-      - name: Notarizar PKG
+      - name: Notarizar DMG
         if: ${{ inputs.macos }}
         run: |
-          xcrun notarytool submit "build/macos/Build/Products/Release/CloudfySpeedyPOS.pkg" \
+          xcrun notarytool submit "build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg" \
           --key /tmp/AuthKey.p8 \
           --key-id "${{ secrets.MACOS_P8_KEY_ID }}" \
           --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \
           --wait \
           --output-format json
 
-      - name: Staple PKG
+      - name: Staple DMG
         if: ${{ inputs.macos }}
         run: |
-          xcrun stapler staple "build/macos/Build/Products/Release/CloudfySpeedyPOS.pkg"
+          xcrun stapler staple "build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg"
 
       - name: Criando o release
         if: ${{ inputs.macos}}
@@ -3256,7 +3260,7 @@ jobs:
           tag_name: v${{ env.VERSAO }}_SpeedyMacOS
           name: v${{ env.VERSAO }}_SpeedyMacOS
           files: |
-            flutter/speed/build/macos/Build/Products/Release/CloudfySpeedyPOS.pkg
+            flutter/speed/build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -3264,7 +3268,7 @@ jobs:
       - name: Chamar API de alteração de dados android
         if: ${{ inputs.macos }}
         run: |
-          URLIOS="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_SpeedyMacOS/CloudfySpeedyPOS.pkg"
+          URLIOS="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_SpeedyMacOS/CloudfySpeedyPOS.dmg"
           echo "$URLIOS"
           echo "Chamando API de validação..."
 
