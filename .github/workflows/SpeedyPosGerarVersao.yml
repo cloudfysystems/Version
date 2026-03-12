@@ -3176,69 +3176,53 @@ jobs:
           platform: macos
           flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
-      # Assinando a aplicaçao com entitlements do código fonte
-      - name: Assinar aplicação
+      # Assinando a aplicaçao
+      - name: Assinando a aplicação na trairagem e zipar
         if: ${{ inputs.macos }}
         shell: bash
         run: |
-          set -eo pipefail
-          IDENTITY="Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34)"
-          ENTITLEMENTS="$(pwd)/macos/Runner/Release.entitlements"
           cd build/macos/Build/Products/Release
-          APP="Cloudfy Speedy POS.app"
+          codesign --deep --force --verbose --options runtime --sign "Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34)" "Cloudfy Speedy POS.app"
+          ditto -c -k --keepParent "Cloudfy Speedy POS.app" CloudfySpeedyPOS.zip
 
-          # Verificar que os arquivos existem
-          if [ ! -f "$ENTITLEMENTS" ]; then
-            echo "ERRO: Entitlements não encontrado em $ENTITLEMENTS"
-            exit 1
-          fi
-          if [ ! -d "$APP" ]; then
-            echo "ERRO: App não encontrado em $APP"
-            exit 1
-          fi
+      - name: Notarize
+        if: ${{ inputs.macos }}
+        run: |
+          xcrun notarytool submit "build/macos/Build/Products/Release/CloudfySpeedyPOS.zip" \
+          --key /tmp/AuthKey.p8 \
+          --key-id "${{ secrets.MACOS_P8_KEY_ID }}" \
+          --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \
+          --wait \
+          --output-format json
 
-          echo "=== Entitlements que serão usados ==="
-          cat "$ENTITLEMENTS"
-
-          echo "=== Identidades de assinatura disponíveis ==="
-          security find-identity -v -p codesigning
-
-          echo "=== Assinando dylibs ==="
-          find "$APP/Contents/Frameworks" -maxdepth 1 -name "*.dylib" -exec \
-            codesign --force --verbose --options runtime --sign "$IDENTITY" {} \;
-
-          echo "=== Assinando frameworks ==="
-          find "$APP/Contents/Frameworks" -maxdepth 1 -name "*.framework" | while read fw; do
-            echo "Assinando: $fw/Versions/A"
-            codesign --force --verbose --options runtime --sign "$IDENTITY" "$fw/Versions/A"
-          done
-
-          echo "=== Assinando app bundle com entitlements ==="
-          codesign --force --verbose --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP"
-
-          echo "=== Verificando assinatura ==="
-          codesign --verify --deep --strict --verbose=2 "$APP"
-
-          echo "=== Entitlements embutidos no app final ==="
-          codesign -d --entitlements :- "$APP"
-
-          echo "Assinatura concluída com sucesso"
+      - name: Staple
+        if: ${{ inputs.macos }}
+        run: |
+          xcrun stapler staple "build/macos/Build/Products/Release/Cloudfy Speedy POS.app"
 
       - name: Criar DMG
         if: ${{ inputs.macos }}
         shell: bash
         run: |
-          set -eo pipefail
+          brew install create-dmg
           cd build/macos/Build/Products/Release
-          hdiutil create \
-            -volname "Cloudfy Speedy POS" \
-            -srcfolder "Cloudfy Speedy POS.app" \
-            -ov \
-            -format UDZO \
-            "CloudfySpeedyPOS.dmg"
-          ls -la "CloudfySpeedyPOS.dmg"
+          create-dmg \
+            --volname "Cloudfy Speedy POS" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --app-drop-link 400 190 \
+            "CloudfySpeedyPOS.dmg" \
+            "Cloudfy Speedy POS.app"
 
-      - name: Notarizar DMG
+      - name: Assinar DMG
+        if: ${{ inputs.macos }}
+        shell: bash
+        run: |
+          codesign --force --sign "Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34)" \
+            "build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg"
+
+      - name: Notarize DMG
         if: ${{ inputs.macos }}
         run: |
           xcrun notarytool submit "build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg" \
