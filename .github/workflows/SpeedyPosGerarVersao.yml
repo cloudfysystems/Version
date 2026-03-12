@@ -3088,6 +3088,14 @@ jobs:
           p12-file-base64: ${{ secrets.MACOS_CERT_BASE64 }}
           p12-password: ${{ secrets.MACOS_CERT_PSW }}
 
+      - name: Import installer certificate
+        if: ${{ inputs.macos}}
+        uses: Apple-Actions/import-codesign-certs@v1
+        with:
+          p12-file-base64: ${{ secrets.APPLE_KEY_INSTALLER }}
+          p12-password: ${{ secrets.MACOS_CERT_PSW }}
+          create-keychain: false
+
       - name: Configure Auth Key
         if: ${{ inputs.macos}}
         run: |
@@ -3147,65 +3155,38 @@ jobs:
           flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
       # Assinando a aplicaçao
-      - name: Assinando a aplicação na trairagem e zipar
+      - name: Assinar aplicação
         if: ${{ inputs.macos }}
         shell: bash
         run: |
           cd build/macos/Build/Products/Release
           codesign --deep --force --verbose --options runtime --sign "Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34)" "Cloudfy Speedy POS.app"
-          ditto -c -k --keepParent "Cloudfy Speedy POS.app" CloudfySpeedyPOS.zip
 
-      - name: Notarize
-        if: ${{ inputs.macos }}
-        run: |
-          xcrun notarytool submit "build/macos/Build/Products/Release/CloudfySpeedyPOS.zip" \
-          --key /tmp/AuthKey.p8 \
-          --key-id "${{ secrets.MACOS_P8_KEY_ID }}" \
-          --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \
-          --wait \
-          --output-format json
-
-      - name: Staple
-        if: ${{ inputs.macos }}
-        run: |
-          xcrun stapler staple "build/macos/Build/Products/Release/Cloudfy Speedy POS.app"
-
-      - name: Criar DMG
+      - name: Criar PKG
         if: ${{ inputs.macos }}
         shell: bash
         run: |
-          brew install create-dmg
           cd build/macos/Build/Products/Release
-          create-dmg \
-            --volname "Cloudfy Speedy POS" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --icon-size 100 \
-            --app-drop-link 400 190 \
-            "CloudfySpeedyPOS.dmg" \
-            "Cloudfy Speedy POS.app"
+          pkgbuild \
+            --component "Cloudfy Speedy POS.app" \
+            --install-location /Applications \
+            --sign "Developer ID Installer: Jose carlos Oliveira Junior (5U63429Q34)" \
+            "CloudfySpeedyPOS.pkg"
 
-      - name: Assinar DMG
-        if: ${{ inputs.macos }}
-        shell: bash
-        run: |
-          codesign --force --sign "Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34)" \
-            "build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg"
-
-      - name: Notarize DMG
+      - name: Notarizar PKG
         if: ${{ inputs.macos }}
         run: |
-          xcrun notarytool submit "build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg" \
+          xcrun notarytool submit "build/macos/Build/Products/Release/CloudfySpeedyPOS.pkg" \
           --key /tmp/AuthKey.p8 \
           --key-id "${{ secrets.MACOS_P8_KEY_ID }}" \
           --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \
           --wait \
           --output-format json
 
-      - name: Staple DMG
+      - name: Staple PKG
         if: ${{ inputs.macos }}
         run: |
-          xcrun stapler staple "build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg"
+          xcrun stapler staple "build/macos/Build/Products/Release/CloudfySpeedyPOS.pkg"
 
       - name: Criando o release
         if: ${{ inputs.macos}}
@@ -3214,7 +3195,7 @@ jobs:
           tag_name: v${{ env.VERSAO }}_SpeedyMacOS
           name: v${{ env.VERSAO }}_SpeedyMacOS
           files: |
-            flutter/speed/build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg
+            flutter/speed/build/macos/Build/Products/Release/CloudfySpeedyPOS.pkg
           body: Release gerado automaticamente.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -3222,7 +3203,7 @@ jobs:
       - name: Chamar API de alteração de dados android
         if: ${{ inputs.macos }}
         run: |
-          URLIOS="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_SpeedyMacOS/CloudfySpeedyPOS.dmg"
+          URLIOS="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_SpeedyMacOS/CloudfySpeedyPOS.pkg"
           echo "$URLIOS"
           echo "Chamando API de validação..."
 
