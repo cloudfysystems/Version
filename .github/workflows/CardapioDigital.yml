@@ -11,6 +11,10 @@ on:
         description: "Gerar versão Android?"
         default: true
         type: boolean
+      android-patch:
+        description: "Atualizar versão Android? (Patch)"
+        default: false
+        type: boolean
       email:
         description: "Deseja enviar email ao finalizar?"
         default: false
@@ -144,6 +148,12 @@ jobs:
           sed -i "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
           cat pubspec.yaml
 
+      - name: Atualiza version.dart
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          echo "const String appVersion = '$VERSAO';" > lib/version.dart
+
       # Executar build do Shorebird
       - name: 🚀 Shorebird Release
         if: ${{ (steps.compute.outputs.execute == 'true') }}
@@ -250,9 +260,200 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
+  android-patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ./flutter/cardapio
+
+    steps:
+      - name: Gerar Variáveis de Ambiente
+        working-directory: .
+        id: compute
+        run: |
+          echo 'DeployName=prod' >> $GITHUB_ENV
+          echo 'DeployNameUpperCase=Cardapio' >> $GITHUB_ENV
+          echo 'UrlId=6' >> $GITHUB_ENV
+          VARIABLE=${{ github.event.inputs.android-patch }}
+
+          # Converte string para 0/1
+          if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi
+
+          # OR lógico
+          if [ $((VARIABLE_BOOL)) -eq 1 ]; then
+            EXECUTE=true
+          else
+            EXECUTE=false
+          fi
+
+          echo "Valor do execute: $EXECUTE"
+
+          echo "execute=$EXECUTE" >> $GITHUB_OUTPUT
+      # Clonar o repositório principal do Flutter
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+
+      # Clonar o repositório de versão
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          path: version-repo
+
+      # Ler e atualizar a versão
+      - name: Ler versão atual
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version${{env.DeployNameUpperCase}}.json"
+
+          # Atualiza o JSON corretamente
+          jq '.speedy.patch += 1' "$VERSION_FILE" > tmp.json
+
+          mv tmp.json "$VERSION_FILE"
+
+          # Pega os valores após a atualização
+          BUILD=$(jq -r '.speedy.build' "$VERSION_FILE")
+          VERSION=$(jq -r '.speedy.version' "$VERSION_FILE")
+          SIMPLE=$(jq -r '.speedy.simple' "$VERSION_FILE")
+          PATCH=$(jq -r '.speedy.patch' "$VERSION_FILE")
+
+          echo "Versao Build: $BUILD"
+          echo "Versao Version: $VERSION"
+          echo "Versao Gerada: $SIMPLE.$VERSION.$PATCH"
+
+          echo "VERSAOOLD=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
+          echo "VERSAO=$SIMPLE.$VERSION.$PATCH" >> $GITHUB_ENV
+
+          echo "Novo JSON:"
+          cat "$VERSION_FILE"
+
+      # Criar arquivo .jks a partir de base64
+      - name: Criar arquivo .jks
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          mkdir -p certificado
+          echo "${{ secrets.KEYSTORE_ADM }}" | base64 -d > certificado/certificado-keystore.keystore
+
+      # Setup Shorebird
+      - name: 🐦 Setup Shorebird
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      # Criar arquivo key.properties
+      - name: Criar arquivo key.properties
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          echo "storePassword=${{ secrets.SENHA_KEYSTORE }}" > android/key.properties
+          echo "keyPassword=${{ secrets.SENHA_KEYSTORE }}" >> android/key.properties
+          echo "keyAlias=cloudcommerce" >> android/key.properties
+          echo "storeFile=../../certificado/certificado-keystore.keystore" >> android/key.properties
+
+      # Set Up Java (usando Oracle JDK 17)
+      - name: Set Up Java
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: actions/setup-java@v3
+        with:
+          distribution: "oracle"
+          java-version: "17"
+
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no pubspec.yaml
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          sed -i "s/^version:.*/version: $VERSAOOLD/" pubspec.yaml
+          cat pubspec.yaml
+
+      - name: Atualiza version.dart
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          echo "const String appVersion = '$VERSAO';" > lib/version.dart
+
+      - name: 🚀 Shorebird Patch
+        uses: shorebirdtech/shorebird-patch@v1
+        id: shorebird-patch
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          platform: android
+          args: --allow-asset-diffs
+          release-version: ${{env.VERSAOOLD}}
+          working-directory: ./flutter/cardapio
+
+      - name: Chamar API de alteração de dados android
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          echo "Chamando API de validação..."
+
+          JSON_DATA=$(cat <<EOF
+          {
+            "JSON": true,
+            "Parameters": {
+              "Versao": "${{ env.VERSAO }}",
+              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",
+              "NR_ID": ${{ env.UrlId }}
+            }
+          }
+          EOF
+          )
+
+          echo $JSON_DATA
+
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d "$JSON_DATA")
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Atualizar branch com merge (se necessário)
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        run: |
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
+
+          # Garante que estamos na branch correta
+          git branch --show-current
+
+          # Tenta fazer pull e merge automático
+          git pull origin HEAD --no-rebase || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build ${{env.DeployNameUpperCase}} (patch)"
+          cwd: ./version-repo
+          add: "version${{env.DeployNameUpperCase}}.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
-    needs: [android]
+    needs: [android, android-patch]
     runs-on: ubuntu-latest
     permissions:
       contents: write
