@@ -3081,21 +3081,42 @@ jobs:
           echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
           cat ./env/prod.json
 
-      - name: Import code sign
+      - name: Import certificates (macOS)
         if: ${{ inputs.macos}}
-        uses: Apple-Actions/import-codesign-certs@v3
-        with:
-          p12-file-base64: ${{ secrets.MACOS_CERT_BASE64 }}
-          p12-password: ${{ secrets.MACOS_CERT_PSW }}
+        env:
+          MACOS_CERT_BASE64: ${{ secrets.MACOS_CERT_BASE64 }}
+          MACOS_CERT_PSW: ${{ secrets.MACOS_CERT_PSW }}
+          APPLE_KEY_INSTALLER: ${{ secrets.APPLE_KEY_INSTALLER }}
+          MACOS_INSTALLER_CERT_PSW: ${{ secrets.MACOS_INSTALLER_CERT_PSW }}
+        run: |
+          # Criar keychain temporário
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 32)
 
-      - name: Import installer certificate
-        if: ${{ inputs.macos}}
-        uses: Apple-Actions/import-codesign-certs@v3
-        with:
-          p12-file-base64: ${{ secrets.APPLE_KEY_INSTALLER }}
-          p12-password: ${{ secrets.MACOS_INSTALLER_CERT_PSW }}
-          create-keychain: false
-          keychain-password: ${{ secrets.MACOS_CERT_PSW }}
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Decodificar e importar certificado de code sign
+          echo "$MACOS_CERT_BASE64" | base64 --decode > $RUNNER_TEMP/codesign.p12
+          security import $RUNNER_TEMP/codesign.p12 -P "$MACOS_CERT_PSW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+
+          # Decodificar e importar certificado de installer
+          echo "$APPLE_KEY_INSTALLER" | base64 --decode > $RUNNER_TEMP/installer.p12
+          security import $RUNNER_TEMP/installer.p12 -P "$MACOS_INSTALLER_CERT_PSW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+
+          # Permitir acesso ao codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Adicionar keychain à lista e tornar padrão
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          security default-keychain -s "$KEYCHAIN_PATH"
+
+          # Verificar certificados importados
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+          # Limpar arquivos temporários
+          rm -f $RUNNER_TEMP/codesign.p12 $RUNNER_TEMP/installer.p12
 
       - name: Configure Auth Key
         if: ${{ inputs.macos}}
