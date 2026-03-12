@@ -3176,38 +3176,41 @@ jobs:
           platform: macos
           flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
-      # Assinando a aplicaçao com entitlements
+      # Assinando a aplicaçao com entitlements do código fonte
       - name: Assinar aplicação
         if: ${{ inputs.macos }}
         shell: bash
         run: |
-          cd build/macos/Build/Products/Release
           IDENTITY="Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34)"
+          ENTITLEMENTS="$(pwd)/macos/Runner/Release.entitlements"
+          cd build/macos/Build/Products/Release
           APP="Cloudfy Speedy POS.app"
 
-          # Extrair entitlements originais do app (gerados pelo Xcode/Shorebird)
-          codesign -d --entitlements :- "$APP" > entitlements.plist
-          echo "=== Entitlements ==="
-          cat entitlements.plist
+          echo "=== Entitlements que serão usados ==="
+          cat "$ENTITLEMENTS"
 
-          # 1. Assinar dylibs soltas
+          echo "=== Assinando dylibs ==="
           find "$APP/Contents/Frameworks" -name "*.dylib" -exec \
             codesign --force --verbose --options runtime --sign "$IDENTITY" {} \;
 
-          # 2. Assinar cada framework (de dentro pra fora)
+          echo "=== Assinando frameworks ==="
           find "$APP/Contents/Frameworks" -name "*.framework" -maxdepth 1 | while read fw; do
             codesign --force --verbose --options runtime --sign "$IDENTITY" "$fw/Versions/A"
           done
 
-          # 3. Assinar o app bundle principal COM entitlements
-          codesign --force --verbose --options runtime --entitlements entitlements.plist --sign "$IDENTITY" "$APP"
+          echo "=== Assinando app bundle com entitlements ==="
+          codesign --force --verbose --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP"
 
-          # 4. Verificar assinatura e entitlements
+          echo "=== Verificando assinatura ==="
           codesign --verify --deep --strict --verbose=2 "$APP"
-          echo "=== Entitlements finais ==="
+
+          echo "=== Entitlements embutidos no app final ==="
           codesign -d --entitlements :- "$APP"
-          echo "Assinatura verificada com sucesso"
-          rm -f entitlements.plist
+
+          echo "=== Verificando Gatekeeper ==="
+          spctl --assess --type execute --verbose=2 "$APP" || echo "AVISO: spctl falhou (pode ser normal em CI)"
+
+          echo "Assinatura concluída com sucesso"
 
       - name: Criar PKG
         if: ${{ inputs.macos }}
