@@ -466,16 +466,18 @@ jobs:
         id: compute
         working-directory: .
         run: |
-          ANDROID=${{ github.event.inputs.android }}          
+          ANDROID=${{ github.event.inputs.android }}
+          ANDROID_PATCH=${{ github.event.inputs.android-patch }}
 
 
 
           # Converte string para 0/1
           if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi          
+          if [ "$ANDROID_PATCH" = "true" ]; then ANDROID_PATCH_BOOL=1; else ANDROID_PATCH_BOOL=0; fi
 
 
           # OR lógico
-          if [ $((ANDROID_BOOL | IOS_BOOL)) -eq 1 ]; then
+          if [ $((ANDROID_BOOL | ANDROID_PATCH_BOOL)) -eq 1 ]; then
             COMBINED=true
           else
             COMBINED=false
