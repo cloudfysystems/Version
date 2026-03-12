@@ -3189,13 +3189,22 @@ jobs:
         shell: bash
         run: |
           cd build/macos/Build/Products/Release
+
+          # Component package (intermediário)
           pkgbuild \
             --component "Cloudfy Speedy POS.app" \
             --identifier "com.cloudfy.speed" \
             --version "${{ env.VERSAO }}" \
             --install-location /Applications \
+            "CloudfySpeedyPOS-component.pkg"
+
+          # Distribution package (installer final)
+          productbuild \
             --sign "Developer ID Installer: Jose carlos Oliveira Junior (5U63429Q34)" \
+            --package "CloudfySpeedyPOS-component.pkg" \
             "CloudfySpeedyPOS.pkg"
+
+          rm -f "CloudfySpeedyPOS-component.pkg"
 
       - name: Notarizar PKG
         if: ${{ inputs.macos }}
