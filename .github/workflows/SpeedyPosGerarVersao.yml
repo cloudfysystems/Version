@@ -3191,6 +3191,8 @@ jobs:
           cd build/macos/Build/Products/Release
           pkgbuild \
             --component "Cloudfy Speedy POS.app" \
+            --identifier "com.cloudfy.speed" \
+            --version "${{ env.VERSAO }}" \
             --install-location /Applications \
             --sign "Developer ID Installer: Jose carlos Oliveira Junior (5U63429Q34)" \
             "CloudfySpeedyPOS.pkg"
