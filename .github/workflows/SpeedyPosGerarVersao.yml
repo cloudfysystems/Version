@@ -3176,6 +3176,14 @@ jobs:
           platform: macos
           flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
           working-directory: ./flutter/speed
+      # Copiar .app antes da assinatura Developer ID (para usar na submissão App Store)
+      - name: Copiar .app para submissão App Store
+        if: ${{ inputs.macos }}
+        shell: bash
+        run: |
+          cp -R "build/macos/Build/Products/Release/Cloudfy Speedy POS.app" \
+            "build/macos/Build/Products/Release/CloudfySpeedyPOS-AppStore.app"
+
       # Assinando a aplicaçao
       - name: Assinando a aplicação na trairagem e zipar
         if: ${{ inputs.macos }}
@@ -3236,6 +3244,35 @@ jobs:
         if: ${{ inputs.macos }}
         run: |
           xcrun stapler staple "build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg"
+
+      # ═══════════════════════ App Store Submission ═══════════════════════
+      - name: Assinar .app para App Store (3rd Party Mac Developer)
+        if: ${{ inputs.macos }}
+        shell: bash
+        run: |
+          codesign --deep --force --verbose --options runtime \
+            --sign "3rd Party Mac Developer Application: Jose carlos Oliveira Junior (5U63429Q34)" \
+            --entitlements macos/Runner/Release.entitlements \
+            "build/macos/Build/Products/Release/CloudfySpeedyPOS-AppStore.app"
+
+      - name: Criar pacote .pkg para App Store
+        if: ${{ inputs.macos }}
+        shell: bash
+        run: |
+          productbuild \
+            --component "build/macos/Build/Products/Release/CloudfySpeedyPOS-AppStore.app" /Applications \
+            --sign "3rd Party Mac Developer Installer: Jose carlos Oliveira Junior (5U63429Q34)" \
+            "build/macos/Build/Products/Release/CloudfySpeedyPOS.pkg"
+
+      - name: Upload para App Store Connect
+        if: ${{ inputs.macos }}
+        shell: bash
+        run: |
+          xcrun altool --upload-app \
+            --file "build/macos/Build/Products/Release/CloudfySpeedyPOS.pkg" \
+            --type macos \
+            --apiKey "${{ secrets.APPLE_API_KEY }}" \
+            --apiIssuer "${{ secrets.APPLE_API_ISSUER_ID }}"
 
       - name: Criando o release
         if: ${{ inputs.macos}}
