@@ -3152,7 +3152,7 @@ jobs:
         shell: bash
         run: |
           cd build/macos/Build/Products/Release
-          codesign --deep --force --verbose --options runtime --sign "Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34" "Cloudfy Speedy POS.app"
+          codesign --deep --force --verbose --options runtime --sign "Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34)" "Cloudfy Speedy POS.app"
           ditto -c -k --keepParent "Cloudfy Speedy POS.app" CloudfySpeedyPOS.zip
 
       - name: Notarize
@@ -3189,8 +3189,23 @@ jobs:
         if: ${{ inputs.macos }}
         shell: bash
         run: |
-          codesign --sign "Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34)" \
+          codesign --force --sign "Developer ID Application: Jose carlos Oliveira Junior (5U63429Q34)" \
             "build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg"
+
+      - name: Notarize DMG
+        if: ${{ inputs.macos }}
+        run: |
+          xcrun notarytool submit "build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg" \
+          --key /tmp/AuthKey.p8 \
+          --key-id "${{ secrets.MACOS_P8_KEY_ID }}" \
+          --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \
+          --wait \
+          --output-format json
+
+      - name: Staple DMG
+        if: ${{ inputs.macos }}
+        run: |
+          xcrun stapler staple "build/macos/Build/Products/Release/CloudfySpeedyPOS.dmg"
 
       - name: Criando o release
         if: ${{ inputs.macos}}
