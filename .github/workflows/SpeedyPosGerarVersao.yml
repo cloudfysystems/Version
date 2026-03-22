@@ -3423,20 +3423,20 @@ jobs:
           flutter pub get
           flutter build linux --release --dart-define-from-file=env/prod.json
 
-      # Instalar flutter_distributor para gerar .deb e .rpm
-      - name: Instalar flutter_distributor
+      # Instalar fastforge para gerar .deb e .rpm
+      - name: Instalar fastforge
         if: ${{ (steps.compute.outputs.execute == 'true') }}
-        run: dart pub global activate flutter_distributor
+        run: dart pub global activate fastforge
 
       # Gerar pacote .deb
       - name: Gerar pacote .deb
         if: ${{ (steps.compute.outputs.execute == 'true') }}
-        run: flutter_distributor package --platform linux --targets deb --skip-clean
+        run: fastforge package --platform linux --targets deb --skip-clean
 
       # Gerar pacote .rpm
       - name: Gerar pacote .rpm
         if: ${{ (steps.compute.outputs.execute == 'true') }}
-        run: flutter_distributor package --platform linux --targets rpm --skip-clean
+        run: fastforge package --platform linux --targets rpm --skip-clean
 
       # Renomear arquivos
       - name: Renomear arquivos Linux
