@@ -55,6 +55,10 @@ on:
         description: "Gerar versão MacOS?"
         default: false
         type: boolean
+      linux:
+        description: "Gerar versão Linux (.deb e .rpm)?"
+        default: false
+        type: boolean
       windows-profile:
         description: "Gerar versão Windows (Profile/Debug?"
         default: false
@@ -3296,6 +3300,275 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
+  linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ./flutter/speed
+
+    steps:
+      - name: Gerar Variáveis de Ambiente
+        working-directory: .
+        id: compute
+        run: |
+          VARIABLE=${{ github.event.inputs.linux }}
+
+          if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi
+
+          if [ $((VARIABLE_BOOL)) -eq 1 ]; then
+            EXECUTE=true
+          else
+            EXECUTE=false
+          fi
+
+          echo "Valor do execute: $EXECUTE"
+          echo "execute=$EXECUTE" >> $GITHUB_OUTPUT
+
+      # Clonar o repositório principal do Flutter
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+
+      # Clonar o repositório de versão
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          path: version-repo
+
+      # Ler e atualizar a versão
+      - name: Ler versão atual
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="versionLinux.json"
+
+          jq '.speedy.build += 1 | .speedy.version += 1 | .speedy.patch = 0' "$VERSION_FILE" > tmp.json
+
+          mv tmp.json "$VERSION_FILE"
+
+          BUILD=$(jq -r '.speedy.build' "$VERSION_FILE")
+          VERSION=$(jq -r '.speedy.version' "$VERSION_FILE")
+          SIMPLE=$(jq -r '.speedy.simple' "$VERSION_FILE")
+
+          echo "Versao Build: $BUILD"
+          echo "Versao Version: $VERSION"
+          echo "Versao Gerada: $SIMPLE.$VERSION.0"
+
+          echo "VERSAO=$SIMPLE.$VERSION.0" >> $GITHUB_ENV
+          echo "VERSAO_BUILD=$BUILD" >> $GITHUB_ENV
+
+          echo "Novo JSON:"
+          cat "$VERSION_FILE"
+
+      # Renomear ícone para minúsculo (Linux é case-sensitive)
+      - name: Renomear Icone-azul.png para icone-azul.png
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          if [ -f "assets/appicon/Icone-azul.png" ]; then
+            mv "assets/appicon/Icone-azul.png" "assets/appicon/icone-azul.png"
+            echo "✅ Ícone renomeado para minúsculo"
+          else
+            echo "Arquivo já está em minúsculo ou não encontrado"
+          fi
+
+      # Criar o arquivo env/prod.json
+      - name: Gerar env/prod.json
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          mkdir -p ./env
+          echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
+          cat ./env/prod.json
+
+      # Atualizar versão no arquivo Dart
+      - name: Atualiza versão no arquivo Dart e pubspec.yaml
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          FILE="lib/Environment/Version.dart"
+          NOVA_VERSAO="${{ env.VERSAO }}"
+          sed -i "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" $FILE
+          cat lib/Environment/Version.dart
+          sed -i "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
+          cat pubspec.yaml
+
+      # Instalar dependências do Linux para build Flutter
+      - name: Instalar dependências Linux
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+          sudo apt-get install -y libayatana-appindicator3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libcurl4-openssl-dev libblkid-dev
+          sudo apt-get install -y rpm patchelf locate libfuse2
+
+      # Setup Flutter
+      - name: Setup Flutter
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_WINDOWS}}
+          channel: stable
+          cache: true
+
+      # Build Flutter Linux
+      - name: Build Flutter Linux
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          flutter pub get
+          flutter build linux --release --dart-define-from-file=env/prod.json
+
+      # Instalar flutter_distributor para gerar .deb e .rpm
+      - name: Instalar flutter_distributor
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: dart pub global activate flutter_distributor
+
+      # Gerar pacote .deb
+      - name: Gerar pacote .deb
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: flutter_distributor package --platform linux --targets deb --skip-clean
+
+      # Gerar pacote .rpm
+      - name: Gerar pacote .rpm
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: flutter_distributor package --platform linux --targets rpm --skip-clean
+
+      # Renomear arquivos
+      - name: Renomear arquivos Linux
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: .
+        run: |
+          echo "Procurando .deb gerado..."
+          DEB_FILE=$(find flutter/speed/dist/ -name "*.deb" | head -1)
+          if [ -n "$DEB_FILE" ]; then
+            mv "$DEB_FILE" flutter/speed/dist/CloudfySpeedyPos.deb
+            echo "✅ DEB renomeado para CloudfySpeedyPos.deb"
+          else
+            echo "⚠️ Arquivo .deb não encontrado!"
+          fi
+
+          echo "Procurando .rpm gerado..."
+          RPM_FILE=$(find flutter/speed/dist/ -name "*.rpm" | head -1)
+          if [ -n "$RPM_FILE" ]; then
+            mv "$RPM_FILE" flutter/speed/dist/CloudfySpeedyPos.rpm
+            echo "✅ RPM renomeado para CloudfySpeedyPos.rpm"
+          else
+            echo "⚠️ Arquivo .rpm não encontrado!"
+          fi
+
+      - name: Criando o release
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSAO }}_SpeedyLinux
+          name: v${{ env.VERSAO }}_SpeedyLinux
+          files: |
+            flutter/speed/dist/CloudfySpeedyPos.deb
+            flutter/speed/dist/CloudfySpeedyPos.rpm
+          body: Release gerado automaticamente.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Chamar API de alteração de dados Linux DEB
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          URLLINUX="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_SpeedyLinux/CloudfySpeedyPos.deb"
+          echo "$URLLINUX"
+          echo "Chamando API de validação DEB..."
+
+          JSON_DATA=$(cat <<EOF
+          {
+            "JSON": true,
+            "Parameters": {
+              "Versao": "${{ env.VERSAO }}",
+              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",
+              "URL": "$URLLINUX",
+              "NR_ID": 23
+            }
+          }
+          EOF
+          )
+
+          echo $JSON_DATA
+
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d "$JSON_DATA")
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API DEB. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Chamar API de alteração de dados Linux RPM
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          URLLINUX="https://github.com/cloudfysystems/Version/releases/download/v${{ env.VERSAO }}_SpeedyLinux/CloudfySpeedyPos.rpm"
+          echo "$URLLINUX"
+          echo "Chamando API de validação RPM..."
+
+          JSON_DATA=$(cat <<EOF
+          {
+            "JSON": true,
+            "Parameters": {
+              "Versao": "${{ env.VERSAO }}",
+              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",
+              "URL": "$URLLINUX",
+              "NR_ID": 24
+            }
+          }
+          EOF
+          )
+
+          echo $JSON_DATA
+
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d "$JSON_DATA")
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API RPM. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Atualizar branch com merge (se necessário)
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        run: |
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
+
+          git branch --show-current
+
+          git pull origin HEAD --no-rebase || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "alterada versão do build Linux"
+          cwd: ./version-repo
+          add: "versionLinux.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
     needs:
@@ -3312,6 +3585,7 @@ jobs:
         android-ifood,
         ios,
         macos,
+        linux,
       ]
     runs-on: ubuntu-latest
     if: ${{ inputs.email}}
@@ -3337,7 +3611,8 @@ jobs:
           STONE=${{ github.event.inputs.android-stone }}
           IOS=${{ github.event.inputs.ios }}
           IFOOD=${{ github.event.inputs.android-ifood }}
-          MACOS=${{ github.event.inputs.macos }}                    
+          MACOS=${{ github.event.inputs.macos }}
+          LINUX=${{ github.event.inputs.linux }}
 
 
 
@@ -3351,15 +3626,16 @@ jobs:
           if [ "$REDEN960K" = "true" ]; then REDEN960K_BOOL=1; else REDEN960K_BOOL=0; fi
           if [ "$WINDOWS" = "true" ]; then WINDOWS_BOOL=1; else WINDOWS_BOOL=0; fi
           if [ "$IOS" = "true" ]; then IOS_BOOL=1; else IOS_BOOL=0; fi
-          if [ "$STONE" = "true" ]; then STONE_BOOL=1; else STONE_BOOL=0; fi          
+          if [ "$STONE" = "true" ]; then STONE_BOOL=1; else STONE_BOOL=0; fi
           if [ "$IFOOD" = "true" ]; then IFOOD_BOOL=1; else IFOOD_BOOL=0; fi
           if [ "$MACOS" = "true" ]; then MACOS_BOOL=1; else MACOS_BOOL=0; fi
+          if [ "$LINUX" = "true" ]; then LINUX_BOOL=1; else LINUX_BOOL=0; fi
 
 
 
 
           # OR lógico
-          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | REDEN960K_BOOL | WINDOWS_BOOL | IOS_BOOL | STONE_BOOL | IFOOD_BOOL | MACOS_BOOL)) -eq 1 ]; then
+          if [ $((ANDROID_BOOL | TEF_BOOL | PAGSEGURO_BOOL | GETNET_BOOL | CIELO_BOOL | REDE_BOOL | REDEN960K_BOOL | WINDOWS_BOOL | IOS_BOOL | STONE_BOOL | IFOOD_BOOL | MACOS_BOOL | LINUX_BOOL)) -eq 1 ]; then
             COMBINED=true
           else
             COMBINED=false
