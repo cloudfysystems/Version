@@ -3424,12 +3424,12 @@ jobs:
       # Gerar pacote .deb
       - name: Gerar pacote .deb
         if: ${{ (steps.compute.outputs.execute == 'true') }}
-        run: fastforge package --platform linux --targets deb -- --dart-define-from-file=env/prod.json
+        run: fastforge package --platform linux --targets deb --flutter-build-args dart-define-from-file=env/prod.json
 
       # Gerar pacote .rpm
       - name: Gerar pacote .rpm
         if: ${{ (steps.compute.outputs.execute == 'true') }}
-        run: fastforge package --platform linux --targets rpm --skip-clean -- --dart-define-from-file=env/prod.json
+        run: fastforge package --platform linux --targets rpm --skip-clean --flutter-build-args dart-define-from-file=env/prod.json
 
       # Renomear arquivos
       - name: Renomear arquivos Linux
