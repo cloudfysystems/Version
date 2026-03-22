@@ -3412,7 +3412,7 @@ jobs:
         if: ${{ (steps.compute.outputs.execute == 'true') }}
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{vars.FLUTTER_VERSION_SDK_WINDOWS}}
+          flutter-version: '3.29.3'
           channel: stable
           cache: true
 
