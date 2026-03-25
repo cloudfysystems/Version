@@ -95,7 +95,7 @@ jobs:
         if: ${{ (steps.compute.outputs.execute == 'true') }}
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{vars.FLUTTER_VERSION_SDK_ANDROID_SMART}}
+          flutter-version: ${{vars.FLUTTER_VERSION_SDK_DELIVERY}}
           channel: stable
           cache: true
 
@@ -123,12 +123,12 @@ jobs:
         if: ${{ (steps.compute.outputs.execute == 'true') }}
         run: |
           mkdir -p env
-          echo '${{ secrets.ENV_PROD }}' > ./env/prod.json
+          echo '${{ secrets.ENV_PROD_DELIVERY }}' > ./env/prod.json
 
       # Build Web
       - name: Build Flutter Web
         if: ${{ (steps.compute.outputs.execute == 'true') }}
-        run: flutter build web --release --dart-define-from-file env/prod.json
+        run: flutter build web --release --wasm --dart-define-from-file env/prod.json
 
       # Zipar o build web
       - name: Zipar build web
@@ -160,33 +160,25 @@ jobs:
           echo "URL do ZIP: $URLZIP"
           echo "Chamando API de deploy..."
 
-          JSON_DATA=$(cat <<EOF
-          {
-            "JSON": true,
-            "Parameters": {
-              "Senha": "${{ secrets.SENHA_DEPLOY_DELIVERY }}",
-              "Url": "$URLZIP"
-            }
-          }
-          EOF
-          )
+          JSON_DATA='{"JSON":true,"Parameters":{"Senha":"${{ secrets.SENHA_DEPLOY_DELIVERY }}","Url":"'"$URLZIP"'"}}'
 
           echo "Payload: $JSON_DATA"
 
           response=$(curl -s -o response.txt -w "%{http_code}" \
             -X POST https://api.cloudfy.net.br/DeployDelivery \
             -H "Content-Type: application/json" \
-            -d "$JSON_DATA")
+            -d "$JSON_DATA" \
+            --max-time 120)
 
-          echo "Código HTTP: $response"
+          echo "Codigo HTTP: $response"
           cat response.txt
 
           if [ "$response" != "200" ]; then
-            echo "❌ Falha no deploy. Código HTTP: $response"
+            echo "Falha no deploy. Codigo HTTP: $response"
             exit 1
           fi
 
-          echo "✅ Deploy realizado com sucesso!"
+          echo "Deploy realizado com sucesso!"
 
       # Atualizar branch com merge
       - name: Atualizar branch com merge (se necessário)
