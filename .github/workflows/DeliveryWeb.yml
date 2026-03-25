@@ -180,6 +180,17 @@ jobs:
 
           echo "Deploy realizado com sucesso!"
 
+      # Deletar o release do GitHub (nao manter fontes desnecessarios)
+      - name: Deletar release do GitHub
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          TAG="v${{ env.VERSAO }}_delivery${{env.DeployNameUpperCase}}"
+          echo "Deletando release e tag: $TAG"
+          gh release delete "$TAG" --yes --cleanup-tag
+          echo "Release e tag deletados com sucesso!"
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
       # Atualizar branch com merge
       - name: Atualizar branch com merge (se necessário)
         if: ${{ (steps.compute.outputs.execute == 'true') }}
