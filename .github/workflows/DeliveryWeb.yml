@@ -128,7 +128,7 @@ jobs:
       # Build Web
       - name: Build Flutter Web
         if: ${{ (steps.compute.outputs.execute == 'true') }}
-        run: flutter build web --release --wasm --dart-define-from-file env/prod.json
+        run: flutter build web --release --dart-define-from-file env/prod.json
 
       # Zipar o build web
       - name: Zipar build web
