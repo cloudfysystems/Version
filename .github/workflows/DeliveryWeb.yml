@@ -183,11 +183,19 @@ jobs:
       # Deletar o release do GitHub (nao manter fontes desnecessarios)
       - name: Deletar release do GitHub
         if: ${{ (steps.compute.outputs.execute == 'true') }}
+        continue-on-error: true
         run: |
           TAG="v${{ env.VERSAO }}_delivery${{env.DeployNameUpperCase}}"
-          echo "Deletando release e tag: $TAG"
-          gh release delete "$TAG" --yes --cleanup-tag
-          echo "Release e tag deletados com sucesso!"
+          REPO="cloudfysystems/Version"
+          echo "Deletando release e tag: $TAG no repo $REPO"
+
+          # Deleta o release
+          gh release delete "$TAG" --yes --cleanup-tag --repo "$REPO" || echo "Release nao encontrado, ignorando..."
+
+          # Garante que a tag tambem foi removida
+          git push --delete origin "$TAG" 2>/dev/null || echo "Tag ja removida ou nao encontrada"
+
+          echo "Limpeza concluida!"
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
