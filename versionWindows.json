@@ -1,8 +1,8 @@
 ﻿{
-    "speedy":  {
-                   "build":  11,
-                   "version":  48,
-                   "patch":  4,
-                   "simple":  "1"
-               }
+  "speedy": {
+    "build": 11,
+    "version": 49,
+    "patch": 1,
+    "simple": "1"
+  }
 }
