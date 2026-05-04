@@ -33,11 +33,14 @@ on:
                 description: "producao ou staging"
                 required: true
                 type: string
+            conf_frontend:
+                description: "Conteudo do Prod.ts (resolvido pelo caller — vars.CONF_<APP> ou vars.CONF_<APP>_STAGING). Nao tem dado sensivel — vai pro bundle JS."
+                required: false
+                type: string
+                default: ""
         secrets:
             CROSS_REPO_TOKEN:
                 required: true
-            CONF_FRONTEND:
-                required: false   # opcional — se nao informado, build usa Prod.ts default
 
 permissions:
     id-token: write
@@ -95,7 +98,7 @@ jobs:
             - name: Job de deploy (clone + build + rsync pro PVC frontendpvc)
               env:
                   CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-                  CONF_TS: ${{ secrets.CONF_FRONTEND }}
+                  CONF_TS: ${{ inputs.conf_frontend }}
                   GIT_SHA: ${{ github.sha }}
               run: |
                   set -uo pipefail
@@ -124,14 +127,14 @@ jobs:
                       --from-literal=token="${CROSS_REPO_TOKEN}" \
                       --dry-run=client -o yaml | kubectl apply -f -
 
-                  # 2. ConfigMap com Prod.ts override (se CONF_FRONTEND foi passado)
+                  # 2. ConfigMap com Prod.ts override (se conf_frontend foi passado)
                   if [ -n "${CONF_TS}" ]; then
-                      echo "Secret CONF_FRONTEND fornecido — criando ConfigMap ${CM_NAME}"
+                      echo "conf_frontend fornecido — criando ConfigMap ${CM_NAME}"
                       kubectl create configmap "${CM_NAME}" \
                           --from-literal=Prod.ts="${CONF_TS}" \
                           --dry-run=client -o yaml | kubectl apply -f -
                   else
-                      echo "Sem CONF_FRONTEND — Job vai usar Prod.ts default do repo"
+                      echo "Sem conf_frontend — Job vai usar Prod.ts default do repo"
                       kubectl delete configmap "${CM_NAME}" --ignore-not-found
                   fi
 
