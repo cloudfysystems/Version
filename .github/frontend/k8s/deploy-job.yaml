@@ -17,7 +17,7 @@ metadata:
     name: deploy-frontend-${APP_LOWER}-${SHORT_SHA}
     labels:
         app: frontend-${APP_LOWER}
-        deploy-job: 'true'
+        deploy-job: "true"
 spec:
     backoffLimit: 1
     activeDeadlineSeconds: 1800
@@ -26,7 +26,7 @@ spec:
         metadata:
             labels:
                 app: frontend-${APP_LOWER}
-                deploy-job: 'true'
+                deploy-job: "true"
         spec:
             restartPolicy: Never
             containers:
@@ -34,67 +34,67 @@ spec:
                   image: node:24-bookworm-slim
                   workingDir: /workspace
                   env:
-                      - { name: APP,        value: '${APP}' }
-                      - { name: APP_LOWER,  value: '${APP_LOWER}' }
-                      - { name: APP_UPPER,  value: '${APP_UPPER}' }
-                      - { name: BRANCH,     value: '${BRANCH}' }
-                      - { name: SUFFIX,     value: '${SUFFIX}' }
+                      - { name: APP, value: "${APP}" }
+                      - { name: APP_LOWER, value: "${APP_LOWER}" }
+                      - { name: APP_UPPER, value: "${APP_UPPER}" }
+                      - { name: BRANCH, value: "${BRANCH}" }
+                      - { name: SUFFIX, value: "${SUFFIX}" }
                       - name: GITHUB_TOKEN
                         valueFrom:
                             secretKeyRef:
                                 name: cross-repo-token-${SHORT_SHA}
                                 key: token
-                  command: ['/bin/bash', '-c']
+                  command: [ "/bin/bash", "-c" ]
                   args:
                       - |
-                          set -euxo pipefail
+                        set -euxo pipefail
 
-                          # 1. Tooling em runtime
-                          apt-get update -qq
-                          apt-get install -y --no-install-recommends \
-                              git rsync ca-certificates curl \
-                              python3 make g++ >/dev/null
+                        # 1. Tooling em runtime
+                        apt-get update -qq
+                        apt-get install -y --no-install-recommends \
+                            git rsync ca-certificates curl \
+                            python3 make g++ >/dev/null
 
-                          # 2. pnpm 10 via corepack
-                          corepack enable
-                          corepack prepare pnpm@10 --activate
-                          pnpm --version
+                        # 2. pnpm 10 via corepack
+                        corepack enable
+                        corepack prepare pnpm@10 --activate
+                        pnpm --version
 
-                          # 3. Clone do repo Frontend
-                          git clone --depth 1 --branch "${BRANCH}" \
-                              "https://x-access-token:${GITHUB_TOKEN}@github.com/cloudfysystems/Frontend.git" .
+                        # 3. Clone do repo Frontend
+                        git clone --depth 1 --branch "${BRANCH}" \
+                            "https://x-access-token:${GITHUB_TOKEN}@github.com/cloudfysystems/Frontend.git" .
 
-                          # 4. Override do Prod.ts via ConfigMap (se Variable
-                          # CONF_<APP> setada no environment)
-                          if [ -f /conf/Prod.ts ]; then
-                              echo "Aplicando override de env do GitHub Variable CONF_${APP_UPPER}${SUFFIX:+_STAGING}"
-                              cp /conf/Prod.ts apps/${APP_LOWER}/src/ambiente/Prod.ts
-                          else
-                              echo "Sem CONF setada — usando Prod.ts default do repo"
-                          fi
+                        # 4. Override do Prod.ts via ConfigMap (se Variable
+                        # CONF_<APP> setada no environment)
+                        if [ -f /conf/Prod.ts ]; then
+                            echo "Aplicando override de env do GitHub Variable CONF_${APP_UPPER}${SUFFIX:+_STAGING}"
+                            cp /conf/Prod.ts apps/${APP_LOWER}/src/ambiente/Prod.ts
+                        else
+                            echo "Sem CONF setada — usando Prod.ts default do repo"
+                        fi
 
-                          # 5. Install + build (corp primeiro, depois app)
-                          pnpm install --frozen-lockfile
-                          pnpm build:corp
-                          pnpm build:${APP_LOWER}
+                        # 5. Install + build (corp primeiro, depois app)
+                        pnpm install --frozen-lockfile
+                        pnpm build:corp
+                        pnpm build:${APP_LOWER}
 
-                          # 6. Sanity check
-                          DIST_DIR="dist/${APP_LOWER}/browser"
-                          if [ ! -d "${DIST_DIR}" ] || [ -z "$(ls -A "${DIST_DIR}")" ]; then
-                              echo "::error::Diretorio de dist '${DIST_DIR}' nao existe ou esta vazio"
-                              ls -la dist/ || true
-                              exit 1
-                          fi
+                        # 6. Sanity check
+                        DIST_DIR="dist/${APP_LOWER}/browser"
+                        if [ ! -d "${DIST_DIR}" ] || [ -z "$(ls -A "${DIST_DIR}")" ]; then
+                            echo "::error::Diretorio de dist '${DIST_DIR}' nao existe ou esta vazio"
+                            ls -la dist/ || true
+                            exit 1
+                        fi
 
-                          # 7. rsync pro PVC EFS — path muda com staging
-                          # (prod: /pvc/A03AP01/, staging: /pvc/A03AP01-staging/)
-                          PVC_PATH="/pvc/${APP_UPPER}${SUFFIX}"
-                          mkdir -p "${PVC_PATH}"
-                          rsync -rlt --omit-dir-times --delete \
-                                --no-owner --no-group --no-perms \
-                                "${DIST_DIR}/" "${PVC_PATH}/"
+                        # 7. rsync pro PVC EFS — path muda com staging
+                        # (prod: /pvc/A03AP01/, staging: /pvc/A03AP01-staging/)
+                        PVC_PATH="/pvc/${APP_UPPER}V2${SUFFIX}"
+                        mkdir -p "${PVC_PATH}"
+                        rsync -rlt --omit-dir-times --delete \
+                              --no-owner --no-group --no-perms \
+                              "${DIST_DIR}/" "${PVC_PATH}/"
 
-                          echo "deploy frontend ${APP} (${BRANCH}) ok em ${PVC_PATH}"
+                        echo "deploy frontend ${APP} (${BRANCH}) ok em ${PVC_PATH}"
                   volumeMounts:
                       - name: pvc
                         mountPath: /pvc
