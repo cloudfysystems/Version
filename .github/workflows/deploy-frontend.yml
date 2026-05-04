@@ -61,6 +61,31 @@ jobs:
             AWS_ROLE: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.IAM_ROLE_NAME }}
             EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
         steps:
+            - name: Validar vars/secrets do environment
+              # Falha rapido com erro claro se alguma variable critica estiver
+              # vazia, em vez de quebrar la no kubectl/aws cli com mensagem
+              # criptica. Var CONF_A03AP01 e opcional (se vazia, build usa
+              # Prod.ts default do repo).
+              env:
+                  V_AWS_REGION: ${{ vars.AWS_REGION }}
+                  V_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+                  V_IAM_ROLE_NAME: ${{ vars.IAM_ROLE_NAME }}
+                  V_EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
+                  S_CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+              run: |
+                  MISSING=""
+                  for V in V_AWS_REGION V_AWS_ACCOUNT_ID V_IAM_ROLE_NAME V_EKS_CLUSTER S_CROSS_REPO_TOKEN; do
+                      if [ -z "${!V}" ]; then
+                          MISSING="$MISSING ${V#?_}"
+                      fi
+                  done
+                  if [ -n "$MISSING" ]; then
+                      echo "::error::Vars/secrets faltando no environment '${{ inputs.environment }}':$MISSING"
+                      echo "::error::Configure em Settings -> Environments -> ${{ inputs.environment }} (vars + secrets)"
+                      exit 1
+                  fi
+                  echo "OK: todos os vars/secrets do environment ${{ inputs.environment }} estao configurados"
+
             - name: Checkout version repo (k8s manifests)
               uses: actions/checkout@v4
               with:

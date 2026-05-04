@@ -67,6 +67,34 @@ jobs:
             HASH_BUCKET: ${{ vars.HASH_BUCKET }}
             HASH_KEY: nodejsn03ap01.deps.hash
         steps:
+            - name: Validar vars/secrets do environment
+              # Falha rapido com erro claro se alguma variable critica estiver
+              # vazia, em vez de quebrar la no kubectl/aws cli com mensagem
+              # criptica. Roda como primeiro step do pipeline — se faltar var,
+              # nada CI/build/deploy comeca.
+              env:
+                  V_AWS_REGION: ${{ vars.AWS_REGION }}
+                  V_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+                  V_IAM_ROLE_NAME: ${{ vars.IAM_ROLE_NAME }}
+                  V_EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
+                  V_HASH_BUCKET: ${{ vars.HASH_BUCKET }}
+                  V_EFS_FILESYSTEM_ID: ${{ vars.EFS_FILESYSTEM_ID }}
+                  S_CONF_N03AP01: ${{ secrets.CONF_N03AP01 }}
+                  S_CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+              run: |
+                  MISSING=""
+                  for V in V_AWS_REGION V_AWS_ACCOUNT_ID V_IAM_ROLE_NAME V_EKS_CLUSTER V_HASH_BUCKET V_EFS_FILESYSTEM_ID S_CONF_N03AP01 S_CROSS_REPO_TOKEN; do
+                      if [ -z "${!V}" ]; then
+                          MISSING="$MISSING ${V#?_}"
+                      fi
+                  done
+                  if [ -n "$MISSING" ]; then
+                      echo "::error::Vars/secrets faltando no environment '${{ inputs.environment }}':$MISSING"
+                      echo "::error::Configure em Settings -> Environments -> ${{ inputs.environment }} (vars + secrets)"
+                      exit 1
+                  fi
+                  echo "OK: todos os vars/secrets do environment ${{ inputs.environment }} estao configurados"
+
             - name: Checkout version repo (Dockerfile + scripts + k8s)
               uses: actions/checkout@v4
               with:
@@ -248,12 +276,12 @@ jobs:
                   kubectl apply -f version-repo/.github/backend/k8s/n03ap01/hpa.yaml
                   kubectl apply -f version-repo/.github/backend/k8s/n03ap01/pdb.yaml
 
-            - name: Cria/atualiza Secret n03ap01v2-conf (do GitHub Variable CONF_N03AP01)
+            - name: Cria/atualiza Secret n03ap01v2-conf (do GitHub Secret CONF_N03AP01)
               env:
-                  CONF_JSON: ${{ vars.CONF_N03AP01 }}
+                  CONF_JSON: ${{ secrets.CONF_N03AP01 }}
               run: |
                   if [ -z "${CONF_JSON}" ]; then
-                      echo "::error::Variable CONF_N03AP01 nao configurada no environment ${{ inputs.environment }}"
+                      echo "::error::Secret CONF_N03AP01 nao configurado no environment ${{ inputs.environment }}"
                       exit 1
                   fi
                   echo "${CONF_JSON}" | python3 -c "import sys, json; json.load(sys.stdin)" \
