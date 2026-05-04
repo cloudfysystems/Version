@@ -335,6 +335,12 @@ jobs:
           echo "${{ secrets.APPLE_API_PRIVATE_KEY }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
           chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
 
+      - name: Setup Xcode
+        if: ${{ inputs.ios }}
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -687,6 +693,12 @@ jobs:
           mkdir -p ~/.appstoreconnect/private_keys
           echo "${{ secrets.APPLE_API_PRIVATE_KEY }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
           chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+
+      - name: Setup Xcode
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       # NÃO atualizar pubspec.yaml — Shorebird identifica a release pela versão do pubspec;
       # alterar invalidaria o patch contra a release-version alvo.
