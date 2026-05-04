@@ -1,0 +1,24 @@
+# StorageClass que aponta pro EFS file system da conta AWS do environment.
+# K8S_NAME = ${K8S_BASE}${SUFFIX} — em staging ganha `-staging`, criando
+# uma SC separada (efs-n03ap01v2-staging) com basePath proprio.
+# EFS_FILESYSTEM_ID vem do environment (mesma conta AWS).
+#
+# IMPORTANTE: parametros de StorageClass sao IMUTAVEIS. O workflow aplica
+# este YAML apenas quando o SC NAO existe (kubectl get sc ... || create).
+# Mudar fileSystemId apos criacao requer delete + recreate manual.
+#
+# Substituicao envsubst antes de `kubectl apply -f -`:
+#   ${K8S_NAME} ${EFS_FILESYSTEM_ID}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+    name: efs-${K8S_NAME}
+provisioner: efs.csi.aws.com
+parameters:
+    provisioningMode: efs-ap
+    fileSystemId: ${EFS_FILESYSTEM_ID}
+    directoryPerms: '755'
+    basePath: '/backend/${K8S_NAME}'
+    subPathPattern: '${.PVC.name}'
+mountOptions:
+    - tls

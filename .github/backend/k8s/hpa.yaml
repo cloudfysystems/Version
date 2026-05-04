@@ -1,20 +1,20 @@
-# HPA com scale-down CONSERVADOR pra proteger conexoes WebSocket:
-# - 15min sem queda de carga antes de avaliar derrubar pod
-# - Maximo 1 pod a cada 10min
-# Combinado com terminationGracePeriodSeconds: 60 + preStop hook (5s drain)
-# + graceful shutdown nativo do @cloudfy/corp (StartUp.Shutdown), o cliente
-# WS tem tempo de reconectar em outro pod antes do encerramento.
+# HPA com scale-down conservador (15min sem queda, max 1 pod a cada 10min)
+# pra proteger conexoes WebSocket. Combinado com graceful shutdown nativo
+# do @cloudfy/corp, o cliente WS tem tempo de reconectar.
+#
+# Substituicao envsubst:
+#   ${K8S_NAME}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-    name: n03ap01v2
+    name: ${K8S_NAME}
     labels:
-        app: n03ap01v2
+        app: ${K8S_NAME}
 spec:
     scaleTargetRef:
         apiVersion: apps/v1
         kind: Deployment
-        name: n03ap01v2
+        name: ${K8S_NAME}
     minReplicas: 2
     maxReplicas: 5
     metrics:

@@ -1,0 +1,419 @@
+name: _Deploy backend app (reusable)
+
+# Reusable workflow chamado por deploy-backend.yml. Faz CI + build de imagem
+# ECR + deploy no EKS pra UMA app especifica. Suporta producao/staging via
+# input tipo_deploy (producao=branch main; staging=branch staging + sufixo
+# -staging na imagem ECR).
+#
+# K8s resources de prod e staging coexistem no mesmo cluster — TODOS os
+# recursos (Deployment, Service, PVC, Secret, ConfigMaps, HPA, PDB, SC)
+# levam o suffix `-staging` quando tipo_deploy=staging. Permite rodar os
+# dois lado a lado sem interferencia.
+#
+# Convencao de nomes:
+#   APP_NAME    = nome da app (ex: n03ap01) — usado em paths e nome da imagem
+#   K8S_BASE    = nome base dos recursos K8s (n03 usa n03ap01v2 legado; futuras = APP_NAME)
+#   SUFFIX      = ""           se tipo_deploy=producao
+#                 "-staging"   se tipo_deploy=staging
+#   BRANCH      = "main"       se tipo_deploy=producao
+#                 "staging"    se tipo_deploy=staging
+#   K8S_NAME    = ${K8S_BASE}${SUFFIX}  (ex: n03ap01v2-staging em staging)
+#   IMAGE_NAME  = cloudfysystems/nodejs<APP_NAME><SUFFIX>:latest
+#
+# Inputs sao tipados (workflow_call). Caller (deploy-backend.yml) deve passar:
+#   - app_name (string)
+#   - k8s_base (string)
+#   - environment (string — prodCloudfy | prodAcCredito | homolAcCredito)
+#   - tipo_deploy (string — producao | staging)
+#   - force_image_rebuild (boolean opcional)
+# E os secrets:
+#   - CROSS_REPO_TOKEN
+#   - CONF_BACKEND (ja resolvido pelo caller — CONF_<APP> ou CONF_<APP>_STAGING)
+
+on:
+    workflow_call:
+        inputs:
+            app_name:
+                description: "Nome da app (ex: n03ap01)"
+                required: true
+                type: string
+            k8s_base:
+                description: "Nome base dos recursos K8s (default = app_name; n03ap01 usa n03ap01v2 legado)"
+                required: true
+                type: string
+            environment:
+                description: "GitHub Environment (prodCloudfy | prodAcCredito | homolAcCredito)"
+                required: true
+                type: string
+            tipo_deploy:
+                description: "producao ou staging"
+                required: true
+                type: string
+            force_image_rebuild:
+                description: "Forcar rebuild da imagem ECR mesmo sem mudanca de deps"
+                required: false
+                type: boolean
+                default: false
+        secrets:
+            CROSS_REPO_TOKEN:
+                required: true
+            CONF_BACKEND:
+                required: true
+
+permissions:
+    id-token: write
+    contents: read
+
+jobs:
+    ci:
+        name: "${{ inputs.app_name }} (${{ inputs.tipo_deploy }}) — CI"
+        environment: ${{ inputs.environment }}
+        runs-on: ubuntu-latest
+        outputs:
+            deps_hash: ${{ steps.hash.outputs.hash }}
+            prev_hash: ${{ steps.prev.outputs.hash }}
+            git_sha: ${{ steps.checkout-source.outputs.commit }}
+        env:
+            APP_NAME: ${{ inputs.app_name }}
+            K8S_NAME: ${{ inputs.k8s_base }}${{ inputs.tipo_deploy == 'staging' && '-staging' || '' }}
+            SUFFIX: ${{ inputs.tipo_deploy == 'staging' && '-staging' || '' }}
+            BRANCH: ${{ inputs.tipo_deploy == 'staging' && 'staging' || 'main' }}
+            AWS_REGION: ${{ vars.AWS_REGION }}
+            AWS_ROLE: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.IAM_ROLE_NAME }}
+            HASH_BUCKET: ${{ vars.HASH_BUCKET }}
+        steps:
+            - name: Validar vars/secrets do environment
+              env:
+                  V_AWS_REGION: ${{ vars.AWS_REGION }}
+                  V_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+                  V_IAM_ROLE_NAME: ${{ vars.IAM_ROLE_NAME }}
+                  V_EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
+                  V_HASH_BUCKET: ${{ vars.HASH_BUCKET }}
+                  V_EFS_FILESYSTEM_ID: ${{ vars.EFS_FILESYSTEM_ID }}
+                  S_CONF_BACKEND: ${{ secrets.CONF_BACKEND }}
+                  S_CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+              run: |
+                  MISSING=""
+                  for V in V_AWS_REGION V_AWS_ACCOUNT_ID V_IAM_ROLE_NAME V_EKS_CLUSTER V_HASH_BUCKET V_EFS_FILESYSTEM_ID S_CONF_BACKEND S_CROSS_REPO_TOKEN; do
+                      if [ -z "${!V}" ]; then
+                          MISSING="$MISSING ${V#?_}"
+                      fi
+                  done
+                  if [ -n "$MISSING" ]; then
+                      echo "::error::Vars/secrets faltando no environment '${{ inputs.environment }}':$MISSING"
+                      echo "::error::Configure em Settings -> Environments -> ${{ inputs.environment }}"
+                      echo "::error::Lembrete: CONF_<APP> (prod) e CONF_<APP>_STAGING (staging) sao secrets distintos por environment"
+                      exit 1
+                  fi
+                  echo "OK: vars/secrets do environment ${{ inputs.environment }} configurados"
+                  echo "Deploy: app=${APP_NAME} tipo=${{ inputs.tipo_deploy }} branch=${BRANCH} suffix='${SUFFIX}' k8s_name=${K8S_NAME}"
+
+            - name: Checkout version repo
+              uses: actions/checkout@v4
+              with:
+                  path: version-repo
+
+            - name: Checkout Backend source (branch ${{ inputs.tipo_deploy == 'staging' && 'staging' || 'main' }})
+              id: checkout-source
+              uses: actions/checkout@v4
+              with:
+                  repository: cloudfysystems/Backend
+                  ref: ${{ env.BRANCH }}
+                  token: ${{ secrets.CROSS_REPO_TOKEN }}
+                  path: backend-source
+
+            - uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: "21"
+
+            - uses: pnpm/action-setup@v3
+              with:
+                  version: 10
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: pnpm
+                  cache-dependency-path: backend-source/pnpm-lock.yaml
+
+            - name: pnpm install + typecheck + lint + build
+              working-directory: backend-source
+              run: |
+                  pnpm install --frozen-lockfile
+                  pnpm typecheck
+                  pnpm lint
+                  pnpm build
+
+            - name: Gerar package.json agregado
+              run: |
+                  node version-repo/.github/backend/scripts/gen-aggregated-package.mjs \
+                      --app=${APP_NAME} \
+                      --root=backend-source \
+                      > version-repo/.github/backend/package.json
+                  echo "--- package.json agregado ---"
+                  cat version-repo/.github/backend/package.json
+
+            - name: Hash do package.json + Dockerfile
+              id: hash
+              run: |
+                  cat version-repo/.github/backend/package.json \
+                      version-repo/.github/backend/Dockerfile \
+                      | sha256sum | awk '{print $1}' \
+                      | tee /tmp/agg.hash
+                  echo "hash=$(cat /tmp/agg.hash)" >> "$GITHUB_OUTPUT"
+
+            - uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  role-to-assume: ${{ env.AWS_ROLE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Buscar hash anterior no S3
+              id: prev
+              env:
+                  HASH_KEY: nodejs${{ inputs.app_name }}${{ inputs.tipo_deploy == 'staging' && '-staging' || '' }}.deps.hash
+              run: |
+                  if aws s3 cp "s3://${HASH_BUCKET}/${HASH_KEY}" prev.hash 2>/dev/null; then
+                      echo "hash=$(cat prev.hash)" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "hash=" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Upload artefatos pro proximo job
+              uses: actions/upload-artifact@v4
+              with:
+                  name: build-artifacts-${{ inputs.app_name }}-${{ inputs.tipo_deploy }}
+                  retention-days: 1
+                  path: |
+                      version-repo/.github/backend/package.json
+                      version-repo/.github/backend/Dockerfile
+                      backend-source/apps/${{ inputs.app_name }}/package.json
+                      backend-source/packages/corp/package.json
+
+    build-image:
+        name: "${{ inputs.app_name }} (${{ inputs.tipo_deploy }}) — Build & push ECR"
+        needs: ci
+        if: |
+            needs.ci.result == 'success' &&
+            (needs.ci.outputs.deps_hash != needs.ci.outputs.prev_hash || inputs.force_image_rebuild)
+        environment: ${{ inputs.environment }}
+        runs-on: ubuntu-latest
+        env:
+            APP_NAME: ${{ inputs.app_name }}
+            SUFFIX: ${{ inputs.tipo_deploy == 'staging' && '-staging' || '' }}
+            AWS_REGION: ${{ vars.AWS_REGION }}
+            AWS_ROLE: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.IAM_ROLE_NAME }}
+            ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+            HASH_BUCKET: ${{ vars.HASH_BUCKET }}
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                  name: build-artifacts-${{ inputs.app_name }}-${{ inputs.tipo_deploy }}
+                  path: artifacts
+
+            - name: Reorganizar artefatos pro Docker build context
+              run: |
+                  mkdir -p docker-context
+                  cp artifacts/version-repo/.github/backend/package.json  docker-context/
+                  cp artifacts/version-repo/.github/backend/Dockerfile    docker-context/
+                  ls -la docker-context
+
+            - uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  role-to-assume: ${{ env.AWS_ROLE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - uses: aws-actions/amazon-ecr-login@v2
+
+            - name: Build & push imagem
+              env:
+                  IMAGE_NAME: cloudfysystems/nodejs${{ inputs.app_name }}${{ inputs.tipo_deploy == 'staging' && '-staging' || '' }}
+              run: |
+                  docker build \
+                    -t "${ECR_REGISTRY}/${IMAGE_NAME}:latest" \
+                    -f docker-context/Dockerfile \
+                    docker-context
+                  docker push "${ECR_REGISTRY}/${IMAGE_NAME}:latest"
+
+            - name: Atualizar hash no S3
+              env:
+                  HASH_KEY: nodejs${{ inputs.app_name }}${{ inputs.tipo_deploy == 'staging' && '-staging' || '' }}.deps.hash
+              run: |
+                  echo "${{ needs.ci.outputs.deps_hash }}" > new.hash
+                  aws s3 cp new.hash "s3://${HASH_BUCKET}/${HASH_KEY}"
+                  aws s3 cp docker-context/package.json "s3://${HASH_BUCKET}/${HASH_KEY}.pkg.json"
+
+    deploy:
+        name: "${{ inputs.app_name }} (${{ inputs.tipo_deploy }}) — Deploy EKS"
+        needs: [ci, build-image]
+        if: |
+            always() &&
+            needs.ci.result == 'success' &&
+            (needs.build-image.result == 'success' || needs.build-image.result == 'skipped')
+        environment: ${{ inputs.environment }}
+        runs-on: ubuntu-latest
+        env:
+            APP_NAME: ${{ inputs.app_name }}
+            K8S_NAME: ${{ inputs.k8s_base }}${{ inputs.tipo_deploy == 'staging' && '-staging' || '' }}
+            SUFFIX: ${{ inputs.tipo_deploy == 'staging' && '-staging' || '' }}
+            BRANCH: ${{ inputs.tipo_deploy == 'staging' && 'staging' || 'main' }}
+            AWS_REGION: ${{ vars.AWS_REGION }}
+            AWS_ROLE: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.IAM_ROLE_NAME }}
+            EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
+            EFS_FILESYSTEM_ID: ${{ vars.EFS_FILESYSTEM_ID }}
+            ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+        steps:
+            - name: Checkout version repo (k8s templates + scripts)
+              uses: actions/checkout@v4
+              with:
+                  path: version-repo
+
+            - name: Checkout Backend source (pra ConfigMaps com package.json)
+              uses: actions/checkout@v4
+              with:
+                  repository: cloudfysystems/Backend
+                  ref: ${{ env.BRANCH }}
+                  token: ${{ secrets.CROSS_REPO_TOKEN }}
+                  path: backend-source
+
+            - uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  role-to-assume: ${{ env.AWS_ROLE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Configurar kubeconfig
+              run: aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
+
+            - name: StorageClass (criar se nao existir — params imutaveis)
+              run: |
+                  if kubectl get sc "efs-${K8S_NAME}" -o name >/dev/null 2>&1; then
+                      echo "StorageClass efs-${K8S_NAME} ja existe — pulando (params sao imutaveis)"
+                  else
+                      echo "StorageClass efs-${K8S_NAME} nao existe — criando"
+                      envsubst '${K8S_NAME} ${EFS_FILESYSTEM_ID}' \
+                          < version-repo/.github/backend/k8s/storageclass.yaml \
+                          | kubectl create -f -
+                  fi
+
+            - name: Apply infra (PVC + Service + HPA + PDB)
+              run: |
+                  for F in pvc.yaml service.yaml hpa.yaml pdb.yaml; do
+                      envsubst '${K8S_NAME}' \
+                          < "version-repo/.github/backend/k8s/$F" \
+                          | kubectl apply -f -
+                  done
+
+            - name: Cria/atualiza Secret ${{ inputs.k8s_base }}-conf (do GitHub Secret CONF_BACKEND)
+              env:
+                  CONF_JSON: ${{ secrets.CONF_BACKEND }}
+              run: |
+                  echo "${CONF_JSON}" | python3 -c "import sys, json; json.load(sys.stdin)" \
+                      || { echo "::error::CONF_BACKEND nao e JSON valido"; exit 1; }
+                  kubectl create secret generic "${K8S_NAME}-conf" \
+                      --from-literal=conf.json="${CONF_JSON}" \
+                      --dry-run=client -o yaml | kubectl apply -f -
+
+            - name: ConfigMaps com package.json (corp + app)
+              run: |
+                  kubectl create configmap "${K8S_NAME}-pkgjson-corp" \
+                    --from-file=package.json=backend-source/packages/corp/package.json \
+                    --dry-run=client -o yaml | kubectl apply -f -
+                  kubectl create configmap "${K8S_NAME}-pkgjson-app" \
+                    --from-file=package.json=backend-source/apps/${APP_NAME}/package.json \
+                    --dry-run=client -o yaml | kubectl apply -f -
+
+            - name: Apply Deployment
+              run: |
+                  envsubst '${K8S_NAME} ${APP_NAME} ${ECR_REGISTRY} ${SUFFIX}' \
+                      < version-repo/.github/backend/k8s/deployment.yaml \
+                      | kubectl apply -f -
+
+            - name: Job de deploy (clone + build + rsync pro PVC)
+              env:
+                  GIT_SHA: ${{ needs.ci.outputs.git_sha }}
+                  REPO_URL: https://github.com/cloudfysystems/Backend.git
+                  GH_DEPLOY_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+              run: |
+                  set -uo pipefail
+                  export SHORT_SHA=${GIT_SHA:0:7}
+                  JOB_NAME="deploy-${K8S_NAME}-${SHORT_SHA}"
+
+                  trap 'kubectl delete secret gha-deploy --ignore-not-found' EXIT
+                  kubectl create secret generic gha-deploy \
+                      --from-literal=token="${GH_DEPLOY_TOKEN}" \
+                      --dry-run=client -o yaml | kubectl apply -f -
+
+                  kubectl delete job "${JOB_NAME}" --ignore-not-found
+
+                  envsubst '${SHORT_SHA} ${GIT_SHA} ${REPO_URL} ${ECR_REGISTRY} ${APP_NAME} ${K8S_NAME} ${SUFFIX}' \
+                      < version-repo/.github/backend/k8s/deploy-job.yaml \
+                      | kubectl apply -f -
+
+                  echo "::group::Aguardando pod do Job aparecer"
+                  POD=""
+                  for i in $(seq 1 60); do
+                      POD=$(kubectl get pod -l job-name=${JOB_NAME} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+                      if [ -n "$POD" ]; then
+                          echo "Pod encontrado: $POD"
+                          break
+                      fi
+                      sleep 3
+                  done
+                  if [ -z "$POD" ]; then
+                      echo "::error::Pod do Job nao subiu em 3min"
+                      kubectl get events --sort-by='.lastTimestamp' | tail -30
+                      kubectl describe job ${JOB_NAME}
+                      exit 1
+                  fi
+                  echo "::endgroup::"
+
+                  echo "::group::Logs do Job (live)"
+                  ( kubectl logs -f job/${JOB_NAME} --all-containers=true --pod-running-timeout=5m 2>&1 || true ) &
+                  LOGS_PID=$!
+
+                  EXIT_CODE=0
+                  COMPLETE=""
+                  FAILED=""
+                  for i in $(seq 1 240); do  # 240*5s = 20min
+                      COMPLETE=$(kubectl get job ${JOB_NAME} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || true)
+                      FAILED=$(kubectl get job ${JOB_NAME} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || true)
+                      if [ "$COMPLETE" = "True" ]; then
+                          echo "Job concluido com sucesso"
+                          break
+                      fi
+                      if [ "$FAILED" = "True" ]; then
+                          echo "::error::Job falhou"
+                          EXIT_CODE=1
+                          break
+                      fi
+                      sleep 5
+                  done
+                  if [ "$COMPLETE" != "True" ] && [ "$FAILED" != "True" ]; then
+                      echo "::error::Timeout (20min)"
+                      EXIT_CODE=1
+                  fi
+
+                  kill $LOGS_PID 2>/dev/null || true
+                  wait $LOGS_PID 2>/dev/null || true
+                  echo "::endgroup::"
+
+                  if [ "$EXIT_CODE" != "0" ]; then
+                      echo "::group::Diagnostico"
+                      kubectl describe job ${JOB_NAME} || true
+                      kubectl describe pod -l job-name=${JOB_NAME} || true
+                      kubectl get events --sort-by='.lastTimestamp' | tail -50 || true
+                      kubectl logs job/${JOB_NAME} --all-containers=true --previous --tail=500 2>/dev/null || true
+                      kubectl logs job/${JOB_NAME} --all-containers=true --tail=500 2>/dev/null || true
+                      echo "::endgroup::"
+                      exit $EXIT_CODE
+                  fi
+
+            - name: Rollout restart
+              run: |
+                  kubectl rollout restart "deployment/${K8S_NAME}"
+                  kubectl rollout status "deployment/${K8S_NAME}" --timeout=10m
+
+            - name: Smoke test
+              run: |
+                  node version-repo/.github/backend/scripts/deploy-checks.mjs \
+                      --deployment=${K8S_NAME}

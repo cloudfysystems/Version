@@ -1,0 +1,16 @@
+# PVC dedicado pro backend. Reusa o EFS via StorageClass.
+# K8S_NAME = ${K8S_BASE}${SUFFIX} — em staging vira pvcn03ap01v2-staging,
+# isolado do prod (PVCs separados, dados separados).
+#
+# Substituicao envsubst:
+#   ${K8S_NAME}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: pvc${K8S_NAME}
+spec:
+    accessModes: [ReadWriteMany]
+    storageClassName: efs-${K8S_NAME}
+    resources:
+        requests:
+            storage: 5Gi

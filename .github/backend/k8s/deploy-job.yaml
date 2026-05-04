@@ -2,37 +2,40 @@
 # pnpm install + pnpm build, e copia os artefatos pro PVC EFS via rsync.
 # Apos o Job concluir, o workflow faz `kubectl rollout restart` no Deployment.
 #
+# K8S_NAME, PVC e IMAGE todos levam ${SUFFIX} em staging — Job efemero
+# isolado por env. REPO_URL e GIT_SHA vem do workflow (branch correto).
+#
 # Substituicoes envsubst antes de `kubectl apply -f -`:
-#   ${SHORT_SHA} ${GIT_SHA} ${REPO_URL} ${ECR_REGISTRY}
+#   ${SHORT_SHA} ${GIT_SHA} ${REPO_URL} ${ECR_REGISTRY} ${APP_NAME} ${K8S_NAME} ${SUFFIX}
 apiVersion: batch/v1
 kind: Job
 metadata:
-    name: deploy-n03ap01v2-${SHORT_SHA}
+    name: deploy-${K8S_NAME}-${SHORT_SHA}
     labels:
-        app: n03ap01v2
+        app: ${K8S_NAME}
         deploy-job: 'true'
 spec:
     backoffLimit: 1
     activeDeadlineSeconds: 1200
-    # 1h apos finalizar (sucesso ou falha) — tempo pra inspecionar logs
-    # manualmente. Ajuste pra menor (ex.: 600) apos deploy estabilizar.
     ttlSecondsAfterFinished: 3600
     template:
         metadata:
             labels:
-                app: n03ap01v2
+                app: ${K8S_NAME}
                 deploy-job: 'true'
         spec:
             restartPolicy: Never
             containers:
                 - name: deploy
-                  image: ${ECR_REGISTRY}/cloudfysystems/nodejsn03ap01:latest
+                  image: ${ECR_REGISTRY}/cloudfysystems/nodejs${APP_NAME}${SUFFIX}:latest
                   workingDir: /workspace
                   env:
                       - name: GIT_SHA
                         value: '${GIT_SHA}'
                       - name: REPO_URL
                         value: '${REPO_URL}'
+                      - name: APP_NAME
+                        value: '${APP_NAME}'
                       - name: GITHUB_TOKEN
                         valueFrom:
                             secretKeyRef:
@@ -54,20 +57,19 @@ spec:
                           git fetch --depth 1 origin "${GIT_SHA}"
                           git checkout "${GIT_SHA}"
                           # pnpm 10 — alinhado com packageManager field do package.json
-                          # (mismatch causa erro de "Unsupported package manager").
                           npm install -g pnpm@10
                           pnpm install --frozen-lockfile
                           pnpm build
-                          mkdir -p /pvc/apps/n03ap01/dist /pvc/apps/n03ap01/Reports /pvc/apps/n03ap01/SQL /pvc/apps/n03ap01/temp
+                          mkdir -p /pvc/apps/${APP_NAME}/dist /pvc/apps/${APP_NAME}/Reports /pvc/apps/${APP_NAME}/SQL /pvc/apps/${APP_NAME}/temp
                           mkdir -p /pvc/packages/corp/dist /pvc/packages/corp/java-deps
                           # rsync sem -a: EFS Access Point bloqueia chown
                           # (Uid=0,Gid=0 fixos pelo AP). Drop -ogp, mantemos -rlt.
                           RSYNC_OPTS="-rlt --omit-dir-times --delete --no-owner --no-group --no-perms"
-                          rsync $RSYNC_OPTS apps/n03ap01/dist/        /pvc/apps/n03ap01/dist/
-                          rsync $RSYNC_OPTS apps/n03ap01/Reports/     /pvc/apps/n03ap01/Reports/
-                          rsync $RSYNC_OPTS apps/n03ap01/SQL/         /pvc/apps/n03ap01/SQL/
-                          rsync $RSYNC_OPTS packages/corp/dist/       /pvc/packages/corp/dist/
-                          rsync $RSYNC_OPTS packages/corp/java-deps/  /pvc/packages/corp/java-deps/
+                          rsync $RSYNC_OPTS apps/${APP_NAME}/dist/        /pvc/apps/${APP_NAME}/dist/
+                          rsync $RSYNC_OPTS apps/${APP_NAME}/Reports/     /pvc/apps/${APP_NAME}/Reports/
+                          rsync $RSYNC_OPTS apps/${APP_NAME}/SQL/         /pvc/apps/${APP_NAME}/SQL/
+                          rsync $RSYNC_OPTS packages/corp/dist/           /pvc/packages/corp/dist/
+                          rsync $RSYNC_OPTS packages/corp/java-deps/      /pvc/packages/corp/java-deps/
                           echo "deploy ok"
                   volumeMounts:
                       - name: pvc
@@ -77,7 +79,7 @@ spec:
             volumes:
                 - name: pvc
                   persistentVolumeClaim:
-                      claimName: pvcn03ap01v2
+                      claimName: pvc${K8S_NAME}
                 - name: workspace
                   emptyDir:
                       sizeLimit: 5Gi

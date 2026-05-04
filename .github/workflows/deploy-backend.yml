@@ -1,41 +1,48 @@
 name: Deploy Backend
 
-# Build + deploy de apps backend Cloudfy (Node 24 + pnpm 10 + monorepo).
-# Substitui o antigo backend/.github/workflows/deploy-n03ap01.yml — agora
-# mora aqui no repo Version (protegido), e clona cloudfysystems/Backend
-# em runtime via PAT (secret CROSS_REPO_TOKEN do environment).
+# Deploy de apps backend Cloudfy (Node 24 + pnpm 10 + monorepo).
+# Cada app habilitada via checkbox dispara o reusable workflow
+# `_deploy-backend-app.yml` que faz CI -> Build ECR -> Deploy EKS.
 #
 # Estrutura:
-#   - Inputs: environment (choice), n03ap01 (boolean), branch, force_image_rebuild, email
-#   - Por app habilitada: 3 jobs sequenciais (ci -> build-image -> deploy)
-#   - Multiplas apps rodam em paralelo (cada uma seu pipeline de 3 jobs)
-#   - notify final agrega resultados e manda email (sucesso ou falha)
+#   - Inputs: environment, tipoDeploy (producao/staging), apps (booleanos), email
+#   - Por app habilitada: chama _deploy-backend-app.yml com os parametros corretos
+#   - Multiplas apps rodam em paralelo (cada uma um pipeline de 3 jobs)
+#   - notify final agrega resultados e manda email
 #
-# Hoje so existe n03ap01. Pra adicionar n01ap01/n02ap01 etc:
-#   1. Adicionar boolean `n01ap01` ao inputs
-#   2. Copiar os 3 jobs (n03ap01-ci/build-image/deploy) e renomear pra n01ap01-*
-#   3. Ajustar IMAGE_NAME, HASH_KEY, DEPLOYMENT_NAME, paths k8s no env
-#   4. Adicionar n01ap01-deploy ao needs do job notify
+# K8s resources de prod e staging coexistem no mesmo cluster — todos os
+# nomes ganham suffix `-staging` quando tipoDeploy=staging (Deployment,
+# Service, PVC, Secret, etc). ECR image tambem (cloudfysystems/nodejs<APP>-staging).
+# GitHub Secret de conf vai pra variante CONF_<APP>_STAGING.
+#
+# Pra adicionar n01ap01/n02ap01/n04ap01 no futuro:
+#   1. Adicionar input boolean ao workflow_dispatch (ex: n01ap01)
+#   2. Copiar o bloco "n03ap01:" abaixo, renomear pra "n01ap01:"
+#   3. Ajustar app_name e k8s_base (apps novas: k8s_base = app_name; sem v2)
+#   4. Adicionar o job ao `needs:` do job notify
 
 on:
     workflow_dispatch:
         inputs:
             environment:
-                description: "Ambiente"
+                description: "Ambiente (conta AWS / cluster EKS)"
                 type: choice
                 required: true
                 options:
                     - prodCloudfy
                     - prodAcCredito
                     - homolAcCredito
+            tipoDeploy:
+                description: "Tipo de deploy (producao=branch main; staging=branch staging + imagem -staging)"
+                type: choice
+                required: true
+                options:
+                    - producao
+                    - staging
             n03ap01:
                 description: "Deploy N03AP01 (Cloudfy Delivery API)"
                 type: boolean
                 default: true
-            branch:
-                description: "Branch do repo cloudfysystems/Backend"
-                type: string
-                default: "main"
             force_image_rebuild:
                 description: "Forçar rebuild da imagem ECR mesmo sem mudança de deps"
                 type: boolean
@@ -46,357 +53,42 @@ on:
                 default: true
 
 permissions:
-    id-token: write # OIDC pra AWS
-    contents: read # Checkout do version repo (este)
+    id-token: write
+    contents: read
 
 jobs:
-    # ======================== N03AP01 ========================
-    n03ap01-ci:
-        name: "n03ap01 — CI (typecheck + lint + build)"
+    n03ap01:
         if: ${{ inputs.n03ap01 }}
-        environment: ${{ inputs.environment }}
-        runs-on: ubuntu-latest
-        outputs:
-            deps_hash: ${{ steps.hash.outputs.hash }}
-            prev_hash: ${{ steps.prev.outputs.hash }}
-            git_sha: ${{ steps.checkout-source.outputs.commit }}
-        env:
-            APP_NAME: n03ap01
-            AWS_REGION: ${{ vars.AWS_REGION }}
-            AWS_ROLE: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.IAM_ROLE_NAME }}
-            HASH_BUCKET: ${{ vars.HASH_BUCKET }}
-            HASH_KEY: nodejsn03ap01.deps.hash
-        steps:
-            - name: Validar vars/secrets do environment
-              # Falha rapido com erro claro se alguma variable critica estiver
-              # vazia, em vez de quebrar la no kubectl/aws cli com mensagem
-              # criptica. Roda como primeiro step do pipeline — se faltar var,
-              # nada CI/build/deploy comeca.
-              env:
-                  V_AWS_REGION: ${{ vars.AWS_REGION }}
-                  V_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
-                  V_IAM_ROLE_NAME: ${{ vars.IAM_ROLE_NAME }}
-                  V_EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
-                  V_HASH_BUCKET: ${{ vars.HASH_BUCKET }}
-                  V_EFS_FILESYSTEM_ID: ${{ vars.EFS_FILESYSTEM_ID }}
-                  S_CONF_N03AP01: ${{ secrets.CONF_N03AP01 }}
-                  S_CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-              run: |
-                  MISSING=""
-                  for V in V_AWS_REGION V_AWS_ACCOUNT_ID V_IAM_ROLE_NAME V_EKS_CLUSTER V_HASH_BUCKET V_EFS_FILESYSTEM_ID S_CONF_N03AP01 S_CROSS_REPO_TOKEN; do
-                      if [ -z "${!V}" ]; then
-                          MISSING="$MISSING ${V#?_}"
-                      fi
-                  done
-                  if [ -n "$MISSING" ]; then
-                      echo "::error::Vars/secrets faltando no environment '${{ inputs.environment }}':$MISSING"
-                      echo "::error::Configure em Settings -> Environments -> ${{ inputs.environment }} (vars + secrets)"
-                      exit 1
-                  fi
-                  echo "OK: todos os vars/secrets do environment ${{ inputs.environment }} estao configurados"
+        uses: ./.github/workflows/_deploy-backend-app.yml
+        with:
+            app_name: n03ap01
+            k8s_base: n03ap01v2   # legado — n03 mantém v2 nos recursos K8s
+            environment: ${{ inputs.environment }}
+            tipo_deploy: ${{ inputs.tipoDeploy }}
+            force_image_rebuild: ${{ inputs.force_image_rebuild }}
+        secrets:
+            CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+            # Resolve dinamicamente o secret de conf baseado em tipoDeploy.
+            # Cada environment tem 2 secrets: CONF_N03AP01 (prod) + CONF_N03AP01_STAGING.
+            CONF_BACKEND: ${{ inputs.tipoDeploy == 'staging' && secrets.CONF_N03AP01_STAGING || secrets.CONF_N03AP01 }}
 
-            - name: Checkout version repo (Dockerfile + scripts + k8s)
-              uses: actions/checkout@v4
-              with:
-                  path: version-repo
+    # Pra adicionar n01ap01 no futuro, descomentar e ajustar:
+    # n01ap01:
+    #     if: ${{ inputs.n01ap01 }}
+    #     uses: ./.github/workflows/_deploy-backend-app.yml
+    #     with:
+    #         app_name: n01ap01
+    #         k8s_base: n01ap01   # apps novas — sem v2
+    #         environment: ${{ inputs.environment }}
+    #         tipo_deploy: ${{ inputs.tipoDeploy }}
+    #         force_image_rebuild: ${{ inputs.force_image_rebuild }}
+    #     secrets:
+    #         CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+    #         CONF_BACKEND: ${{ inputs.tipoDeploy == 'staging' && secrets.CONF_N01AP01_STAGING || secrets.CONF_N01AP01 }}
 
-            - name: Checkout Backend source
-              id: checkout-source
-              uses: actions/checkout@v4
-              with:
-                  repository: cloudfysystems/Backend
-                  ref: ${{ inputs.branch }}
-                  token: ${{ secrets.CROSS_REPO_TOKEN }}
-                  path: backend-source
-
-            - uses: actions/setup-java@v4
-              with:
-                  distribution: temurin
-                  java-version: "21"
-
-            - uses: pnpm/action-setup@v3
-              with:
-                  version: 10
-
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: 24
-                  cache: pnpm
-                  cache-dependency-path: backend-source/pnpm-lock.yaml
-
-            - name: pnpm install + typecheck + lint + build
-              working-directory: backend-source
-              run: |
-                  pnpm install --frozen-lockfile
-                  pnpm typecheck
-                  pnpm lint
-                  pnpm build
-
-            - name: Gerar package.json agregado
-              run: |
-                  node version-repo/.github/backend/scripts/gen-aggregated-package.mjs \
-                      --app=${{ env.APP_NAME }} \
-                      --root=backend-source \
-                      > version-repo/.github/backend/package.json
-                  echo "--- package.json agregado ---"
-                  cat version-repo/.github/backend/package.json
-
-            - name: Hash do package.json + Dockerfile
-              id: hash
-              # Inclui o Dockerfile no hash pra que mudancas no build da imagem
-              # disparem rebuild automaticamente — sem precisar de force_image_rebuild.
-              run: |
-                  cat version-repo/.github/backend/package.json \
-                      version-repo/.github/backend/Dockerfile \
-                      | sha256sum | awk '{print $1}' \
-                      | tee /tmp/agg.hash
-                  echo "hash=$(cat /tmp/agg.hash)" >> "$GITHUB_OUTPUT"
-
-            - uses: aws-actions/configure-aws-credentials@v4
-              with:
-                  role-to-assume: ${{ env.AWS_ROLE }}
-                  aws-region: ${{ env.AWS_REGION }}
-
-            - name: Buscar hash anterior no S3
-              id: prev
-              run: |
-                  if aws s3 cp "s3://${HASH_BUCKET}/${HASH_KEY}" prev.hash 2>/dev/null; then
-                      echo "hash=$(cat prev.hash)" >> "$GITHUB_OUTPUT"
-                  else
-                      echo "hash=" >> "$GITHUB_OUTPUT"
-                  fi
-
-            - name: Upload artefatos pro proximo job
-              uses: actions/upload-artifact@v4
-              with:
-                  name: build-artifacts-n03ap01
-                  retention-days: 1
-                  path: |
-                      version-repo/.github/backend/package.json
-                      version-repo/.github/backend/Dockerfile
-                      backend-source/apps/n03ap01/package.json
-                      backend-source/packages/corp/package.json
-
-    n03ap01-build-image:
-        name: "n03ap01 — Build & push imagem ECR"
-        needs: n03ap01-ci
-        if: |
-            needs.n03ap01-ci.result == 'success' &&
-            (needs.n03ap01-ci.outputs.deps_hash != needs.n03ap01-ci.outputs.prev_hash || inputs.force_image_rebuild)
-        environment: ${{ inputs.environment }}
-        runs-on: ubuntu-latest
-        env:
-            AWS_REGION: ${{ vars.AWS_REGION }}
-            AWS_ROLE: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.IAM_ROLE_NAME }}
-            ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION
-                }}.amazonaws.com
-            IMAGE_NAME: cloudfysystems/nodejsn03ap01
-            HASH_BUCKET: ${{ vars.HASH_BUCKET }}
-            HASH_KEY: nodejsn03ap01.deps.hash
-        steps:
-            - uses: actions/download-artifact@v4
-              with:
-                  name: build-artifacts-n03ap01
-                  path: artifacts
-
-            - name: Reorganizar artefatos pro Docker build context
-              run: |
-                  mkdir -p docker-context
-                  cp artifacts/version-repo/.github/backend/package.json  docker-context/
-                  cp artifacts/version-repo/.github/backend/Dockerfile    docker-context/
-                  ls -la docker-context
-
-            - uses: aws-actions/configure-aws-credentials@v4
-              with:
-                  role-to-assume: ${{ env.AWS_ROLE }}
-                  aws-region: ${{ env.AWS_REGION }}
-
-            - uses: aws-actions/amazon-ecr-login@v2
-
-            - name: Build & push imagem
-              run: |
-                  docker build \
-                    -t "${ECR_REGISTRY}/${IMAGE_NAME}:latest" \
-                    -f docker-context/Dockerfile \
-                    docker-context
-                  docker push "${ECR_REGISTRY}/${IMAGE_NAME}:latest"
-
-            - name: Atualizar hash no S3
-              run: |
-                  echo "${{ needs.n03ap01-ci.outputs.deps_hash }}" > new.hash
-                  aws s3 cp new.hash "s3://${HASH_BUCKET}/${HASH_KEY}"
-                  aws s3 cp docker-context/package.json "s3://${HASH_BUCKET}/${HASH_KEY}.pkg.json"
-
-    n03ap01-deploy:
-        name: "n03ap01 — Deploy no EKS"
-        needs: [ n03ap01-ci, n03ap01-build-image ]
-        if: |
-            always() &&
-            needs.n03ap01-ci.result == 'success' &&
-            (needs.n03ap01-build-image.result == 'success' || needs.n03ap01-build-image.result == 'skipped')
-        environment: ${{ inputs.environment }}
-        runs-on: ubuntu-latest
-        env:
-            APP_NAME: n03ap01
-            DEPLOYMENT_NAME: n03ap01v2
-            AWS_REGION: ${{ vars.AWS_REGION }}
-            AWS_ROLE: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.IAM_ROLE_NAME }}
-            EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
-            EFS_FILESYSTEM_ID: ${{ vars.EFS_FILESYSTEM_ID }}
-            ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION
-                }}.amazonaws.com
-        steps:
-            - name: Checkout version repo (k8s manifests + scripts)
-              uses: actions/checkout@v4
-              with:
-                  path: version-repo
-
-            - name: Checkout Backend source (pra ConfigMaps com package.json)
-              uses: actions/checkout@v4
-              with:
-                  repository: cloudfysystems/Backend
-                  ref: ${{ inputs.branch }}
-                  token: ${{ secrets.CROSS_REPO_TOKEN }}
-                  path: backend-source
-
-            - uses: aws-actions/configure-aws-credentials@v4
-              with:
-                  role-to-assume: ${{ env.AWS_ROLE }}
-                  aws-region: ${{ env.AWS_REGION }}
-
-            - name: Configurar kubeconfig
-              run: aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
-
-            - name: Apply infra (PVC + Service + HPA + PDB)
-              run: |
-                  envsubst '${EFS_FILESYSTEM_ID}' \
-                      < version-repo/.github/backend/k8s/n03ap01/pvc.yaml \
-                      | kubectl apply -f -
-                  kubectl apply -f version-repo/.github/backend/k8s/n03ap01/service.yaml
-                  kubectl apply -f version-repo/.github/backend/k8s/n03ap01/hpa.yaml
-                  kubectl apply -f version-repo/.github/backend/k8s/n03ap01/pdb.yaml
-
-            - name: Cria/atualiza Secret n03ap01v2-conf (do GitHub Secret CONF_N03AP01)
-              env:
-                  CONF_JSON: ${{ secrets.CONF_N03AP01 }}
-              run: |
-                  if [ -z "${CONF_JSON}" ]; then
-                      echo "::error::Secret CONF_N03AP01 nao configurado no environment ${{ inputs.environment }}"
-                      exit 1
-                  fi
-                  echo "${CONF_JSON}" | python3 -c "import sys, json; json.load(sys.stdin)" \
-                      || { echo "::error::CONF_N03AP01 nao e JSON valido"; exit 1; }
-                  kubectl create secret generic n03ap01v2-conf \
-                      --from-literal=conf.json="${CONF_JSON}" \
-                      --dry-run=client -o yaml | kubectl apply -f -
-
-            - name: ConfigMaps com package.json (corp + app)
-              run: |
-                  kubectl create configmap n03ap01v2-pkgjson-corp \
-                    --from-file=package.json=backend-source/packages/corp/package.json \
-                    --dry-run=client -o yaml | kubectl apply -f -
-                  kubectl create configmap n03ap01v2-pkgjson-app \
-                    --from-file=package.json=backend-source/apps/n03ap01/package.json \
-                    --dry-run=client -o yaml | kubectl apply -f -
-
-            - name: Apply Deployment
-              run: |
-                  envsubst '${ECR_REGISTRY}' \
-                      < version-repo/.github/backend/k8s/n03ap01/deployment.yaml \
-                      | kubectl apply -f -
-
-            - name: Job de deploy (clone + build + rsync pro PVC)
-              env:
-                  GIT_SHA: ${{ needs.n03ap01-ci.outputs.git_sha }}
-                  REPO_URL: https://github.com/cloudfysystems/Backend.git
-                  GH_DEPLOY_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-              run: |
-                  set -uo pipefail
-                  export SHORT_SHA=${GIT_SHA:0:7}
-                  JOB_NAME="deploy-n03ap01v2-${SHORT_SHA}"
-
-                  trap 'kubectl delete secret gha-deploy --ignore-not-found' EXIT
-                  kubectl create secret generic gha-deploy \
-                      --from-literal=token="${GH_DEPLOY_TOKEN}" \
-                      --dry-run=client -o yaml | kubectl apply -f -
-
-                  kubectl delete job "${JOB_NAME}" --ignore-not-found
-
-                  envsubst '${SHORT_SHA} ${GIT_SHA} ${REPO_URL} ${ECR_REGISTRY}' \
-                      < version-repo/.github/backend/k8s/n03ap01/deploy-job.yaml \
-                      | kubectl apply -f -
-
-                  echo "::group::Aguardando pod do Job aparecer"
-                  POD=""
-                  for i in $(seq 1 60); do
-                      POD=$(kubectl get pod -l job-name=${JOB_NAME} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
-                      if [ -n "$POD" ]; then
-                          echo "Pod encontrado: $POD"
-                          break
-                      fi
-                      sleep 3
-                  done
-                  if [ -z "$POD" ]; then
-                      echo "::error::Pod do Job nao subiu em 3min — events do namespace:"
-                      kubectl get events --sort-by='.lastTimestamp' | tail -30
-                      kubectl describe job ${JOB_NAME}
-                      exit 1
-                  fi
-                  echo "::endgroup::"
-
-                  echo "::group::Logs do Job (live)"
-                  ( kubectl logs -f job/${JOB_NAME} --all-containers=true --pod-running-timeout=5m 2>&1 || true ) &
-                  LOGS_PID=$!
-
-                  EXIT_CODE=0
-                  COMPLETE=""
-                  FAILED=""
-                  for i in $(seq 1 240); do  # 240*5s = 20min
-                      COMPLETE=$(kubectl get job ${JOB_NAME} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || true)
-                      FAILED=$(kubectl get job ${JOB_NAME} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || true)
-                      if [ "$COMPLETE" = "True" ]; then
-                          echo "Job concluido com sucesso"
-                          break
-                      fi
-                      if [ "$FAILED" = "True" ]; then
-                          echo "::error::Job falhou — coletando diagnostico"
-                          EXIT_CODE=1
-                          break
-                      fi
-                      sleep 5
-                  done
-                  if [ "$COMPLETE" != "True" ] && [ "$FAILED" != "True" ]; then
-                      echo "::error::Timeout (20min) — Job nao concluiu nem falhou"
-                      EXIT_CODE=1
-                  fi
-
-                  kill $LOGS_PID 2>/dev/null || true
-                  wait $LOGS_PID 2>/dev/null || true
-                  echo "::endgroup::"
-
-                  if [ "$EXIT_CODE" != "0" ]; then
-                      echo "::group::Diagnostico (Job + Pod + Events)"
-                      kubectl describe job ${JOB_NAME} || true
-                      kubectl describe pod -l job-name=${JOB_NAME} || true
-                      kubectl get events --sort-by='.lastTimestamp' | tail -50 || true
-                      kubectl logs job/${JOB_NAME} --all-containers=true --previous --tail=500 2>/dev/null || true
-                      kubectl logs job/${JOB_NAME} --all-containers=true --tail=500 2>/dev/null || true
-                      echo "::endgroup::"
-                      exit $EXIT_CODE
-                  fi
-
-            - name: Rollout restart
-              run: |
-                  kubectl rollout restart "deployment/${DEPLOYMENT_NAME}"
-                  kubectl rollout status "deployment/${DEPLOYMENT_NAME}" --timeout=10m
-
-            - name: Smoke test
-              run: node version-repo/.github/backend/scripts/deploy-checks.mjs
-
-    # ======================== NOTIFICACAO ========================
     notify:
         name: "Notificacao por email (sucesso ou falha)"
-        needs: [ n03ap01-ci, n03ap01-build-image, n03ap01-deploy ]
+        needs: [n03ap01]
         if: always()
         runs-on: ubuntu-latest
         steps:
@@ -404,33 +96,27 @@ jobs:
               id: outcome
               run: |
                   set -e
-                  # Lista de apps que rodaram (boolean true no input)
                   APPS=""
-                  if [ "${{ inputs.n03ap01 }}" = "true" ]; then APPS="n03ap01"; fi
+                  if [ "${{ inputs.n03ap01 }}" = "true" ]; then APPS="$APPS n03ap01"; fi
+                  APPS="${APPS# }"
 
-                  # Coleta resultados de cada job (success/failure/skipped/cancelled)
-                  CI_RES="${{ needs.n03ap01-ci.result }}"
-                  IMG_RES="${{ needs.n03ap01-build-image.result }}"
-                  DEPLOY_RES="${{ needs.n03ap01-deploy.result }}"
+                  N03_RES="${{ needs.n03ap01.result }}"
 
-                  # Falha se qualquer job que NAO foi pulado terminou com failure/cancelled
-                  if echo "${CI_RES} ${IMG_RES} ${DEPLOY_RES}" | grep -qE 'failure|cancelled'; then
+                  if echo "${N03_RES}" | grep -qE 'failure|cancelled'; then
                       STATUS=falhou
                       COLOR='#c0392b'
-                      SUBJECT="[FALHA] Backend deploy em ${{ inputs.environment }}"
+                      SUBJECT="[FALHA] Backend deploy ${{ inputs.tipoDeploy }} em ${{ inputs.environment }}"
                   else
                       STATUS=concluido
                       COLOR='#27ae60'
-                      SUBJECT="[OK] Backend deploy em ${{ inputs.environment }}"
+                      SUBJECT="[OK] Backend deploy ${{ inputs.tipoDeploy }} em ${{ inputs.environment }}"
                   fi
 
-                  echo "status=${STATUS}"   >> "$GITHUB_OUTPUT"
-                  echo "color=${COLOR}"     >> "$GITHUB_OUTPUT"
-                  echo "subject=${SUBJECT}" >> "$GITHUB_OUTPUT"
+                  echo "status=${STATUS}"      >> "$GITHUB_OUTPUT"
+                  echo "color=${COLOR}"        >> "$GITHUB_OUTPUT"
+                  echo "subject=${SUBJECT}"    >> "$GITHUB_OUTPUT"
                   echo "apps=${APPS:-nenhuma}" >> "$GITHUB_OUTPUT"
-                  echo "ci_res=${CI_RES}"        >> "$GITHUB_OUTPUT"
-                  echo "img_res=${IMG_RES}"      >> "$GITHUB_OUTPUT"
-                  echo "deploy_res=${DEPLOY_RES}" >> "$GITHUB_OUTPUT"
+                  echo "n03_res=${N03_RES}"    >> "$GITHUB_OUTPUT"
 
             - name: Enviar email
               if: ${{ inputs.email }}
@@ -446,13 +132,11 @@ jobs:
                           Backend deploy ${{ steps.outcome.outputs.status }}
                       </h2>
                       <table cellpadding="6" cellspacing="0" border="1" style="border-collapse: collapse; font-family: Arial, sans-serif;">
-                          <tr><td><b>Ambiente:</b></td>           <td>${{ inputs.environment }}</td></tr>
-                          <tr><td><b>Branch:</b></td>             <td>${{ inputs.branch }}</td></tr>
-                          <tr><td><b>Apps deployadas:</b></td>    <td>${{ steps.outcome.outputs.apps }}</td></tr>
-                          <tr><td><b>Resultado CI:</b></td>       <td>${{ steps.outcome.outputs.ci_res }}</td></tr>
-                          <tr><td><b>Resultado build-image:</b></td><td>${{ steps.outcome.outputs.img_res }}</td></tr>
-                          <tr><td><b>Resultado deploy:</b></td>   <td>${{ steps.outcome.outputs.deploy_res }}</td></tr>
-                          <tr><td><b>Disparado por:</b></td>      <td>${{ github.actor }}</td></tr>
+                          <tr><td><b>Ambiente:</b></td>          <td>${{ inputs.environment }}</td></tr>
+                          <tr><td><b>Tipo:</b></td>              <td>${{ inputs.tipoDeploy }}</td></tr>
+                          <tr><td><b>Apps deployadas:</b></td>   <td>${{ steps.outcome.outputs.apps }}</td></tr>
+                          <tr><td><b>Resultado n03ap01:</b></td> <td>${{ steps.outcome.outputs.n03_res }}</td></tr>
+                          <tr><td><b>Disparado por:</b></td>     <td>${{ github.actor }}</td></tr>
                       </table>
                       <p>
                           <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">
@@ -460,5 +144,5 @@ jobs:
                           </a>
                       </p>
                   to: ${{ vars.EMAIL }}
-                  from: Cloudfy Deploy Backend <noreply@cloudfy.net.br>
+                  from: Cloudfy Deploy <noreply@cloudfy.net.br>
                   secure: true

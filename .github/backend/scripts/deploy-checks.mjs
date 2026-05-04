@@ -3,20 +3,37 @@
  *
  * Smoke test pos-deploy. Verifica que o Deployment esta saudavel
  * (replicas READY == replicas DESIRED) e que pelo menos 1 pod responde
- * TCP na porta 3090. Usa kubectl (que ja foi configurado pelo workflow
+ * TCP na porta do Service. Usa kubectl (que ja foi configurado pelo workflow
  * via `aws eks update-kubeconfig`).
  *
  * Falha (exit code != 0) se:
  *   - O Deployment nao tem todas as replicas Ready em 5min
- *   - O Service n03ap01v2 nao tem endpoints
- *   - Um Job de port-forward + nc -z localhost 3090 falha
+ *   - O Service nao tem endpoints
+ *   - Um Job de port-forward + curl falha
+ *
+ * Args:
+ *   --deployment=<name>  Nome do K8s Deployment a verificar (obrigatorio)
+ *   --service=<name>     Nome do K8s Service (default = mesmo do deployment)
+ *   --port=<num>         Porta do Service (default 3090)
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { setTimeout as Sleep } from 'node:timers/promises';
 
-const DEPLOYMENT = 'n03ap01v2';
-const SERVICE = 'n03ap01v2';
-const PORT = 3090;
+const Args = process.argv.slice(2);
+const ArgValue = (Name) => {
+    const Found = Args.find((A) => A.startsWith(`--${Name}=`));
+    return Found ? Found.slice(`--${Name}=`.length) : null;
+};
+
+const DEPLOYMENT = ArgValue('deployment');
+const SERVICE = ArgValue('service') ?? DEPLOYMENT;
+const PORT = Number.parseInt(ArgValue('port') ?? '3090', 10);
+
+if (!DEPLOYMENT) {
+    process.stderr.write('Erro: --deployment=<name> e obrigatorio.\n');
+    process.exit(1);
+}
+
 const TIMEOUT_MS = 5 * 60 * 1000;
 
 function Run(Cmd, Args) {
@@ -73,14 +90,12 @@ async function ProbeViaPortForward() {
             const Line = Buf.toString();
             console.log(`[pf] ${Line.trim()}`);
             if (Line.includes('Forwarding from')) {
-                // Aguarda 1s pra estabilizar e prova
                 setTimeout(() => {
                     try {
                         Run('curl', ['-fsS', '--max-time', '5', `http://localhost:${String(PORT)}/`]);
                         console.log(`[probe] HTTP ${String(PORT)} respondeu`);
                         Settle();
                     } catch (E) {
-                        // 404 ou outro tambem e aceitavel — significa que o socket abriu.
                         const Msg = String(E);
                         if (Msg.includes('exit code 22') || Msg.includes('curl: (22)')) {
                             console.log(`[probe] HTTP respondeu com erro HTTP (esperado, app nao tem rota /)`);
@@ -100,7 +115,6 @@ async function ProbeViaPortForward() {
                 Settle(new Error(`port-forward terminou prematuramente (code=${String(Code)})`));
             }
         });
-        // Timeout de 30s pra estabelecer port-forward
         setTimeout(() => {
             if (!Settled) {
                 Settle(new Error('Timeout aguardando port-forward'));

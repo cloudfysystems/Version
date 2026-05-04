@@ -1,25 +1,24 @@
-# Deployment do n03ap01v2. Substitui o DaemonSet legado (NodePM2 cluster).
-# replicas: 2 e o valor INICIAL — o HPA assume controle e escala 2..5.
-# WebSocket-friendly: terminationGracePeriodSeconds: 60 + preStop hook
-# (5s de drain) + readiness probe que detecta /tmp/shutdown. Combinado
-# com o graceful shutdown do StartUp.ts (corp), conexoes WS sao fechadas
-# com codigo 1001 e clientes reconectam em pods saudaveis.
+# Deployment do backend. WebSocket-friendly: terminationGracePeriodSeconds
+# 60s + preStop hook (5s drain) + readiness probe que detecta /tmp/shutdown.
+# K8S_NAME = ${K8S_BASE}${SUFFIX} — em staging vira n03ap01v2-staging.
+# IMAGE tambem leva ${SUFFIX} pra apontar pro ECR repo correto.
+# Prod e staging coexistem no cluster como Deployments separados.
 #
-# Substituicao envsubst antes de `kubectl apply -f -`:
-#   ${ECR_REGISTRY}
+# Substituicao envsubst:
+#   ${K8S_NAME} ${APP_NAME} ${ECR_REGISTRY} ${SUFFIX}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-    name: n03ap01v2
+    name: ${K8S_NAME}
     labels:
-        app: n03ap01v2
+        app: ${K8S_NAME}
     annotations:
         deployment.kubernetes.io/revision-history-limit: '5'
 spec:
     revisionHistoryLimit: 5
     selector:
         matchLabels:
-            app: n03ap01v2
+            app: ${K8S_NAME}
     strategy:
         type: RollingUpdate
         rollingUpdate:
@@ -32,17 +31,14 @@ spec:
     template:
         metadata:
             labels:
-                app: n03ap01v2
+                app: ${K8S_NAME}
         spec:
-            # 60s e suficiente: preStop sinaliza shutdown (5s pro readiness
-            # tirar pod do Service), depois SIGTERM dispara StartUp.Shutdown
-            # que fecha WS com close 1001 (cliente reconecta em outro pod).
             terminationGracePeriodSeconds: 60
             containers:
-                - name: n03ap01v2
-                  image: ${ECR_REGISTRY}/cloudfysystems/nodejsn03ap01:latest
+                - name: ${K8S_NAME}
+                  image: ${ECR_REGISTRY}/cloudfysystems/nodejs${APP_NAME}${SUFFIX}:latest
                   imagePullPolicy: Always
-                  workingDir: /usr/src/app/apps/n03ap01
+                  workingDir: /usr/src/app/apps/${APP_NAME}
                   command: ['node', 'dist/Main.js']
                   ports:
                       - containerPort: 3090
@@ -56,7 +52,7 @@ spec:
                           cpu: '2000m'
                   env:
                       - name: APP_NAME
-                        value: DeliveryApiV2
+                        value: ${K8S_NAME}
                       - name: TZ
                         value: America/Sao_Paulo
                       - name: NODE_ENV
@@ -66,11 +62,6 @@ spec:
                   lifecycle:
                       preStop:
                           exec:
-                              # Marca pod como "draining" — readinessProbe ve
-                              # /tmp/shutdown e tira pod do Service. 5s da tempo
-                              # pro endpoint controller propagar. Depois SIGTERM
-                              # dispara StartUp.Shutdown (corp) que fecha WS
-                              # com close 1001 e Server.close() das HTTP em voo.
                               command:
                                   - /bin/sh
                                   - -c
@@ -85,7 +76,6 @@ spec:
                       failureThreshold: 3
                   readinessProbe:
                       exec:
-                          # Falha durante drain (readiness=false → fora do Service).
                           command:
                               - /bin/sh
                               - -c
@@ -99,17 +89,17 @@ spec:
                       - name: var
                         mountPath: /var/www
                       - name: appdata
-                        mountPath: /usr/src/app/apps/n03ap01/dist
-                        subPath: apps/n03ap01/dist
+                        mountPath: /usr/src/app/apps/${APP_NAME}/dist
+                        subPath: apps/${APP_NAME}/dist
                       - name: appdata
-                        mountPath: /usr/src/app/apps/n03ap01/Reports
-                        subPath: apps/n03ap01/Reports
+                        mountPath: /usr/src/app/apps/${APP_NAME}/Reports
+                        subPath: apps/${APP_NAME}/Reports
                       - name: appdata
-                        mountPath: /usr/src/app/apps/n03ap01/SQL
-                        subPath: apps/n03ap01/SQL
+                        mountPath: /usr/src/app/apps/${APP_NAME}/SQL
+                        subPath: apps/${APP_NAME}/SQL
                       - name: appdata
-                        mountPath: /usr/src/app/apps/n03ap01/temp
-                        subPath: apps/n03ap01/temp
+                        mountPath: /usr/src/app/apps/${APP_NAME}/temp
+                        subPath: apps/${APP_NAME}/temp
                       - name: appdata
                         mountPath: /usr/src/app/node_modules/@cloudfy/corp/dist
                         subPath: packages/corp/dist
@@ -120,10 +110,10 @@ spec:
                         mountPath: /usr/src/app/node_modules/@cloudfy/corp/package.json
                         subPath: package.json
                       - name: app-pkgjson
-                        mountPath: /usr/src/app/apps/n03ap01/package.json
+                        mountPath: /usr/src/app/apps/${APP_NAME}/package.json
                         subPath: package.json
                       - name: conf
-                        mountPath: /usr/src/app/apps/n03ap01/conf
+                        mountPath: /usr/src/app/apps/${APP_NAME}/conf
                         readOnly: true
             volumes:
                 - name: jwtpvc
@@ -134,13 +124,13 @@ spec:
                       claimName: frontendpvc
                 - name: appdata
                   persistentVolumeClaim:
-                      claimName: pvcn03ap01v2
+                      claimName: pvc${K8S_NAME}
                 - name: corp-pkgjson
                   configMap:
-                      name: n03ap01v2-pkgjson-corp
+                      name: ${K8S_NAME}-pkgjson-corp
                 - name: app-pkgjson
                   configMap:
-                      name: n03ap01v2-pkgjson-app
+                      name: ${K8S_NAME}-pkgjson-app
                 - name: conf
                   secret:
-                      secretName: n03ap01v2-conf
+                      secretName: ${K8S_NAME}-conf

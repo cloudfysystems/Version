@@ -1,236 +1,73 @@
 name: Deploy Frontend
 
-# Build + deploy de apps frontend Cloudfy (Angular 21 + pnpm 10) num PVC EFS
-# que o nginx ja serve. Substitui o antigo backend/.github/workflows/deploy-frontend.yml
-# — agora mora aqui no repo Version (protegido), e clona cloudfysystems/Frontend
-# em runtime via PAT (secret CROSS_REPO_TOKEN do environment).
+# Deploy de apps frontend Cloudfy (Angular 21 + pnpm 10).
+# Cada app habilitada via checkbox dispara o reusable workflow
+# `_deploy-frontend-app.yml` que faz clone + build + rsync pro PVC EFS.
 #
 # Estrutura:
-#   - Inputs: environment (choice), a03ap01 (boolean), branch, email
-#   - Por app habilitada: 1 job que dispara um Job efemero K8s
+#   - Inputs: environment, tipoDeploy (producao/staging), apps (booleanos), email
 #   - Multiplas apps rodam em paralelo
 #   - notify final agrega resultados e manda email
 #
-# Hoje so existe a03ap01 (Angular 21 novo). Os legados (A01/A02/A04*/H02 do
-# repo ANGULAR) continuam no GHA antigo do backend ate serem migrados.
-# Pra adicionar nova app:
-#   1. Adicionar boolean ao inputs (ex: a04ap01)
-#   2. Copiar o job a03ap01 e renomear pra a04ap01
-#   3. Ajustar APP, paths k8s, ConfigMap name
-#   4. Adicionar ao needs do job notify
+# K8s nao tem Deployment dedicado (frontend e static files servidos pelo nginx
+# via PVC frontendpvc). Soh o path no PVC muda entre prod/staging:
+#   prod:    /pvc/A03AP01/
+#   staging: /pvc/A03AP01-staging/
+#
+# Pra adicionar a04ap01/etc no futuro:
+#   1. Adicionar input boolean (ex: a04ap01)
+#   2. Copiar o bloco "a03ap01:" abaixo, ajustar app_lower/app_upper
+#   3. Adicionar ao `needs:` do notify
 
 on:
     workflow_dispatch:
         inputs:
             environment:
-                description: 'Ambiente'
+                description: "Ambiente (conta AWS / cluster EKS)"
                 type: choice
                 required: true
                 options:
                     - prodCloudfy
                     - prodAcCredito
                     - homolAcCredito
+            tipoDeploy:
+                description: "Tipo de deploy (producao=branch main; staging=branch staging + path -staging no PVC)"
+                type: choice
+                required: true
+                options:
+                    - producao
+                    - staging
             a03ap01:
-                description: 'Deploy A03AP01 (Cloudfy Delivery Web - Angular 21)'
+                description: "Deploy A03AP01 (Cloudfy Delivery Web)"
                 type: boolean
                 default: true
-            branch:
-                description: 'Branch do repo cloudfysystems/Frontend'
-                type: string
-                default: 'main'
             email:
-                description: 'Enviar email de notificação ao finalizar?'
+                description: "Enviar email de notificação ao finalizar?"
                 type: boolean
                 default: true
 
 permissions:
-    id-token: write   # OIDC pra AWS
-    contents: read    # Checkout do version repo (este)
+    id-token: write
+    contents: read
 
 jobs:
-    # ======================== A03AP01 ========================
     a03ap01:
-        name: 'a03ap01 — Build & deploy'
         if: ${{ inputs.a03ap01 }}
-        environment: ${{ inputs.environment }}
-        runs-on: ubuntu-latest
-        env:
-            APP: a03ap01
-            APP_LOWER: a03ap01
-            AWS_REGION: ${{ vars.AWS_REGION }}
-            AWS_ROLE: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.IAM_ROLE_NAME }}
-            EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
-        steps:
-            - name: Validar vars/secrets do environment
-              # Falha rapido com erro claro se alguma variable critica estiver
-              # vazia, em vez de quebrar la no kubectl/aws cli com mensagem
-              # criptica. Var CONF_A03AP01 e opcional (se vazia, build usa
-              # Prod.ts default do repo).
-              env:
-                  V_AWS_REGION: ${{ vars.AWS_REGION }}
-                  V_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
-                  V_IAM_ROLE_NAME: ${{ vars.IAM_ROLE_NAME }}
-                  V_EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
-                  S_CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-              run: |
-                  MISSING=""
-                  for V in V_AWS_REGION V_AWS_ACCOUNT_ID V_IAM_ROLE_NAME V_EKS_CLUSTER S_CROSS_REPO_TOKEN; do
-                      if [ -z "${!V}" ]; then
-                          MISSING="$MISSING ${V#?_}"
-                      fi
-                  done
-                  if [ -n "$MISSING" ]; then
-                      echo "::error::Vars/secrets faltando no environment '${{ inputs.environment }}':$MISSING"
-                      echo "::error::Configure em Settings -> Environments -> ${{ inputs.environment }} (vars + secrets)"
-                      exit 1
-                  fi
-                  echo "OK: todos os vars/secrets do environment ${{ inputs.environment }} estao configurados"
+        uses: ./.github/workflows/_deploy-frontend-app.yml
+        with:
+            app_lower: a03ap01
+            app_upper: A03AP01
+            environment: ${{ inputs.environment }}
+            tipo_deploy: ${{ inputs.tipoDeploy }}
+        secrets:
+            CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+            # CONF_FRONTEND e opcional. Resolve dinamicamente: prod usa CONF_A03AP01,
+            # staging usa CONF_A03AP01_STAGING. Se a var nao existir no environment,
+            # CONF_FRONTEND fica vazio e o build usa Prod.ts default do repo.
+            CONF_FRONTEND: ${{ inputs.tipoDeploy == 'staging' && vars.CONF_A03AP01_STAGING || vars.CONF_A03AP01 }}
 
-            - name: Checkout version repo (k8s manifests)
-              uses: actions/checkout@v4
-              with:
-                  path: version-repo
-
-            - uses: aws-actions/configure-aws-credentials@v4
-              with:
-                  role-to-assume: ${{ env.AWS_ROLE }}
-                  aws-region: ${{ env.AWS_REGION }}
-
-            - name: Configurar kubeconfig
-              run: aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
-
-            - name: Job de deploy (clone + build + rsync pro PVC frontendpvc)
-              env:
-                  CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-                  CONF_TS: ${{ vars.CONF_A03AP01 }}
-                  BRANCH: ${{ inputs.branch }}
-                  GIT_SHA: ${{ github.sha }}
-              run: |
-                  set -uo pipefail
-
-                  if [ -z "${CROSS_REPO_TOKEN}" ]; then
-                      echo "::error::Secret CROSS_REPO_TOKEN nao configurado no environment ${{ inputs.environment }}"
-                      exit 1
-                  fi
-
-                  export SHORT_SHA="${GIT_SHA:0:7}"
-                  JOB_NAME="deploy-frontend-${APP_LOWER}-${SHORT_SHA}"
-                  SECRET_NAME="cross-repo-token-${SHORT_SHA}"
-                  CM_NAME="frontend-conf-${APP_LOWER}"
-
-                  # 0. Cleanup de Jobs antigos do mesmo app — evita zumbis em
-                  # retry/backoff de runs anteriores que poluiriam events com
-                  # FailedMount (Secret SHA antigo ja deletado).
-                  echo "Limpando Jobs antigos do app ${APP_LOWER}..."
-                  kubectl delete jobs \
-                      -l "deploy-job=true,app=frontend-${APP_LOWER}" \
-                      --ignore-not-found
-
-                  # Limpa Secrets orfaos (de runs antigas que falharam antes do
-                  # trap limpar). `|| true` no fim — set -uo pipefail captura
-                  # exit 1 do grep sem match.
-                  ( kubectl get secrets -o name 2>/dev/null \
-                      | grep '^secret/cross-repo-token-' \
-                      | xargs -r kubectl delete --ignore-not-found ) || true
-
-                  # Cleanup no fim (trap EXIT) — apaga Secret SHA-ed desta run.
-                  trap "kubectl delete secret ${SECRET_NAME} --ignore-not-found" EXIT
-
-                  # 1. Cria Secret K8s SHA-ed com o PAT
-                  kubectl create secret generic "${SECRET_NAME}" \
-                      --from-literal=token="${CROSS_REPO_TOKEN}" \
-                      --dry-run=client -o yaml | kubectl apply -f -
-
-                  # 2. ConfigMap com Prod.ts override (se Variable CONF_A03AP01
-                  # esta setada no environment).
-                  if [ -n "${CONF_TS}" ]; then
-                      echo "Variable CONF_A03AP01 encontrada — criando ConfigMap ${CM_NAME}"
-                      kubectl create configmap "${CM_NAME}" \
-                          --from-literal=Prod.ts="${CONF_TS}" \
-                          --dry-run=client -o yaml | kubectl apply -f -
-                  else
-                      echo "Variable CONF_A03AP01 nao definida — Job vai usar Prod.ts default do repo"
-                      kubectl delete configmap "${CM_NAME}" --ignore-not-found
-                  fi
-
-                  # 3. Job fresh — re-runs do mesmo SHA precisam de Job novo
-                  kubectl delete job "${JOB_NAME}" --ignore-not-found
-
-                  # 4. Apply do Job (envsubst com whitelist)
-                  envsubst '${BRANCH} ${SHORT_SHA}' \
-                      < version-repo/.github/frontend/k8s/a03ap01/deploy-job.yaml \
-                      | kubectl apply -f -
-
-                  # 5. Aguarda pod aparecer (ate 3min — pode ficar Pending por mount EFS)
-                  echo "::group::Aguardando pod do Job aparecer"
-                  POD=""
-                  for i in $(seq 1 60); do
-                      POD=$(kubectl get pod -l job-name=${JOB_NAME} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
-                      if [ -n "$POD" ]; then
-                          echo "Pod encontrado: $POD"
-                          break
-                      fi
-                      sleep 3
-                  done
-                  if [ -z "$POD" ]; then
-                      echo "::error::Pod do Job nao subiu em 3min — events:"
-                      kubectl get events --sort-by='.lastTimestamp' | tail -30 || true
-                      kubectl describe job ${JOB_NAME} || true
-                      exit 1
-                  fi
-                  echo "::endgroup::"
-
-                  # 6. Stream logs em background
-                  echo "::group::Logs do Job (live)"
-                  ( kubectl logs -f job/${JOB_NAME} --all-containers=true --pod-running-timeout=5m 2>&1 || true ) &
-                  LOGS_PID=$!
-
-                  # 7. Polling do status: Complete OU Failed (timeout 30min)
-                  EXIT_CODE=0
-                  COMPLETE=""
-                  FAILED=""
-                  for i in $(seq 1 360); do  # 360*5s = 30min
-                      COMPLETE=$(kubectl get job ${JOB_NAME} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || true)
-                      FAILED=$(kubectl get job ${JOB_NAME} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || true)
-                      if [ "$COMPLETE" = "True" ]; then
-                          echo "Job concluido com sucesso"
-                          break
-                      fi
-                      if [ "$FAILED" = "True" ]; then
-                          echo "::error::Job falhou — coletando diagnostico"
-                          EXIT_CODE=1
-                          break
-                      fi
-                      sleep 5
-                  done
-                  if [ "$COMPLETE" != "True" ] && [ "$FAILED" != "True" ]; then
-                      echo "::error::Timeout (30min) — Job nao concluiu nem falhou"
-                      EXIT_CODE=1
-                  fi
-
-                  kill $LOGS_PID 2>/dev/null || true
-                  wait $LOGS_PID 2>/dev/null || true
-                  echo "::endgroup::"
-
-                  # 8. Diagnostico em failure
-                  if [ "$EXIT_CODE" != "0" ]; then
-                      echo "::group::Diagnostico (Job + Pod + Events)"
-                      kubectl describe job ${JOB_NAME} || true
-                      kubectl describe pod -l job-name=${JOB_NAME} || true
-                      echo "--- Events recentes ---"
-                      kubectl get events --sort-by='.lastTimestamp' | tail -50 || true
-                      echo "--- Logs finais (terminated containers) ---"
-                      kubectl logs job/${JOB_NAME} --all-containers=true --previous --tail=500 2>/dev/null || true
-                      kubectl logs job/${JOB_NAME} --all-containers=true --tail=500 2>/dev/null || true
-                      echo "::endgroup::"
-                      exit $EXIT_CODE
-                  fi
-
-                  echo "::notice::Frontend ${APP} deployado em /efs/frontend/frontendpvc/A03AP01/"
-
-    # ======================== NOTIFICACAO ========================
     notify:
-        name: 'Notificacao por email (sucesso ou falha)'
+        name: "Notificacao por email (sucesso ou falha)"
         needs: [a03ap01]
         if: always()
         runs-on: ubuntu-latest
@@ -240,25 +77,26 @@ jobs:
               run: |
                   set -e
                   APPS=""
-                  if [ "${{ inputs.a03ap01 }}" = "true" ]; then APPS="a03ap01"; fi
+                  if [ "${{ inputs.a03ap01 }}" = "true" ]; then APPS="$APPS a03ap01"; fi
+                  APPS="${APPS# }"
 
-                  A03AP01_RES="${{ needs.a03ap01.result }}"
+                  A03_RES="${{ needs.a03ap01.result }}"
 
-                  if echo "${A03AP01_RES}" | grep -qE 'failure|cancelled'; then
+                  if echo "${A03_RES}" | grep -qE 'failure|cancelled'; then
                       STATUS=falhou
                       COLOR='#c0392b'
-                      SUBJECT="[FALHA] Frontend deploy em ${{ inputs.environment }}"
+                      SUBJECT="[FALHA] Frontend deploy ${{ inputs.tipoDeploy }} em ${{ inputs.environment }}"
                   else
                       STATUS=concluido
                       COLOR='#27ae60'
-                      SUBJECT="[OK] Frontend deploy em ${{ inputs.environment }}"
+                      SUBJECT="[OK] Frontend deploy ${{ inputs.tipoDeploy }} em ${{ inputs.environment }}"
                   fi
 
-                  echo "status=${STATUS}"     >> "$GITHUB_OUTPUT"
-                  echo "color=${COLOR}"       >> "$GITHUB_OUTPUT"
-                  echo "subject=${SUBJECT}"   >> "$GITHUB_OUTPUT"
+                  echo "status=${STATUS}"      >> "$GITHUB_OUTPUT"
+                  echo "color=${COLOR}"        >> "$GITHUB_OUTPUT"
+                  echo "subject=${SUBJECT}"    >> "$GITHUB_OUTPUT"
                   echo "apps=${APPS:-nenhuma}" >> "$GITHUB_OUTPUT"
-                  echo "a03ap01_res=${A03AP01_RES}" >> "$GITHUB_OUTPUT"
+                  echo "a03_res=${A03_RES}"    >> "$GITHUB_OUTPUT"
 
             - name: Enviar email
               if: ${{ inputs.email }}
@@ -275,9 +113,9 @@ jobs:
                       </h2>
                       <table cellpadding="6" cellspacing="0" border="1" style="border-collapse: collapse; font-family: Arial, sans-serif;">
                           <tr><td><b>Ambiente:</b></td>          <td>${{ inputs.environment }}</td></tr>
-                          <tr><td><b>Branch:</b></td>            <td>${{ inputs.branch }}</td></tr>
+                          <tr><td><b>Tipo:</b></td>              <td>${{ inputs.tipoDeploy }}</td></tr>
                           <tr><td><b>Apps deployadas:</b></td>   <td>${{ steps.outcome.outputs.apps }}</td></tr>
-                          <tr><td><b>Resultado a03ap01:</b></td> <td>${{ steps.outcome.outputs.a03ap01_res }}</td></tr>
+                          <tr><td><b>Resultado a03ap01:</b></td> <td>${{ steps.outcome.outputs.a03_res }}</td></tr>
                           <tr><td><b>Disparado por:</b></td>     <td>${{ github.actor }}</td></tr>
                       </table>
                       <p>

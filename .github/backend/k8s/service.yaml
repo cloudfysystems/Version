@@ -1,0 +1,19 @@
+# Service ClusterIP — porta 3090 padrao Cloudfy. Selector aponta pro
+# label `app: ${K8S_NAME}` definido no Deployment.
+#
+# Substituicao envsubst:
+#   ${K8S_NAME}
+apiVersion: v1
+kind: Service
+metadata:
+    name: ${K8S_NAME}
+    labels:
+        app: ${K8S_NAME}
+spec:
+    type: ClusterIP
+    selector:
+        app: ${K8S_NAME}
+    ports:
+        - name: http
+          port: 3090
+          targetPort: 3090

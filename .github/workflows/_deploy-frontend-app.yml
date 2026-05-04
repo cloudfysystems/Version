@@ -1,0 +1,208 @@
+name: _Deploy frontend app (reusable)
+
+# Reusable workflow chamado por deploy-frontend.yml. Faz build + deploy
+# de UMA app frontend especifica via Job efemero K8s. Suporta producao/staging
+# via input tipo_deploy.
+#
+# Convencao:
+#   APP        = nome maiuscula (ex: A03AP01) — usado em path do PVC
+#   APP_LOWER  = nome minuscula (ex: a03ap01) — usado em scripts pnpm + paths repo
+#   SUFFIX     = "" (prod) ou "-staging" — adicionado no path do PVC
+#   BRANCH     = "main" (prod) ou "staging"
+#
+# K8s nao tem Deployment dedicado pro frontend (eh static files servidos pelo
+# nginx via PVC frontendpvc compartilhado). Soh o path no PVC muda entre
+# prod e staging — nginx pode servir os dois com regras de host/path distintas.
+
+on:
+    workflow_call:
+        inputs:
+            app_lower:
+                description: "Nome da app em minuscula (ex: a03ap01)"
+                required: true
+                type: string
+            app_upper:
+                description: "Nome da app em maiuscula (ex: A03AP01)"
+                required: true
+                type: string
+            environment:
+                description: "GitHub Environment"
+                required: true
+                type: string
+            tipo_deploy:
+                description: "producao ou staging"
+                required: true
+                type: string
+        secrets:
+            CROSS_REPO_TOKEN:
+                required: true
+            CONF_FRONTEND:
+                required: false   # opcional — se nao informado, build usa Prod.ts default
+
+permissions:
+    id-token: write
+    contents: read
+
+jobs:
+    deploy:
+        name: "${{ inputs.app_lower }} (${{ inputs.tipo_deploy }}) — Build & deploy"
+        environment: ${{ inputs.environment }}
+        runs-on: ubuntu-latest
+        env:
+            APP: ${{ inputs.app_upper }}
+            APP_LOWER: ${{ inputs.app_lower }}
+            APP_UPPER: ${{ inputs.app_upper }}
+            SUFFIX: ${{ inputs.tipo_deploy == 'staging' && '-staging' || '' }}
+            BRANCH: ${{ inputs.tipo_deploy == 'staging' && 'staging' || 'main' }}
+            AWS_REGION: ${{ vars.AWS_REGION }}
+            AWS_ROLE: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.IAM_ROLE_NAME }}
+            EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
+        steps:
+            - name: Validar vars/secrets do environment
+              env:
+                  V_AWS_REGION: ${{ vars.AWS_REGION }}
+                  V_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+                  V_IAM_ROLE_NAME: ${{ vars.IAM_ROLE_NAME }}
+                  V_EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
+                  S_CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+              run: |
+                  MISSING=""
+                  for V in V_AWS_REGION V_AWS_ACCOUNT_ID V_IAM_ROLE_NAME V_EKS_CLUSTER S_CROSS_REPO_TOKEN; do
+                      if [ -z "${!V}" ]; then
+                          MISSING="$MISSING ${V#?_}"
+                      fi
+                  done
+                  if [ -n "$MISSING" ]; then
+                      echo "::error::Vars/secrets faltando no environment '${{ inputs.environment }}':$MISSING"
+                      exit 1
+                  fi
+                  echo "OK: vars/secrets do environment ${{ inputs.environment }} configurados"
+                  echo "Deploy: app=${APP_LOWER} tipo=${{ inputs.tipo_deploy }} branch=${BRANCH} suffix='${SUFFIX}'"
+
+            - name: Checkout version repo
+              uses: actions/checkout@v4
+              with:
+                  path: version-repo
+
+            - uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  role-to-assume: ${{ env.AWS_ROLE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Configurar kubeconfig
+              run: aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
+
+            - name: Job de deploy (clone + build + rsync pro PVC frontendpvc)
+              env:
+                  CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+                  CONF_TS: ${{ secrets.CONF_FRONTEND }}
+                  GIT_SHA: ${{ github.sha }}
+              run: |
+                  set -uo pipefail
+
+                  export SHORT_SHA="${GIT_SHA:0:7}"
+                  JOB_NAME="deploy-frontend-${APP_LOWER}-${SHORT_SHA}"
+                  SECRET_NAME="cross-repo-token-${SHORT_SHA}"
+                  CM_NAME="frontend-conf-${APP_LOWER}"
+
+                  # 0. Cleanup de Jobs antigos do mesmo app
+                  echo "Limpando Jobs antigos do app ${APP_LOWER}..."
+                  kubectl delete jobs \
+                      -l "deploy-job=true,app=frontend-${APP_LOWER}" \
+                      --ignore-not-found
+
+                  # Limpa Secrets orfaos
+                  ( kubectl get secrets -o name 2>/dev/null \
+                      | grep '^secret/cross-repo-token-' \
+                      | xargs -r kubectl delete --ignore-not-found ) || true
+
+                  # Cleanup no fim
+                  trap "kubectl delete secret ${SECRET_NAME} --ignore-not-found" EXIT
+
+                  # 1. Cria Secret K8s SHA-ed com PAT
+                  kubectl create secret generic "${SECRET_NAME}" \
+                      --from-literal=token="${CROSS_REPO_TOKEN}" \
+                      --dry-run=client -o yaml | kubectl apply -f -
+
+                  # 2. ConfigMap com Prod.ts override (se CONF_FRONTEND foi passado)
+                  if [ -n "${CONF_TS}" ]; then
+                      echo "Secret CONF_FRONTEND fornecido — criando ConfigMap ${CM_NAME}"
+                      kubectl create configmap "${CM_NAME}" \
+                          --from-literal=Prod.ts="${CONF_TS}" \
+                          --dry-run=client -o yaml | kubectl apply -f -
+                  else
+                      echo "Sem CONF_FRONTEND — Job vai usar Prod.ts default do repo"
+                      kubectl delete configmap "${CM_NAME}" --ignore-not-found
+                  fi
+
+                  # 3. Job fresh
+                  kubectl delete job "${JOB_NAME}" --ignore-not-found
+
+                  # 4. Apply do Job
+                  envsubst '${APP} ${APP_LOWER} ${APP_UPPER} ${BRANCH} ${SHORT_SHA} ${SUFFIX}' \
+                      < version-repo/.github/frontend/k8s/deploy-job.yaml \
+                      | kubectl apply -f -
+
+                  # 5. Aguarda pod aparecer
+                  echo "::group::Aguardando pod do Job aparecer"
+                  POD=""
+                  for i in $(seq 1 60); do
+                      POD=$(kubectl get pod -l job-name=${JOB_NAME} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+                      if [ -n "$POD" ]; then
+                          echo "Pod encontrado: $POD"
+                          break
+                      fi
+                      sleep 3
+                  done
+                  if [ -z "$POD" ]; then
+                      echo "::error::Pod do Job nao subiu em 3min"
+                      kubectl get events --sort-by='.lastTimestamp' | tail -30 || true
+                      kubectl describe job ${JOB_NAME} || true
+                      exit 1
+                  fi
+                  echo "::endgroup::"
+
+                  # 6. Stream logs em background
+                  echo "::group::Logs do Job (live)"
+                  ( kubectl logs -f job/${JOB_NAME} --all-containers=true --pod-running-timeout=5m 2>&1 || true ) &
+                  LOGS_PID=$!
+
+                  # 7. Polling do status (timeout 30min)
+                  EXIT_CODE=0
+                  COMPLETE=""
+                  FAILED=""
+                  for i in $(seq 1 360); do
+                      COMPLETE=$(kubectl get job ${JOB_NAME} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || true)
+                      FAILED=$(kubectl get job ${JOB_NAME} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || true)
+                      if [ "$COMPLETE" = "True" ]; then
+                          echo "Job concluido com sucesso"
+                          break
+                      fi
+                      if [ "$FAILED" = "True" ]; then
+                          echo "::error::Job falhou"
+                          EXIT_CODE=1
+                          break
+                      fi
+                      sleep 5
+                  done
+                  if [ "$COMPLETE" != "True" ] && [ "$FAILED" != "True" ]; then
+                      echo "::error::Timeout (30min)"
+                      EXIT_CODE=1
+                  fi
+
+                  kill $LOGS_PID 2>/dev/null || true
+                  wait $LOGS_PID 2>/dev/null || true
+                  echo "::endgroup::"
+
+                  if [ "$EXIT_CODE" != "0" ]; then
+                      echo "::group::Diagnostico"
+                      kubectl describe job ${JOB_NAME} || true
+                      kubectl describe pod -l job-name=${JOB_NAME} || true
+                      kubectl get events --sort-by='.lastTimestamp' | tail -50 || true
+                      kubectl logs job/${JOB_NAME} --all-containers=true --previous --tail=500 2>/dev/null || true
+                      kubectl logs job/${JOB_NAME} --all-containers=true --tail=500 2>/dev/null || true
+                      echo "::endgroup::"
+                      exit $EXIT_CODE
+                  fi
+
+                  echo "::notice::Frontend ${APP} deployado em /pvc/${APP_UPPER}${SUFFIX}/"
