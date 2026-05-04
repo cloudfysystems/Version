@@ -15,6 +15,14 @@ on:
         description: "Gerar versão iOS?"
         default: true
         type: boolean
+      android-patch:
+        description: "Gerar Patch (Shorebird) Android?"
+        default: false
+        type: boolean
+      ios-patch:
+        description: "Gerar Patch (Shorebird) iOS?"
+        default: false
+        type: boolean
       email:
         description: "Deseja enviar email ao finalizar?"
         default: false
@@ -397,9 +405,339 @@ jobs:
       - name: Upload IPA to App Store Connect
         if: ${{ inputs.ios}}
         run: xcrun altool --upload-app --type ios -f ./build/ios/ipa/*.ipa --apiKey ${{ secrets.APPLE_API_KEY }} --apiIssuer ${{ secrets.APPLE_API_ISSUER_ID }}
+  android-patch:
+    runs-on: ubuntu-latest
+    needs: android
+    if: ${{ always() && (needs.android.result == 'success' || needs.android.result == 'skipped') }}
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ./flutter/adm
+
+    steps:
+      - name: Gerar Variáveis de Ambiente
+        working-directory: .
+        id: compute
+        run: |
+          echo 'DeployName=prod' >> $GITHUB_ENV
+          echo 'DeployNameUpperCase=AdmAndroid' >> $GITHUB_ENV
+          echo 'UrlId=18' >> $GITHUB_ENV
+          VARIABLE=${{ github.event.inputs.android-patch }}
+
+          # Converte string para 0/1
+          if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi
+
+
+          # OR lógico
+          if [ $((VARIABLE_BOOL)) -eq 1 ]; then
+            EXECUTE=true
+          else
+            EXECUTE=false
+          fi
+
+          echo "Valor do execute: $EXECUTE"
+
+          echo "execute=$EXECUTE" >> $GITHUB_OUTPUT
+      # Clonar o repositório principal do Flutter
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+
+      # Clonar o repositório de versão
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          path: version-repo
+
+      # Ler e atualizar a versão
+      - name: Ler versão atual
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version${{env.DeployNameUpperCase}}.json"
+
+          # Atualiza o JSON corretamente (apenas patch, build/version são incrementados no release)
+          jq '.speedy.patch += 1' "$VERSION_FILE" > tmp.json
+
+          mv tmp.json "$VERSION_FILE"
+
+          # Pega os valores após a atualização
+          BUILD=$(jq -r '.speedy.build' "$VERSION_FILE")
+          VERSION=$(jq -r '.speedy.version' "$VERSION_FILE")
+          SIMPLE=$(jq -r '.speedy.simple' "$VERSION_FILE")
+          PATCH=$(jq -r '.speedy.patch' "$VERSION_FILE")
+
+          echo "Versao Build: $BUILD"
+          echo "Versao Version: $VERSION"
+          echo "Versao Gerada: $SIMPLE.$VERSION.$PATCH"
+
+          echo "VERSAOOLD=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
+          echo "VERSAO=$SIMPLE.$VERSION.$PATCH" >> $GITHUB_ENV
+
+          echo "Novo JSON:"
+          cat "$VERSION_FILE"
+
+      # Criar arquivo .jks a partir de base64
+      - name: Criar arquivo .jks
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          mkdir -p certificado
+          echo "${{ secrets.KEYSTORE_ADM }}" | base64 -d > certificado/certificado-keystore.keystore
+
+      # Setup Shorebird
+      - name: 🐦 Setup Shorebird
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      # Criar arquivo key.properties
+      - name: Criar arquivo key.properties
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        shell: bash
+        run: |
+          echo "storePassword=${{ secrets.SENHA_KEYSTORE }}" > android/key.properties
+          echo "keyPassword=${{ secrets.SENHA_KEYSTORE }}" >> android/key.properties
+          echo "keyAlias=cloudcommerce" >> android/key.properties
+          echo "storeFile=../../certificado/certificado-keystore.keystore" >> android/key.properties
+
+      # Set Up Java (usando Oracle JDK 17)
+      - name: Set Up Java
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: actions/setup-java@v3
+        with:
+          distribution: "oracle"
+          java-version: "17"
+
+      # NÃO atualizar pubspec.yaml — Shorebird identifica a release pela versão do pubspec;
+      # alterar invalidaria o patch contra a release-version alvo.
+
+      - name: Gerar Patch Android
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: shorebirdtech/shorebird-patch@v1
+        id: shorebird-patch
+        with:
+          platform: android
+          args: --allow-asset-diffs --target lib/main_prod.dart
+          release-version: ${{ env.VERSAOOLD }}
+          flutter-version: ${{ vars.FLUTTER_VERSION_SDK_ANDROID_SMART }}
+          working-directory: ./flutter/adm
+
+      - name: Chamar API de alteração de dados android
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          echo "Chamando API de validação..."
+
+          JSON_DATA=$(cat <<EOF
+          {
+            "JSON": true,
+            "Parameters": {
+              "Versao": "${{ env.VERSAO }}",
+              "PSW": "${{ secrets.SENHA_API_ALTERAR_URL }}",
+              "NR_ID": ${{ env.UrlId }}
+            }
+          }
+          EOF
+          )
+
+          echo $JSON_DATA
+
+          response=$(curl -s -o response.txt -w "%{http_code}" \
+            -X POST https://api.cloudfy.net.br/H02SF0107A \
+            -H "Content-Type: application/json" \
+            -d "$JSON_DATA")
+
+          echo "Código HTTP: $response"
+          cat response.txt
+
+          if [ "$response" != "200" ]; then
+            echo "❌ Falha na chamada da API. Abortando workflow."
+            exit 1
+          fi
+
+      - name: Atualizar branch com merge (se necessário)
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        run: |
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
+
+          # Garante que estamos na branch correta
+          git branch --show-current
+
+          # Tenta fazer pull e merge automático
+          git pull origin HEAD --no-rebase || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "patch shorebird ${{env.DeployNameUpperCase}}"
+          cwd: ./version-repo
+          add: "version${{env.DeployNameUpperCase}}.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+  ios-patch:
+    runs-on: macos-latest
+    needs: ios
+    if: ${{ always() && (needs.ios.result == 'success' || needs.ios.result == 'skipped') }}
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ./flutter/adm
+
+    steps:
+      - name: Gerar Variáveis de Ambiente
+        working-directory: .
+        id: compute
+        run: |
+          echo 'DeployName=ios' >> $GITHUB_ENV
+          echo 'DeployNameUpperCase=AdmIos' >> $GITHUB_ENV
+          VARIABLE=${{ github.event.inputs.ios-patch }}
+
+          # Converte string para 0/1
+          if [ "$VARIABLE" = "true" ]; then VARIABLE_BOOL=1; else VARIABLE_BOOL=0; fi
+
+
+          # OR lógico
+          if [ $((VARIABLE_BOOL)) -eq 1 ]; then
+            EXECUTE=true
+          else
+            EXECUTE=false
+          fi
+
+          echo "Valor do execute: $EXECUTE"
+
+          echo "execute=$EXECUTE" >> $GITHUB_OUTPUT
+      # Clonar o repositório principal do Flutter
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          repository: cloudfysystems/FLUTTER
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+          path: flutter
+
+      # Clonar o repositório de versão
+      - uses: actions/checkout@v4
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          path: version-repo
+
+      # Ler e atualizar a versão
+      - name: Ler versão atual
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        shell: bash
+        run: |
+          VERSION_FILE="version${{env.DeployNameUpperCase}}.json"
+
+          # Atualiza o JSON corretamente (apenas patch, build/version são incrementados no release)
+          jq '.speedy.patch += 1' "$VERSION_FILE" > tmp.json
+
+          mv tmp.json "$VERSION_FILE"
+
+          # Pega os valores após a atualização
+          BUILD=$(jq -r '.speedy.build' "$VERSION_FILE")
+          VERSION=$(jq -r '.speedy.version' "$VERSION_FILE")
+          SIMPLE=$(jq -r '.speedy.simple' "$VERSION_FILE")
+          PATCH=$(jq -r '.speedy.patch' "$VERSION_FILE")
+
+          echo "Versao Build: $BUILD"
+          echo "Versao Version: $VERSION"
+          echo "Versao Gerada: $SIMPLE.$VERSION.$PATCH"
+
+          echo "VERSAOOLD=$SIMPLE.$VERSION.0+$BUILD" >> $GITHUB_ENV
+          echo "VERSAO=$SIMPLE.$VERSION.$PATCH" >> $GITHUB_ENV
+
+          echo "Novo JSON:"
+          cat "$VERSION_FILE"
+
+      - name: Import code sign
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: Apple-Actions/import-codesign-certs@v1
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERT_BASE64 }}
+          p12-password: ${{ secrets.APPLE_CERT_PSW }}
+
+      - name: Download provisioning
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: Apple-Actions/download-provisioning-profiles@v1
+        with:
+          bundle-id: com.cloudfy.mobile.cc.admin
+          issuer-id: ${{ secrets.APPLE_API_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPLE_API_KEY }}
+          api-private-key: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+
+      - name: Configure Auth Key
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "${{ secrets.APPLE_API_PRIVATE_KEY }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+
+      # NÃO atualizar pubspec.yaml — Shorebird identifica a release pela versão do pubspec;
+      # alterar invalidaria o patch contra a release-version alvo.
+
+      # Setup Shorebird
+      - name: 🐦 Setup Shorebird
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      - name: Gerar Patch iOS
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        uses: shorebirdtech/shorebird-patch@v1
+        id: shorebird-patch
+        with:
+          platform: ios
+          args: --allow-asset-diffs --target=lib/main_prod.dart --export-options-plist ios/GHAExportOptions.plist
+          release-version: ${{ env.VERSAOOLD }}
+          flutter-version: ${{ vars.FLUTTER_VERSION_SDK_ANDROID_SMART }}
+          working-directory: ./flutter/adm
+
+      - name: Atualizar branch com merge (se necessário)
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        working-directory: version-repo
+        run: |
+          git config user.name "cloudfysystems"
+          git config user.email "cloudfysystems@gmail.com"
+
+          # Garante que estamos na branch correta
+          git branch --show-current
+
+          # Tenta fazer pull e merge automático
+          git pull origin HEAD --no-rebase || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Commit das alterações
+        uses: EndBug/add-and-commit@v9
+        if: ${{ (steps.compute.outputs.execute == 'true') }}
+        with:
+          author_name: cloudfysystems
+          author_email: cloudfysystems@gmail.com
+          message: "patch shorebird ${{env.DeployNameUpperCase}}"
+          cwd: ./version-repo
+          add: "version${{env.DeployNameUpperCase}}.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
   #Job que vai atualizar o git, sincronizar os fontes
   FinishJob:
-    needs: [android, ios]
+    needs: [android, ios, android-patch, ios-patch]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -412,18 +750,22 @@ jobs:
         id: compute
         working-directory: .
         run: |
-          ANDROID=${{ github.event.inputs.android }}          
+          ANDROID=${{ github.event.inputs.android }}
           IOS=${{ github.event.inputs.ios }}
+          ANDROID_PATCH=${{ github.event.inputs.android-patch }}
+          IOS_PATCH=${{ github.event.inputs.ios-patch }}
 
 
 
           # Converte string para 0/1
-          if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi                    
-          if [ "$IOS" = "true" ]; then IOS_BOOL=1; else IOS_BOOL=0; fi          
+          if [ "$ANDROID" = "true" ]; then ANDROID_BOOL=1; else ANDROID_BOOL=0; fi
+          if [ "$IOS" = "true" ]; then IOS_BOOL=1; else IOS_BOOL=0; fi
+          if [ "$ANDROID_PATCH" = "true" ]; then ANDROID_PATCH_BOOL=1; else ANDROID_PATCH_BOOL=0; fi
+          if [ "$IOS_PATCH" = "true" ]; then IOS_PATCH_BOOL=1; else IOS_PATCH_BOOL=0; fi
 
 
           # OR lógico
-          if [ $((ANDROID_BOOL | IOS_BOOL)) -eq 1 ]; then
+          if [ $((ANDROID_BOOL | IOS_BOOL | ANDROID_PATCH_BOOL | IOS_PATCH_BOOL)) -eq 1 ]; then
             COMBINED=true
           else
             COMBINED=false
