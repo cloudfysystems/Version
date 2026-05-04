@@ -33,11 +33,6 @@ on:
                 description: "producao ou staging"
                 required: true
                 type: string
-            conf_frontend:
-                description: "Conteudo do Prod.ts (resolvido pelo caller — vars.CONF_<APP> ou vars.CONF_<APP>_STAGING). Nao tem dado sensivel — vai pro bundle JS."
-                required: false
-                type: string
-                default: ""
         secrets:
             CROSS_REPO_TOKEN:
                 required: true
@@ -98,7 +93,10 @@ jobs:
             - name: Job de deploy (clone + build + rsync pro PVC frontendpvc)
               env:
                   CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-                  CONF_TS: ${{ inputs.conf_frontend }}
+                  # ALL_VARS = todas as vars do environment como JSON. Usado pra
+                  # lookup dinamico do CONF_<APP> ou CONF_<APP>_STAGING — GHA nao
+                  # permite ${{ vars[name_dinamico] }} entao usamos jq.
+                  ALL_VARS: ${{ toJSON(vars) }}
                   GIT_SHA: ${{ github.sha }}
               run: |
                   set -uo pipefail
@@ -107,6 +105,15 @@ jobs:
                   JOB_NAME="deploy-frontend-${APP_LOWER}-${SHORT_SHA}"
                   SECRET_NAME="cross-repo-token-${SHORT_SHA}"
                   CM_NAME="frontend-conf-${APP_LOWER}"
+
+                  # Resolve nome da var de conf baseado em app + tipo_deploy.
+                  # prod -> CONF_<APP_UPPER>; staging -> CONF_<APP_UPPER>_STAGING.
+                  CONF_VAR_NAME="CONF_${APP_UPPER}"
+                  if [ "${SUFFIX}" = "-staging" ]; then
+                      CONF_VAR_NAME="${CONF_VAR_NAME}_STAGING"
+                  fi
+                  CONF_TS=$(echo "$ALL_VARS" | jq -r --arg k "$CONF_VAR_NAME" '.[$k] // empty')
+                  echo "Resolvendo conf: var=${CONF_VAR_NAME} (encontrada=$([ -n "$CONF_TS" ] && echo sim || echo nao))"
 
                   # 0. Cleanup de Jobs antigos do mesmo app
                   echo "Limpando Jobs antigos do app ${APP_LOWER}..."
@@ -127,15 +134,20 @@ jobs:
                       --from-literal=token="${CROSS_REPO_TOKEN}" \
                       --dry-run=client -o yaml | kubectl apply -f -
 
-                  # 2. ConfigMap com Prod.ts override (se conf_frontend foi passado)
+                  # 2. ConfigMap com Ambiente.json (config do environment)
+                  # CONF_<APP> deve ser JSON valido com a estrutura do Enviroment.
+                  # Validamos antes de criar o ConfigMap pra falhar cedo.
                   if [ -n "${CONF_TS}" ]; then
-                      echo "conf_frontend fornecido — criando ConfigMap ${CM_NAME}"
+                      echo "Var ${CONF_VAR_NAME} encontrada no environment — validando JSON"
+                      echo "${CONF_TS}" | jq -e . >/dev/null \
+                          || { echo "::error::Var ${CONF_VAR_NAME} nao e JSON valido (esperado objeto seguindo a estrutura do Enviroment, ver AmbienteModel.json no repo Frontend)"; exit 1; }
+                      echo "JSON valido — criando ConfigMap ${CM_NAME}"
                       kubectl create configmap "${CM_NAME}" \
-                          --from-literal=Prod.ts="${CONF_TS}" \
+                          --from-literal=Ambiente.json="${CONF_TS}" \
                           --dry-run=client -o yaml | kubectl apply -f -
                   else
-                      echo "Sem conf_frontend — Job vai usar Prod.ts default do repo"
-                      kubectl delete configmap "${CM_NAME}" --ignore-not-found
+                      echo "::error::Var ${CONF_VAR_NAME} nao definida no environment '${{ inputs.environment }}' — Ambiente.json e obrigatorio em prod/staging (em dev cada dev cria local a partir de AmbienteModel.json)"
+                      exit 1
                   fi
 
                   # 3. Job fresh

@@ -60,11 +60,10 @@ jobs:
             app_upper: A03AP01
             environment: ${{ inputs.environment }}
             tipo_deploy: ${{ inputs.tipoDeploy }}
-            # conf_frontend e opcional (var, nao secret — Prod.ts vai pro bundle JS publico).
-            # Resolve dinamicamente por app: prod usa vars.CONF_A03AP01, staging usa
-            # vars.CONF_A03AP01_STAGING. Se a var nao existir no environment, fica vazio
-            # e o build usa o Prod.ts default do repo.
-            conf_frontend: ${{ inputs.tipoDeploy == 'staging' && vars.CONF_A03AP01_STAGING || vars.CONF_A03AP01 }}
+            # NOTA: o reusable resolve sozinho a var de conf (vars.CONF_A03AP01
+            # em prod, vars.CONF_A03AP01_STAGING em staging) usando toJSON(vars).
+            # Caller nao passa porque vars do environment soh sao acessiveis dentro
+            # de jobs com `environment:` setado — e jobs de reusable caller nao tem.
         secrets:
             CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
 

@@ -10,7 +10,7 @@
 #
 # Pre-requisitos no cluster (criados pelo workflow):
 #   - Secret `cross-repo-token-${SHORT_SHA}` com chave `token`
-#   - ConfigMap opcional `frontend-conf-${APP_LOWER}` com Prod.ts override
+#   - ConfigMap obrigatorio `frontend-conf-${APP_LOWER}` com chave Ambiente.json
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -64,13 +64,16 @@ spec:
                         git clone --depth 1 --branch "${BRANCH}" \
                             "https://x-access-token:${GITHUB_TOKEN}@github.com/cloudfysystems/Frontend.git" .
 
-                        # 4. Override do Prod.ts via ConfigMap (se Variable
-                        # CONF_<APP> setada no environment)
-                        if [ -f /conf/Prod.ts ]; then
-                            echo "Aplicando override de env do GitHub Variable CONF_${APP_UPPER}${SUFFIX:+_STAGING}"
-                            cp /conf/Prod.ts apps/${APP_LOWER}/src/ambiente/Prod.ts
+                        # 4. Ambiente.json vem do ConfigMap (criado pelo workflow
+                        # a partir da var CONF_<APP> ou CONF_<APP>_STAGING do
+                        # environment GitHub). E obrigatorio — Ambiente.json e
+                        # gitignored, nunca esta no repo source.
+                        if [ -f /conf/Ambiente.json ]; then
+                            echo "Aplicando Ambiente.json do GitHub Variable CONF_${APP_UPPER}${SUFFIX:+_STAGING}"
+                            cp /conf/Ambiente.json apps/${APP_LOWER}/src/ambiente/Ambiente.json
                         else
-                            echo "Sem CONF setada — usando Prod.ts default do repo"
+                            echo "::error::ConfigMap nao montado em /conf/Ambiente.json — workflow deveria ter criado"
+                            exit 1
                         fi
 
                         # 5. Install + build (corp primeiro, depois app)
