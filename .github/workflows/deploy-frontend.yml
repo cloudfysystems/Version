@@ -31,7 +31,8 @@ on:
                     - prodAcCredito
                     - homolAcCredito
             tipoDeploy:
-                description: "Tipo de deploy (producao=branch main; staging=branch staging + path -staging no PVC)"
+                description: "Tipo de deploy (producao=branch main; staging=branch staging +
+                    path -staging no PVC)"
                 type: choice
                 required: true
                 options:
@@ -64,11 +65,12 @@ jobs:
             # CONF_FRONTEND e opcional. Resolve dinamicamente: prod usa CONF_A03AP01,
             # staging usa CONF_A03AP01_STAGING. Se a var nao existir no environment,
             # CONF_FRONTEND fica vazio e o build usa Prod.ts default do repo.
-            CONF_FRONTEND: ${{ inputs.tipoDeploy == 'staging' && vars.CONF_A03AP01_STAGING || vars.CONF_A03AP01 }}
+            CONF_FRONTEND: ${{ inputs.tipoDeploy == 'staging' && vars.CONF_A03AP01_STAGING
+                || vars.CONF_A03AP01 }}
 
     notify:
         name: "Notificacao por email (sucesso ou falha)"
-        needs: [a03ap01]
+        needs: [ a03ap01 ]
         if: always()
         runs-on: ubuntu-latest
         steps:
@@ -123,6 +125,6 @@ jobs:
                               Ver logs do workflow
                           </a>
                       </p>
-                  to: ${{ vars.EMAIL }}
+                  to: ${{ vars.EMAIL_DEPLOY }}
                   from: Cloudfy Deploy <noreply@cloudfy.net.br>
                   secure: true

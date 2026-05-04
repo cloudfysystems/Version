@@ -33,7 +33,8 @@ on:
                     - prodAcCredito
                     - homolAcCredito
             tipoDeploy:
-                description: "Tipo de deploy (producao=branch main; staging=branch staging + imagem -staging)"
+                description: "Tipo de deploy (producao=branch main; staging=branch staging +
+                    imagem -staging)"
                 type: choice
                 required: true
                 options:
@@ -62,7 +63,7 @@ jobs:
         uses: ./.github/workflows/_deploy-backend-app.yml
         with:
             app_name: n03ap01
-            k8s_base: n03ap01v2   # legado — n03 mantém v2 nos recursos K8s
+            k8s_base: n03ap01v2 # legado — n03 mantém v2 nos recursos K8s
             environment: ${{ inputs.environment }}
             tipo_deploy: ${{ inputs.tipoDeploy }}
             force_image_rebuild: ${{ inputs.force_image_rebuild }}
@@ -70,7 +71,8 @@ jobs:
             CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
             # Resolve dinamicamente o secret de conf baseado em tipoDeploy.
             # Cada environment tem 2 secrets: CONF_N03AP01 (prod) + CONF_N03AP01_STAGING.
-            CONF_BACKEND: ${{ inputs.tipoDeploy == 'staging' && secrets.CONF_N03AP01_STAGING || secrets.CONF_N03AP01 }}
+            CONF_BACKEND: ${{ inputs.tipoDeploy == 'staging' && secrets.CONF_N03AP01_STAGING
+                || secrets.CONF_N03AP01 }}
 
     # Pra adicionar n01ap01 no futuro, descomentar e ajustar:
     # n01ap01:
@@ -88,7 +90,7 @@ jobs:
 
     notify:
         name: "Notificacao por email (sucesso ou falha)"
-        needs: [n03ap01]
+        needs: [ n03ap01 ]
         if: always()
         runs-on: ubuntu-latest
         steps:
@@ -143,6 +145,6 @@ jobs:
                               Ver logs do workflow
                           </a>
                       </p>
-                  to: ${{ vars.EMAIL }}
+                  to: ${{ vars.EMAIL_DEPLOY }}
                   from: Cloudfy Deploy <noreply@cloudfy.net.br>
                   secure: true
