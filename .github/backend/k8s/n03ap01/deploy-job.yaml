@@ -1,0 +1,83 @@
+# Job efemero disparado pelo workflow GHA. Faz git clone do SHA exato,
+# pnpm install + pnpm build, e copia os artefatos pro PVC EFS via rsync.
+# Apos o Job concluir, o workflow faz `kubectl rollout restart` no Deployment.
+#
+# Substituicoes envsubst antes de `kubectl apply -f -`:
+#   ${SHORT_SHA} ${GIT_SHA} ${REPO_URL} ${ECR_REGISTRY}
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: deploy-n03ap01v2-${SHORT_SHA}
+    labels:
+        app: n03ap01v2
+        deploy-job: 'true'
+spec:
+    backoffLimit: 1
+    activeDeadlineSeconds: 1200
+    # 1h apos finalizar (sucesso ou falha) — tempo pra inspecionar logs
+    # manualmente. Ajuste pra menor (ex.: 600) apos deploy estabilizar.
+    ttlSecondsAfterFinished: 3600
+    template:
+        metadata:
+            labels:
+                app: n03ap01v2
+                deploy-job: 'true'
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: deploy
+                  image: ${ECR_REGISTRY}/cloudfysystems/nodejsn03ap01:latest
+                  workingDir: /workspace
+                  env:
+                      - name: GIT_SHA
+                        value: '${GIT_SHA}'
+                      - name: REPO_URL
+                        value: '${REPO_URL}'
+                      - name: GITHUB_TOKEN
+                        valueFrom:
+                            secretKeyRef:
+                                name: gha-deploy
+                                key: token
+                  command:
+                      - /bin/bash
+                      - -c
+                  args:
+                      - |
+                          set -euxo pipefail
+                          # CRITICO: a imagem base seta NODE_ENV=production, o que
+                          # faz pnpm pular devDependencies (incluindo typescript +
+                          # @types/*), quebrando o build. Aqui rodamos como dev pra
+                          # ter os tipos disponiveis. O pod RUNTIME do Deployment
+                          # seta NODE_ENV=production via env: no proprio K8s.
+                          unset NODE_ENV
+                          git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@${REPO_URL#https://}" .
+                          git fetch --depth 1 origin "${GIT_SHA}"
+                          git checkout "${GIT_SHA}"
+                          # pnpm 10 — alinhado com packageManager field do package.json
+                          # (mismatch causa erro de "Unsupported package manager").
+                          npm install -g pnpm@10
+                          pnpm install --frozen-lockfile
+                          pnpm build
+                          mkdir -p /pvc/apps/n03ap01/dist /pvc/apps/n03ap01/Reports /pvc/apps/n03ap01/SQL /pvc/apps/n03ap01/temp
+                          mkdir -p /pvc/packages/corp/dist /pvc/packages/corp/java-deps
+                          # rsync sem -a: EFS Access Point bloqueia chown
+                          # (Uid=0,Gid=0 fixos pelo AP). Drop -ogp, mantemos -rlt.
+                          RSYNC_OPTS="-rlt --omit-dir-times --delete --no-owner --no-group --no-perms"
+                          rsync $RSYNC_OPTS apps/n03ap01/dist/        /pvc/apps/n03ap01/dist/
+                          rsync $RSYNC_OPTS apps/n03ap01/Reports/     /pvc/apps/n03ap01/Reports/
+                          rsync $RSYNC_OPTS apps/n03ap01/SQL/         /pvc/apps/n03ap01/SQL/
+                          rsync $RSYNC_OPTS packages/corp/dist/       /pvc/packages/corp/dist/
+                          rsync $RSYNC_OPTS packages/corp/java-deps/  /pvc/packages/corp/java-deps/
+                          echo "deploy ok"
+                  volumeMounts:
+                      - name: pvc
+                        mountPath: /pvc
+                      - name: workspace
+                        mountPath: /workspace
+            volumes:
+                - name: pvc
+                  persistentVolumeClaim:
+                      claimName: pvcn03ap01v2
+                - name: workspace
+                  emptyDir:
+                      sizeLimit: 5Gi

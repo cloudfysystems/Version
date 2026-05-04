@@ -1,0 +1,15 @@
+# PodDisruptionBudget — garante que durante voluntary disruptions (drain de
+# no, rolling update, scale-down do HPA) sempre haja pelo menos 2 pods
+# disponiveis. Combinado com maxUnavailable: 0 no rolling update do
+# Deployment, evita janela de zero pods saudaveis.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+    name: n03ap01v2
+    labels:
+        app: n03ap01v2
+spec:
+    minAvailable: 2
+    selector:
+        matchLabels:
+            app: n03ap01v2

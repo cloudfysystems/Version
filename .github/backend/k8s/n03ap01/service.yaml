@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+    name: n03ap01v2
+    labels:
+        app: n03ap01v2
+spec:
+    type: ClusterIP
+    selector:
+        app: n03ap01v2
+    ports:
+        - name: http
+          port: 3090
+          targetPort: 3090

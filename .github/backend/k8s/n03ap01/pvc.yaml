@@ -1,0 +1,33 @@
+# StorageClass + PVC dedicado pra n03ap01v2. Reusa o EFS compartilhado da
+# conta AWS de cada environment (fileSystemId vem da var EFS_FILESYSTEM_ID)
+# com Access Point novo em /backend/n03ap01v2/.
+# Pre-requisito: o Access Point precisa ja existir no FS (criado uma vez
+# manualmente, conforme runbook de pre-requisitos).
+#
+# Substituicao envsubst antes de `kubectl apply -f -`:
+#   ${EFS_FILESYSTEM_ID}
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+    name: efs-n03ap01v2
+provisioner: efs.csi.aws.com
+parameters:
+    provisioningMode: efs-ap
+    fileSystemId: ${EFS_FILESYSTEM_ID}
+    directoryPerms: '755'
+    basePath: '/backend/n03ap01v2'
+    subPathPattern: '${.PVC.name}'
+mountOptions:
+    - tls
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: pvcn03ap01v2
+spec:
+    accessModes: [ReadWriteMany]
+    storageClassName: efs-n03ap01v2
+    resources:
+        requests:
+            storage: 5Gi
