@@ -6,7 +6,7 @@ name: Deploy Frontend
 # em runtime via PAT (secret CROSS_REPO_TOKEN do environment).
 #
 # Estrutura:
-#   - Inputs: environment (choice), a03ap01 (boolean), branch
+#   - Inputs: environment (choice), a03ap01 (boolean), branch, email
 #   - Por app habilitada: 1 job que dispara um Job efemero K8s
 #   - Multiplas apps rodam em paralelo
 #   - notify final agrega resultados e manda email
@@ -37,7 +37,11 @@ on:
             branch:
                 description: 'Branch do repo cloudfysystems/Frontend'
                 type: string
-                default: 'master'
+                default: 'main'
+            email:
+                description: 'Enviar email de notificação ao finalizar?'
+                type: boolean
+                default: true
 
 permissions:
     id-token: write   # OIDC pra AWS
@@ -232,6 +236,7 @@ jobs:
                   echo "a03ap01_res=${A03AP01_RES}" >> "$GITHUB_OUTPUT"
 
             - name: Enviar email
+              if: ${{ inputs.email }}
               uses: dawidd6/action-send-mail@v3
               with:
                   server_address: mail.cloudfy.net.br

@@ -6,7 +6,7 @@ name: Deploy Backend
 # em runtime via PAT (secret CROSS_REPO_TOKEN do environment).
 #
 # Estrutura:
-#   - Inputs: environment (choice), n03ap01 (boolean), branch, force_image_rebuild
+#   - Inputs: environment (choice), n03ap01 (boolean), branch, force_image_rebuild, email
 #   - Por app habilitada: 3 jobs sequenciais (ci -> build-image -> deploy)
 #   - Multiplas apps rodam em paralelo (cada uma seu pipeline de 3 jobs)
 #   - notify final agrega resultados e manda email (sucesso ou falha)
@@ -21,7 +21,7 @@ on:
     workflow_dispatch:
         inputs:
             environment:
-                description: 'Ambiente'
+                description: "Ambiente"
                 type: choice
                 required: true
                 options:
@@ -29,26 +29,30 @@ on:
                     - prodAcCredito
                     - homolAcCredito
             n03ap01:
-                description: 'Deploy N03AP01 (Cloudfy Delivery API)'
+                description: "Deploy N03AP01 (Cloudfy Delivery API)"
                 type: boolean
                 default: true
             branch:
-                description: 'Branch do repo cloudfysystems/Backend'
+                description: "Branch do repo cloudfysystems/Backend"
                 type: string
-                default: 'master'
+                default: "main"
             force_image_rebuild:
-                description: 'Forçar rebuild da imagem ECR mesmo sem mudança de deps'
+                description: "Forçar rebuild da imagem ECR mesmo sem mudança de deps"
                 type: boolean
                 default: false
+            email:
+                description: "Enviar email de notificação ao finalizar?"
+                type: boolean
+                default: true
 
 permissions:
-    id-token: write   # OIDC pra AWS
-    contents: read    # Checkout do version repo (este)
+    id-token: write # OIDC pra AWS
+    contents: read # Checkout do version repo (este)
 
 jobs:
     # ======================== N03AP01 ========================
     n03ap01-ci:
-        name: 'n03ap01 — CI (typecheck + lint + build)'
+        name: "n03ap01 — CI (typecheck + lint + build)"
         if: ${{ inputs.n03ap01 }}
         environment: ${{ inputs.environment }}
         runs-on: ubuntu-latest
@@ -80,7 +84,7 @@ jobs:
             - uses: actions/setup-java@v4
               with:
                   distribution: temurin
-                  java-version: '21'
+                  java-version: "21"
 
             - uses: pnpm/action-setup@v3
               with:
@@ -146,7 +150,7 @@ jobs:
                       backend-source/packages/corp/package.json
 
     n03ap01-build-image:
-        name: 'n03ap01 — Build & push imagem ECR'
+        name: "n03ap01 — Build & push imagem ECR"
         needs: n03ap01-ci
         if: |
             needs.n03ap01-ci.result == 'success' &&
@@ -156,7 +160,8 @@ jobs:
         env:
             AWS_REGION: ${{ vars.AWS_REGION }}
             AWS_ROLE: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.IAM_ROLE_NAME }}
-            ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+            ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION
+                }}.amazonaws.com
             IMAGE_NAME: cloudfysystems/nodejsn03ap01
             HASH_BUCKET: ${{ vars.HASH_BUCKET }}
             HASH_KEY: nodejsn03ap01.deps.hash
@@ -195,8 +200,8 @@ jobs:
                   aws s3 cp docker-context/package.json "s3://${HASH_BUCKET}/${HASH_KEY}.pkg.json"
 
     n03ap01-deploy:
-        name: 'n03ap01 — Deploy no EKS'
-        needs: [n03ap01-ci, n03ap01-build-image]
+        name: "n03ap01 — Deploy no EKS"
+        needs: [ n03ap01-ci, n03ap01-build-image ]
         if: |
             always() &&
             needs.n03ap01-ci.result == 'success' &&
@@ -210,7 +215,8 @@ jobs:
             AWS_ROLE: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.IAM_ROLE_NAME }}
             EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
             EFS_FILESYSTEM_ID: ${{ vars.EFS_FILESYSTEM_ID }}
-            ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+            ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION
+                }}.amazonaws.com
         steps:
             - name: Checkout version repo (k8s manifests + scripts)
               uses: actions/checkout@v4
@@ -361,8 +367,8 @@ jobs:
 
     # ======================== NOTIFICACAO ========================
     notify:
-        name: 'Notificacao por email (sucesso ou falha)'
-        needs: [n03ap01-ci, n03ap01-build-image, n03ap01-deploy]
+        name: "Notificacao por email (sucesso ou falha)"
+        needs: [ n03ap01-ci, n03ap01-build-image, n03ap01-deploy ]
         if: always()
         runs-on: ubuntu-latest
         steps:
@@ -399,6 +405,7 @@ jobs:
                   echo "deploy_res=${DEPLOY_RES}" >> "$GITHUB_OUTPUT"
 
             - name: Enviar email
+              if: ${{ inputs.email }}
               uses: dawidd6/action-send-mail@v3
               with:
                   server_address: mail.cloudfy.net.br
@@ -425,5 +432,5 @@ jobs:
                           </a>
                       </p>
                   to: ${{ vars.EMAIL }}
-                  from: Cloudfy Deploy <noreply@cloudfy.net.br>
+                  from: Cloudfy Deploy Backend <noreply@cloudfy.net.br>
                   secure: true
