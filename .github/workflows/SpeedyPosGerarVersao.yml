@@ -3132,6 +3132,12 @@ jobs:
           echo "${{ secrets.APPLE_API_PRIVATE_KEY }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
           chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
 
+      - name: Setup Xcode
+        if: ${{ inputs.ios }}
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
       # Atualizar versão no arquivo Dart
       - name: Atualiza versão no arquivo Dart e pubspec.yaml
         if: ${{ inputs.ios }}
@@ -3139,11 +3145,11 @@ jobs:
         run: |
           FILE="lib/Environment/Version.dart"
           NOVA_VERSAO="${{ env.VERSAO }}"
-              
+
           # Atualiza Version.dart
           sed -i '' "s/const String Version = \".*\"/const String Version = \"$NOVA_VERSAO\"/" "$FILE"
           cat "$FILE"
-              
+
           # Atualiza pubspec.yaml
           sed -i '' "s/^version:.*/version: $VERSAO+${{ env.VERSAO_BUILD }}/" pubspec.yaml
           cat pubspec.yaml
